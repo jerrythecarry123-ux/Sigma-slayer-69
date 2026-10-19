@@ -45,6 +45,25 @@ class PlaceTests(unittest.TestCase):
         for path, (class_name, relative_source) in builder.SOURCES.items():
             self.assertEqual(sources[path], (class_name, (ROOT / relative_source).read_text(encoding="utf-8")))
 
+    def test_world_render_and_streaming_settings_survive_export(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "world.rbxlx"
+            builder.build(path)
+            root = ET.parse(path).getroot()
+        def properties(service):
+            node = root.find(f"Item[@class='{service}']/Properties")
+            return {entry.attrib["name"]: (entry.tag, entry.text) for entry in node}
+        lighting = properties("Lighting")
+        self.assertEqual(lighting["LightingStyle"], ("token", "0"))
+        self.assertEqual(lighting["PrioritizeLightingQuality"], ("bool", "true"))
+        self.assertEqual(lighting["GlobalShadows"], ("bool", "true"))
+        world = properties("Workspace")
+        self.assertEqual(world["StreamingEnabled"], ("bool", "true"))
+        self.assertEqual(world["StreamingIntegrityMode"], ("token", "3"))
+        self.assertEqual(world["ModelStreamingBehavior"], ("token", "2"))
+        self.assertLess(float(world["FallenPartsDestroyHeight"][1]), -150)
+        self.assertGreater(float(world["StreamingTargetRadius"][1]), float(world["StreamingMinRadius"][1]))
+
     def test_repeatable_build(self):
         with tempfile.TemporaryDirectory() as temp:
             first, second = Path(temp) / "first.rbxlx", Path(temp) / "second.rbxlx"

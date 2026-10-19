@@ -1,15 +1,16 @@
-# Cloud Anglers v0.4 — testprotokoll
+# Cloud Anglers v0.5 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
-- 19 tester av fiskets tillståndsmaskin och 18 tester av progression/sparregler passerade.
+- 19 tester av fiskets tillståndsmaskin, 12 tester av fiskeplatser och 18 tester av progression/sparregler passerade.
+- 8 tester av kartans kustlinjer, vägar, broar, kajer och kastmål passerade.
 - 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
-- 2 Python-tester för korrekt inbäddade källfiler och repeterbar platsbyggnad
+- 3 Python-tester för korrekt inbäddade källfiler, sparade ljus/streaming-inställningar och repeterbar platsbyggnad
   passerade.
-- Alla 17 Luau-produktionsfiler samt de tre Luau-testfilerna accepterades av den
+- Alla 23 Luau-produktionsfiler samt de fem Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
-  progression, sparregler, layoutberäkning och de tre Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
+  progression, sparregler, fiskeplatser, världsdata, layoutberäkning och de fem Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
 - `.rbxlx`-filen har byggts med de aktuella källfilerna.
 
 Luau-verktygen byggdes från den officiella källan `luau-lang/luau`, commit
@@ -133,3 +134,46 @@ produktionskodens utdata. Det är ingen skärmbild från Roblox Studio.
 De sex ljudfilerna är samma som i v0.3. Denna version ändrar tonhöjd, EQ,
 komprimering, volymer och frasernas tajming. Ljudkvalitet kan först bedömas
 slutligt genom att faktiskt lyssna i Roblox.
+
+
+## v0.5 — stor övärld, ännu okörda kontroller i Studio
+
+64 automatiska tester passerar. Dessutom kontrollerades 3 639 provpunkter mot
+produktionskodens faktiska genererade kollisionsgeometri, inklusive osynliga
+golv/räcken och orienterade kilformer. Korridoren är 2,6 studs bred med minst
+6 studs fri höjd och kontinuerligt stöd. Detta är analytisk geometri, inte ett
+kört Roblox-fysiktest. Några broar behövde plana landningar för att inte gå in
+under den högre öns golv; dessa anslutningar är rättade.
+
+Mätning av generatorns utdata: 9 655 förankrade delar, varav 941 kolliderbara,
+samt fem områden med native Terrain-vatten. Små träd/byggnader/brodelar strömmas
+atomiskt. Hela öar är inte atomiska eller beständigt tvångsladdade.
+
+- [ ] Öppna **Cloud-Anglers-v0.5.rbxlx** och tryck Play. Kontrollera Output vid start.
+- [ ] Spelaren börjar på hamnens säkra spawn och faller inte medan kartan byggs.
+- [ ] Se alla fem områden och följ skyltade vägar/broar från hamnen.
+- [ ] Gå över varje bro åt båda håll, nära mitt och kanter, utan hopp eller glapp.
+- [ ] Ingen stig går genom vägg, trädstam, mark, rekvisita eller låg takbalk.
+- [ ] Hitta fiskeplatser i Harbor, Grove, Reach, Cove och Lookout. Fånga på alla fem.
+- [ ] Flötenas fyra kastbanor landar i respektive laguns vattenyta.
+- [ ] Flytta ifrån aktivt kast: rätt kast avbryts och flyttas inte till en annan kaj.
+- [ ] Två klienter på olika öar ser kast på rätt vattenplats när de kommer inom synhåll.
+- [ ] Vattnet har Roblox vågor/reflektioner; inga torra hål vid kastmålen.
+- [ ] Vattenfallen rör sig, kvarnens segel roterar runt rätt nav och luftskeppet driver lugnt.
+- [ ] Besök tillbaka efter att en ö strömmats ut: animationer startar igen utan dubbletter.
+- [ ] Gå in i husen. Verkstadens prompt öppnar den befintliga uppgraderingsmenyn.
+- [ ] Klättra upp och ned i fyren med standard-R15 och R6. Huvudet slår inte i trappan.
+- [ ] Fyrbalkongens och broarnas synliga räcken motsvarar deras skyddande kollision.
+- [ ] Besök grottan och observatoriet; fria öppningar och tydliga landmärken.
+- [ ] Markera Lighting: Realistic, PrioritizeLightingQuality och GlobalShadows är sparade.
+- [ ] Se träd-, tak- och klippskuggor. Prova Roblox grafiknivå låg, medel och hög.
+- [ ] Inga stigar, golv eller strandpartier flimrar av överlappande ytor.
+- [ ] Se material/text på nära håll: takpannor, timmer, fönster, rep, skyltar och rabatter.
+- [ ] Ladda kartans områden via promenad på riktig telefon/iPad. Mät FPS/minne och laddpauser.
+- [ ] Prova dåligt nätverk: strömning pausar säkert, utan att spelaren faller genom oladdat golv.
+- [ ] Återanslut med tidigare profil: mynt, arter, spön och offlineinkomst bevaras.
+- [ ] Bekräfta att ingen ny ljudtyp lagts till och att UI fungerar som i v0.4.
+
+Realistic/PrioritizeLightingQuality och streaming sparas av byggverktyget eftersom
+vissa av dessa inställningar inte får ändras av vanliga serverskript. Alla angivna
+värden kontrollerades mot aktuell Roblox API-dump; faktisk Studio-import återstår.

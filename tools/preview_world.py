@@ -30,15 +30,19 @@ local function encode(v)
  return "{"..table.concat(entries,",").."}"
 end
 for _,p in workspace:GetDescendants() do
- if p:IsA("BasePart") and p.Transparency<1 then
+ if p:IsA("BasePart") then
   if p.CanCollide then collisions+=1 end
+  local parentNames={}; local cursor=p; while cursor and cursor~=workspace do table.insert(parentNames,1,cursor.Name); cursor=cursor.Parent end
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
-   color={p.Color.R,p.Color.G,p.Color.B},shape=p.Shape,material=p.Material,alpha=1-p.Transparency,
-   collide=p.CanCollide})
+   color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,
+   collide=p.CanCollide,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/")})
  end
 end
-assert(spot.CFrame.p.Y>2 and spot.CFrame.p.Z==45,"fishing spot moved unexpectedly")
-print(encode({parts=parts,collisions=collisions}))
+assert(spot:IsA("BasePart") and spot.Anchored,"missing primary fishing spot")
+local layout=modules.WorldLayout
+for _,bridge in layout.Bridges do bridge.Points=layout.bridgePoints(bridge) end
+print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,
+ layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn}}))
 '''
 
 
@@ -46,6 +50,10 @@ def capture(luau: str) -> dict:
     program = (ROOT / 'tools/preview_roblox.luau').read_text()
     for name, source in [('FishCatalog', 'src/shared/FishCatalog.luau'),
                          ('FishModel', 'src/shared/FishModel.luau'),
+                         ('WorldPrimitives', 'src/server/WorldPrimitives.luau'),
+                         ('WorldNature', 'src/server/WorldNature.luau'),
+                         ('WorldArchitecture', 'src/server/WorldArchitecture.luau'),
+                         ('WorldLayout', 'src/server/WorldLayout.luau'),
                          ('PrototypeWorld', 'src/server/PrototypeWorld.luau')]:
         program += '\nmodules.' + name + ' = (function()\n' + (ROOT / source).read_text() + '\nend)()\n'
         program += f'local token_{name}=Instance.new("ModuleScript"); token_{name}.Name="{name}"; token_{name}.Parent=shared\n'
@@ -53,7 +61,9 @@ def capture(luau: str) -> dict:
     with tempfile.TemporaryDirectory() as temp:
         script_path = Path(temp) / 'capture.luau'
         script_path.write_text(program)
-        result = subprocess.run([luau, str(script_path)], check=True, text=True, capture_output=True)
+        result = subprocess.run([luau, str(script_path)], check=False, text=True, capture_output=True)
+    if result.returncode:
+        raise RuntimeError(result.stderr)
     return json.loads(result.stdout)
 
 
@@ -64,4 +74,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     scene = capture(args.luau)
     args.output.write_text(json.dumps(scene))
-    print(f"Captured {len(scene['parts'])} visible parts; {scene['collisions']} collidable. This is geometry inspection, not a Roblox runtime test.")
+    print(f"Captured {len(scene['parts'])} source parts including invisible colliders; {scene['collisions']} collidable. This is geometry inspection, not a Roblox runtime test.")

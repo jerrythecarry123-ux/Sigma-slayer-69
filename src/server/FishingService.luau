@@ -9,6 +9,7 @@ local Catalog = require(Shared:WaitForChild("FishCatalog"))
 local Engine = require(script.Parent:WaitForChild("FishingEngine"))
 local Progression = require(script.Parent:WaitForChild("FishingProgression"))
 local ProfileStore = require(script.Parent:WaitForChild("FishingProfileStore"))
+local Locations = require(script.Parent:WaitForChild("FishingLocations"))
 local World = require(script.Parent:WaitForChild("PrototypeWorld"))
 local Service = {}
 local started = false
@@ -17,6 +18,19 @@ function Service.start()
 	assert(not started, "FishingService has already started")
 	started = true
 	local spot = if Config.CreatePrototypeWorld then World.create() else World.findCustom()
+	local fishingSpots: { BasePart } = { spot }
+	if Config.CreatePrototypeWorld then
+		local world = workspace:FindFirstChild("MolnfiskarnaPrototype")
+		local spots = if world then world:FindFirstChild("FishingSpots") else nil
+		if spots then
+			for _, child in spots:GetDescendants() do
+				if child:IsA("BasePart") and child.Name == "FishingSpot" and child ~= spot then
+					table.insert(fishingSpots, child)
+				end
+			end
+		end
+	end
+	local locations = Locations.new()
 	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "Install one fishing server only.")
 	local remotes = Instance.new("Folder")
 	remotes.Name = "FishingRemotes"
@@ -36,11 +50,27 @@ function Service.start()
 	local welcome: { [Player]: any } = {}
 	local connections: { [Player]: RBXScriptConnection } = {}
 	local lastVisual: { [Player]: string } = {}
+	local activeAttempts: { [Player]: number } = {}
 	local closing, pendingReleases = false, 0
 
-	local function decorate(player: Player, packet: any)
+	local function describeLocation(player: Player, fishingSpot: BasePart)
 		local lane = (player.UserId % 4 - 1.5) * 2
-		packet.castTarget = (spot.CFrame * CFrame.new(lane, -1.2, -14)).Position
+		local target = (fishingSpot.CFrame * CFrame.new(lane, -1.2, -14)).Position
+		local waterY = fishingSpot:GetAttribute("WaterY")
+		if type(waterY) == "number" and waterY == waterY and math.abs(waterY) < math.huge then
+			target = Vector3.new(target.X, waterY + 0.2, target.Z)
+		end
+		local zoneId, zoneName = fishingSpot:GetAttribute("ZoneId"), fishingSpot:GetAttribute("ZoneName")
+		return {
+			spot = fishingSpot, target = target,
+			zoneId = if type(zoneId) == "string" then zoneId else nil,
+			zoneName = if type(zoneName) == "string" then zoneName else nil,
+		}
+	end
+	local function decorate(player: Player, packet: any)
+		local location = locations:last(player.UserId) or describeLocation(player, spot)
+		packet.castTarget = location.target
+		packet.zoneId, packet.zoneName = location.zoneId, location.zoneName
 		return packet
 	end
 	local function publicVisual(player: Player, packet: any)
@@ -56,6 +86,7 @@ function Service.start()
 		})
 	end
 	local function emit(player: Player, packet: any)
+		activeAttempts[player] = packet.attemptId
 		decorate(player, packet)
 		local profile = packet.profile
 		if profile then profile.persistent = saving; profile.offlineRate = profile.species * 0.25 end
@@ -71,14 +102,34 @@ function Service.start()
 			visual:FireAllClients(player.UserId, publicVisual(player, packet))
 		end
 	end
-	local function canFish(player: Player): boolean
+	local function fishingPosition(player: Player): Vector3?
 		local character = player.Character
-		if not character then return false end
+		if not character then return nil end
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local root = character:FindFirstChild("HumanoidRootPart")
-		return spot:IsDescendantOf(workspace) and humanoid ~= nil and humanoid.Health > 0
-			and root ~= nil and root:IsA("BasePart")
-			and (root.Position - spot.Position).Magnitude <= Config.MaxDistance
+		return if humanoid and humanoid.Health > 0 and root and root:IsA("BasePart") then root.Position else nil
+	end
+	local function validSpot(fishingSpot: BasePart): boolean
+		return fishingSpot.Anchored and fishingSpot:IsDescendantOf(workspace)
+	end
+	local function nearestLocation(player: Player)
+		local position = fishingPosition(player)
+		if not position then return nil end
+		local candidates = {}
+		for _, fishingSpot in fishingSpots do
+			if validSpot(fishingSpot) then
+				table.insert(candidates, {
+					location = describeLocation(player, fishingSpot),
+					distance = (position - fishingSpot.Position).Magnitude,
+				})
+			end
+		end
+		return Locations.nearest(candidates, Config.MaxDistance)
+	end
+	local function canFish(player: Player, location: any): boolean
+		local position = fishingPosition(player)
+		return position ~= nil and location ~= nil and validSpot(location.spot)
+			and (position - location.spot.Position).Magnitude <= Config.MaxDistance
 	end
 	local function release(session: any, profile: any)
 		if not store or session.closed or session.releaseRequested then return end
@@ -131,6 +182,8 @@ function Service.start()
 		local connection = connections[player]
 		if connection then connection:Disconnect() end
 		connections[player], sessions[player], welcome[player], lastVisual[player] = nil, nil, nil, nil
+		activeAttempts[player] = nil
+		locations:remove(player.UserId)
 		engine:removePlayer(player.UserId)
 	end)
 	for _, player in Players:GetPlayers() do addPlayer(player) end
@@ -138,8 +191,14 @@ function Service.start()
 		if closing then return end
 		local session = sessions[player]
 		if session and os.time() >= session.expires then return end
-		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player))
+		-- All state transitions emit synchronously. Keep only the active attempt ID
+		-- here, avoiding a full profile snapshot before a request is rate-limited.
+		local previousAttemptId = activeAttempts[player]
+		local location = locations:forAttempt(player.UserId, previousAttemptId)
+		if verb == "Start" and connections[player] and previousAttemptId == nil then location = nearestLocation(player) end
+		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player, location))
 		if packet then
+			if verb == "Start" then locations:acceptStart(player.UserId, previousAttemptId, packet, location) end
 			emit(player, packet)
 			if verb == "Sync" then
 				for _, other in Players:GetPlayers() do
@@ -159,7 +218,7 @@ function Service.start()
 		elapsed = 0
 		local now = workspace:GetServerTimeNow()
 		for _, player in Players:GetPlayers() do
-			local packet = engine:tick(player.UserId, now, canFish(player))
+			local packet = engine:tick(player.UserId, now, canFish(player, locations:last(player.UserId)))
 			if packet then emit(player, packet) end
 			local session = sessions[player]
 			if session and not session.releaseRequested then
