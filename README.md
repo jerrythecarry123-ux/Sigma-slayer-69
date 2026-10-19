@@ -1,24 +1,48 @@
-# Cloud Anglers — v0.6
+# Cloud Anglers — v0.7
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.6.rbxlx)
+[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.7.rbxlx)
 
 Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
 press **Play**. The five-island map is generated when Play starts.
 
 ## Play
 
-Follow the harbor trail to the lantern-lit main pier. **CAST LINE** with the button or E; at the
+Start beside the main pier's fishing area. **CAST LINE** with the button or E; at the
 bite, hold and release in the colored zone. Gold gives Brilliant quality.
 Catch six species, fill the field journal and earn coins for three rod upgrades.
 Breeze Rod unlocks two rare fish; Nimbus Rod unlocks Aurorafin. Your best grade
 per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop** or visit the
-workshop to upgrade.
+yellow-canopy dockside stand to upgrade. Approach a blue **ISLAND HOP** stand,
+choose a destination and arrive beside its fishing marker. Travel is free from
+the first visit; no unlocks or tickets are required.
 
-## New in v0.6 — island life
+## New in v0.7 — shorter trips, cleaner colors
 
-Brighter green meadows, turquoise water, mint/peach buildings and teal/coral roofs
-replace the muted palette. Clear daytime lighting keeps tree and building shade
-while making paths and landmarks easier to see.
+Fresh medium-green ground, deeper foliage, blue water, cream houses and small
+yellow accents replace the mint/peach/cyan palette. Smoother leaves, walls and
+roofs and a near-neutral lighting grade reduce the noisy, washed-out look.
+The requested Duck Pond reference could not be retrieved from this runner;
+this is an original pond-style palette, not a verified reproduction of that game.
+
+- Spawn moves onto the broad main pier, close to the first casting marker.
+- Default walking speed rises from 16 to 22 studs/second on every input device.
+- A working rod-upgrade stand joins the fishing loop; the town workshop remains.
+- All five piers get free destination stands with a touch-friendly English menu.
+  Destination streaming is requested before travel. Tiny persistent support
+  floors and server checks protect arrivals and stop stale character requests.
+- Fishing is cancelled before travel; menus do not consume E at casting markers.
+  Collection data, coins, rods, goals, offline income and audio are retained.
+
+Calculated from authored routes and default movement speed, before loading or
+player input time; these are not measured Roblox play-session timings:
+
+| Journey | v0.6 | v0.7 |
+| --- | --- | --- |
+| Spawn center → first fishing marker | 187 studs / 11.7 s | 22 studs / 1.0 s |
+| First marker → nearby upgrade approach | Town trip | About 2.8 s |
+| One fishing pier → another | Walk between islands | Free direct travel after streaming |
+
+## Island life retained from v0.6
 
 - Seven original animated residents repair equipment, serve lemonade, fish,
   tend flowers, wave, walk or watch the horizon. They are decorative inhabitants.
@@ -32,10 +56,6 @@ while making paths and landmarks easier to see.
   café has a bakery hatch and the workshop displays rods and a golden fish emblem.
 - Tree crowns sway gently. Residents and foliage animate locally at 20 Hz only
   near the camera, with streamed arrivals/removals handled independently.
-
-Hidden cliff geometry was simplified to make room for visible details. Source
-parts increase by 195 from v0.5; the 941 colliders and their geometry are unchanged.
-UI, sounds, fishing, rewards and save data keep their previous behavior.
 
 ## The world
 
@@ -63,8 +83,9 @@ coast landings and continuous, protected walking surfaces.
   height. All existing collections, coins, rods, goals and offline income persist
   with the same v0.3 save namespace. The v0.4 UI and six-clip audio mix are retained.
 
-The generator produces **9,850 anchored source parts**, including **941 colliders**
+The generator produces **9,948 anchored source parts**, including **946 colliders**
 (invisible safety floors/rails included). Native water is separate terrain data.
+Only the five tiny arrival supports are persistent; entire islands are not.
 These are measured source counts, not a mobile frame-rate guarantee.
 
 All visual assets are original procedural geometry or Roblox built-in materials;
@@ -72,10 +93,13 @@ no imported models, custom audio IDs or external mesh uploads are needed.
 
 ## What was checked
 
-64 automated tests pass: 19 fishing, 12 locations, 18 progression/saving, 4 UI layout,
-8 world layout and 3 place export. All 26 production modules plus 5 Luau test suites
-compile. Independent rays through the actual captured colliders check 3,639 route
+80 automated tests pass: 19 fishing, 12 locations, 18 progression/saving, 4 UI layout,
+9 world layout, 15 travel authorization and 3 place export. All 29 production files
+plus 6 Luau test suites compile. Independent rays through the actual captured colliders check 3,681 route
 samples for continuous support and six-stud headroom over a 2.6-stud corridor.
+225 more rays check the full spawn footprint and 125 check travel arrival footprints.
+Twelve production travel-adapter scenarios cover authorization, all five destinations,
+stream failures, duplicate requests and character death/replacement/departure during loading.
 An additional production-code smoke check exercises 1,006 resident animation steps,
 late-arriving attributes, stable joints, camera distance limits and streaming
 cleanup/rebind using geometry and event doubles. This is not a Roblox runtime test.
@@ -129,9 +153,10 @@ luau tests/fishing_progression.spec.luau
 luau tests/interface_layout.spec.luau
 luau tests/fishing_locations.spec.luau
 luau tests/world_layout.spec.luau
+luau tests/island_travel.spec.luau
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.6.rbxlx` and `artifacts/Cloud-Anglers-v0.6.zip`.
+Outputs: `artifacts/Cloud-Anglers-v0.7.rbxlx` and `artifacts/Cloud-Anglers-v0.7.zip`.
 
 Shared modules contain tuning, quality rules, species data and fish geometry.
 Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
@@ -142,6 +167,8 @@ Optional geometry inspection (Luau and Blender required) is described in
 `tools/preview_world.py`; `tools/check_world.py` checks actual generated colliders.
 `python tools/check_residents.py --luau /path/to/luau` checks resident construction
 and client animation with geometry/event doubles.
+`python tools/check_travel.py --luau /path/to/luau` checks the production travel
+adapter with geometry/event doubles, including yields and character replacement.
 They capture production geometry for offline art review and route checks;
 it does not emulate Roblox lighting, sound, physics, UI or runtime behavior.
 

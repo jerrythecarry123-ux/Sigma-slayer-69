@@ -9,7 +9,7 @@ from build_place import ROOT, PLACE_NAME, build
 def package() -> Path:
     place = ROOT / "artifacts" / PLACE_NAME
     build(place)
-    output = ROOT / "artifacts/Cloud-Anglers-v0.6.zip"
+    output = ROOT / "artifacts/Cloud-Anglers-v0.7.zip"
     files = [ROOT / "README.md", ROOT / ".gitignore"]
     for folder in ("src", "docs", "tools", "tests"):
         files.extend(path for path in (ROOT / folder).rglob("*")

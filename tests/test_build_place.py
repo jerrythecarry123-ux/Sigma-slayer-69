@@ -63,6 +63,8 @@ class PlaceTests(unittest.TestCase):
         self.assertEqual(world["ModelStreamingBehavior"], ("token", "2"))
         self.assertLess(float(world["FallenPartsDestroyHeight"][1]), -150)
         self.assertGreater(float(world["StreamingTargetRadius"][1]), float(world["StreamingMinRadius"][1]))
+        movement = properties("StarterPlayer")
+        self.assertEqual(movement["CharacterWalkSpeed"], ("float", "22"))
 
     def test_repeatable_build(self):
         with tempfile.TemporaryDirectory() as temp:

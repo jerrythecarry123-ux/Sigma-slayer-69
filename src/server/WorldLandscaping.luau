@@ -7,13 +7,13 @@ local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local C = Kit.palette
 local Landscaping = {}
 local TAU = math.pi * 2
-local foliage = { material = Enum.Material.Grass }
+local foliage = { material = Enum.Material.SmoothPlastic }
 local detail = { shadow = false }
 local wood = { material = Enum.Material.Wood }
 local cloth = { material = Enum.Material.Fabric, shadow = false }
 local flowerTints = {
-	Color3.fromRGB(255, 202, 68), Color3.fromRGB(255, 133, 132),
-	Color3.fromRGB(255, 242, 208), Color3.fromRGB(189, 153, 255),
+	Color3.fromRGB(244, 195, 55), Color3.fromRGB(214, 105, 80),
+	Color3.fromRGB(250, 244, 224), Color3.fromRGB(111, 155, 200),
 }
 
 local function group(parent: Instance, name: string): Model

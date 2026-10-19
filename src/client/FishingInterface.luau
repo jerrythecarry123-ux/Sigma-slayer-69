@@ -393,6 +393,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		button = button, status = status, marker = marker, legend = legend, buttonScale = buttonScale,
 		hideResult = hideResult, showResult = showResult, updateProfile = updateProfile,
 		notify = notify, setState = setState, animate = animate, openJournal = openJournal,
+		closeJournal = function() modal.Visible,panel.Visible=false,true end,
 		isJournalOpen = function() return modal.Visible end,
 		isResultOpen = function() return reveal.Visible end,
 	}

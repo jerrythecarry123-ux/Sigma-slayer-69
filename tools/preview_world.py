@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPORT = r'''
 local world=modules.PrototypeWorld
 local spot=world.create()
+modules.IslandTravel.create(workspace:FindFirstChild("MolnfiskarnaPrototype"))
 local parts={}
 local collisions=0
 local function vec(v) return {v.X,v.Y,v.Z} end
@@ -35,7 +36,7 @@ for _,p in workspace:GetDescendants() do
   local parentNames={}; local cursor=p; while cursor and cursor~=workspace do table.insert(parentNames,1,cursor.Name); cursor=cursor.Parent end
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
    color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,
-   collide=p.CanCollide,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/")})
+   collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/")})
  end
 end
 assert(spot:IsA("BasePart") and spot.Anchored,"missing primary fishing spot")
@@ -47,8 +48,16 @@ for _,node in workspace:GetDescendants() do
 end
 local layout=modules.WorldLayout
 for _,bridge in layout.Bridges do bridge.Points=layout.bridgePoints(bridge) end
+local travel={}
+for _,dock in layout.Docks do
+ local frame=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)
+ local source=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("IslandTravelStations"):FindFirstChild(dock.Id)
+ table.insert(travel,{id=dock.Id,arrival=vec((frame*CFrame.new(0,3.3,5.4)).Position),kiosk=vec(source.PrimaryPart.Position)})
+end
+local support=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("TravelArrivalSupports")
 print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
- layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn}}))
+ travel=travel,persistentTravelSupport=support.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,
+ layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn,RodStand=layout.RodStand,WalkSpeed=layout.WalkSpeed}}))
 '''
 
 
@@ -60,6 +69,8 @@ def capture(luau: str) -> dict:
                          ('WorldNature', 'src/server/WorldNature.luau'),
                          ('WorldArchitecture', 'src/server/WorldArchitecture.luau'),
                          ('WorldLayout', 'src/server/WorldLayout.luau'),
+                         ('IslandTravelRules', 'src/shared/IslandTravelRules.luau'),
+                         ('IslandTravel', 'src/server/IslandTravel.luau'),
                          ('WorldLandscaping', 'src/server/WorldLandscaping.luau'),
                          ('WorldResidents', 'src/server/WorldResidents.luau'),
                          ('PrototypeWorld', 'src/server/PrototypeWorld.luau')]:

@@ -7,8 +7,8 @@ local Nature = {}
 
 local wood = { material = Enum.Material.Wood }
 local trunkWood = { material = Enum.Material.Wood, collidable = true }
-local leaves = { material = Enum.Material.Grass }
-local tinyLeaves = { material = Enum.Material.Grass, shadow = false }
+local leaves = { material = Enum.Material.SmoothPlastic }
+local tinyLeaves = { material = Enum.Material.SmoothPlastic, shadow = false }
 
 -- Overlapping domes with a low faceted leaf skirt soften the branched silhouette.
 local function leafCrown(parent: Instance, center: Vector3, width: number, height: number, depth: number, tint: Color3, yaw: number)

@@ -116,7 +116,7 @@ local function water(parent: Instance, data: any)
 	workspace.Terrain:WriteVoxels(region,4,materials,occupancy)
 	-- Lower basin, exposed stone collar, reeds and a small cascade over the rim.
 	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true}
-	local model = island(parent,basin,Color3.fromRGB(146,205,155),Enum.Material.Sand)
+	local model = island(parent,basin,C.Sand:Lerp(C.Stone,.15),Enum.Material.Sand)
 	for i = 1, 12 do
 		local a=i*math.pi/6
 		local p=center+Vector3.new(math.cos(a)*(data.Radius[1]+2),-.8,math.sin(a)*(data.Radius[2]+2))
@@ -151,6 +151,34 @@ local function plaza(parent: Instance)
 	local koi=Fish.create(f,"GoldenKoi","pufflet")
 	koi:PivotTo(CFrame.new(-17,16,-14)*CFrame.Angles(0,.4,.2))
 	for _,p in koi:GetChildren() do if p:IsA("BasePart") then p.Material=Enum.Material.Metal; p.Color=C.Brass; p.CastShadow=true end end
+end
+local function dockWorkshop(parent: Instance)
+	local model=Kit.model(parent,"PierRodWorkshop")
+	local pos=v(Layout.RodStand)
+	local cf=CFrame.lookAt(pos,pos+Vector3.xAxis)
+	local wood={material=Enum.Material.Wood}
+	-- A working upgrade stop in the fishing loop; the larger town workshop stays open.
+	Kit.part(model,"RodCounter",Vector3.new(7,2.6,2),cf*CFrame.new(0,1.3,-1.4),C.Wood,wood)
+	Kit.part(model,"CounterTop",Vector3.new(7.5,.25,2.4),cf*CFrame.new(0,2.75,-1.4),C.Plank,wood)
+	for _,x in {-3.5,3.5} do
+		Kit.beam(model,"WorkshopCanopyPost",cf:PointToWorldSpace(Vector3.new(x,0,1.5)),cf:PointToWorldSpace(Vector3.new(x,7,1.5)),.22,C.Wood,wood)
+	end
+	Kit.part(model,"SunnyCanopy",Vector3.new(8,.3,5),cf*CFrame.new(0,7,0),C.Gold)
+	for _,x in {-2,0,2} do
+		Kit.part(model,"CreamCanopyStripe",Vector3.new(.85,.02,5),cf*CFrame.new(x,7.16,0),C.Cream,{shadow=false})
+	end
+	local board=Kit.part(model,"RodWorkshopSign",Vector3.new(7,1.2,.16),cf*CFrame.new(0,5.7,-2),C.Teal)
+	Kit.sign(board,"ROD UPGRADES","Fish · upgrade · cast again")
+	for i=0,2 do
+		local a=cf:PointToWorldSpace(Vector3.new(-2.2+i*1.9,2.9,.25))
+		local b=a+Vector3.new(.2,2.6,0)
+		Kit.beam(model,"DisplayRod",a,b,.09,if i==2 then C.Gold else C.Bark,wood)
+		Kit.ball(model,"RodReel",Vector3.one*.3,a+Vector3.yAxis*.4,C.Cream,{shadow=false})
+	end
+	local prompt=Instance.new("ProximityPrompt")
+	prompt.Name,prompt.ActionText,prompt.ObjectText="RodWorkshopPrompt","Upgrade rods","Dockside workshop"
+	prompt.HoldDuration,prompt.MaxActivationDistance,prompt.RequiresLineOfSight=0,8,false
+	prompt.Parent=board
 end
 local function windmill(parent: Instance, pos: Vector3)
 	local model=Kit.model(parent,"PetalwindMill")
@@ -256,24 +284,24 @@ function World.create(): BasePart
 	spawn.Name,spawn.Size,spawn.CFrame="HarborSpawn",Vector3.new(14,.3,14),CFrame.new(v(Layout.Spawn)+Vector3.yAxis*.2)*CFrame.Angles(0,math.pi,0)
 	spawn.Anchored,spawn.Neutral,spawn.Duration,spawn.Transparency,spawn.CastShadow=true,true,0,1,false
 	spawn.Parent=workspace
-	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.1,2.8,true
-	Lighting.ShadowSoftness=.45
-	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(104,132,163),Color3.fromRGB(165,187,204)
-	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.8,.9
+	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.8,2.4,true
+	Lighting.ShadowSoftness=.35
+	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(95,113,126),Color3.fromRGB(143,157,165)
+	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.65,.6
 	local atmosphere=Instance.new("Atmosphere")
-	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.145,.05,.6,.08
-	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(205,235,255),Color3.fromRGB(155,197,228),Lighting
+	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.1,.05,.3,.03
+	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(219,237,255),Color3.fromRGB(180,206,230),Lighting
 	local sky=Instance.new("Sky")
 	sky.Name,sky.SunAngularSize,sky.MoonAngularSize,sky.StarCount,sky.Parent="SundriftSky",9,9,800,Lighting
 	local clouds=Instance.new("Clouds")
 	clouds.Name,clouds.Cover,clouds.Density,clouds.Color,clouds.Parent="HighClouds",.28,.38,C.Cloud,workspace.Terrain
 	local color=Instance.new("ColorCorrectionEffect")
-	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",.14,.025,Color3.fromRGB(255,253,248),Lighting
+	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",-.035,.05,Color3.fromRGB(255,255,255),Lighting
 	local bloom=Instance.new("BloomEffect")
-	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.12,1.7,24,Lighting
+	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.04,2.2,24,Lighting
 	local rays=Instance.new("SunRaysEffect")
 	rays.Intensity,rays.Spread,rays.Parent=.025,.85,Lighting
-	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.32,.28
+	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.15,.2
 	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.14,7
 	for _,data in Layout.Islands do
 		local tint=if data.Kind=="Cove" then C.Sand elseif data.Kind=="Summit" then C.Moss else C.Grass
@@ -283,6 +311,7 @@ function World.create(): BasePart
 	-- The fountain has a broad walkable ring; the main trail goes around its center.
 	plaza(regions.harbor)
 	townDetails(regions.harbor)
+	dockWorkshop(regions.harbor)
 	Architecture.cottage(regions.harbor,CFrame.new(52,12,-20)*CFrame.Angles(0,math.pi,0),26,22,Color3.fromRGB(220,215,176),"Workshop")
 	Architecture.cottage(regions.harbor,CFrame.new(-52,12,-20)*CFrame.Angles(0,math.pi,0),26,22,Color3.fromRGB(237,207,169),"Cafe")
 	Architecture.cottage(regions.harbor,CFrame.new(67,12,-48)*CFrame.Angles(0,math.pi/4,0),21,18,Color3.fromRGB(208,218,183),"Cottage")

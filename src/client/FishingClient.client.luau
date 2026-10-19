@@ -21,10 +21,13 @@ local pendingSince: number? = nil
 local heldInput: InputObject? = nil
 local heldConnection: RBXScriptConnection? = nil
 local releasedBeforeAck = false
-local workshopVisible = false
-local message = "Find the lantern-lit dock and cast your first line."
+local visiblePrompts: {[ProximityPrompt]: boolean} = {}
+local message = "The pond is right ahead. Cast your first line!"
 local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
 local function now(): number return workspace:GetServerTimeNow() end
+local function travelling(): boolean
+	return player:GetAttribute("IslandTravelMenuOpen")==true or player:GetAttribute("IslandTravelBusy")==true
+end
 local function clearHeld()
 	heldInput = nil
 	if heldConnection then heldConnection:Disconnect() end
@@ -47,12 +50,17 @@ ui = Interface.new(player:WaitForChild("PlayerGui"), audio, {
 		request("Upgrade", packet.profile.level)
 	end,
 })
+player:GetAttributeChangedSignal("IslandTravelMenuOpen"):Connect(function()
+	if travelling() then cancel(); ui.hideResult(); ui.closeJournal() end
+end)
+task.spawn(function() require(script.Parent:WaitForChild("IslandTravelInterface")).start() end)
 local function release()
 	if not heldInput then return end
 	clearHeld()
 	if packet.phase == "Reeling" then request("Release") else releasedBeforeAck = true end
 end
 local function press(input: InputObject)
+	if travelling() then return end
 	if ui.isJournalOpen() then return end
 	if ui.isResultOpen() then ui.hideResult(); return end
 	if heldInput or pendingSince then return end
@@ -74,7 +82,7 @@ ui.button.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then press(input) end
 end)
 UserInputService.InputBegan:Connect(function(input, processed)
-	if not processed and not workshopVisible and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then press(input) end
+	if not processed and next(visiblePrompts)==nil and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then press(input) end
 end)
 UserInputService.InputEnded:Connect(function(input)
 	local held = heldInput
@@ -86,13 +94,13 @@ end)
 UserInputService.WindowFocusReleased:Connect(cancel)
 UserInputService.TextBoxFocused:Connect(cancel)
 ProximityPromptService.PromptShown:Connect(function(prompt)
-	if prompt.Name == "RodWorkshopPrompt" then workshopVisible = true end
+	if prompt.Name == "RodWorkshopPrompt" or prompt.Name == "IslandTravelPrompt" then visiblePrompts[prompt]=true end
 end)
 ProximityPromptService.PromptHidden:Connect(function(prompt)
-	if prompt.Name == "RodWorkshopPrompt" then workshopVisible = false end
+	visiblePrompts[prompt]=nil
 end)
 ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
-	if prompt.Name == "RodWorkshopPrompt" and who == player then ui.openJournal("Workshop") end
+	if prompt.Name == "RodWorkshopPrompt" and who == player and not travelling() then ui.openJournal("Workshop") end
 end)
 visual.OnClientEvent:Connect(presentation.apply)
 state.OnClientEvent:Connect(function(incoming)
@@ -120,7 +128,7 @@ state.OnClientEvent:Connect(function(incoming)
 	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false end
 	if packet.phase == "Waiting" and packet.attemptId ~= previousId then ui.hideResult() end
 	audio.setReeling(packet.phase == "Reeling")
-	if ui.isJournalOpen() and packet.phase == "Waiting" then request("Cancel"); return end
+	if (ui.isJournalOpen() or travelling()) and packet.phase == "Waiting" then request("Cancel"); return end
 	if packet.phase == "Reeling" then
 		if releasedBeforeAck then releasedBeforeAck = false; request("Release")
 		elseif not heldInput then request("Cancel") end

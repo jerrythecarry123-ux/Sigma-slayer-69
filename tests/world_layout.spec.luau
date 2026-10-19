@@ -2,6 +2,7 @@
 -- Geometry checks use the production map coordinates and actual coast polygons.
 -- They verify traversal and casting constraints; appearance still needs Studio.
 local Layout = require("../src/server/WorldLayout")
+local FishingConfig = require("../src/shared/FishingConfig")
 local passed = 0
 local function test(name: string, callback: () -> ())
 	local ok, err = pcall(callback)
@@ -41,6 +42,19 @@ local function clearance(polygon: { Point }, point: Point): number
 		nearest = math.min(nearest, d)
 	end
 	return nearest
+end
+local function supported(point: Point): boolean
+	for _, island in Layout.Islands do
+		if math.abs(point[2]-island.Center[2]) < 0.1 and contains(Layout.outline(island), point) then return true end
+	end
+	for _, dock in Layout.Docks do
+		local dx, dz = dock.B[1]-dock.A[1], dock.B[3]-dock.A[3]
+		local along = ((point[1]-dock.A[1])*dx+(point[3]-dock.A[3])*dz)/(dx*dx+dz*dz)
+		local d, y = projection(point, dock.A, dock.B)
+		-- Stay clear of the side rails as well as the ends of the deck.
+		if along >= 0 and along <= 1 and d <= dock.Width/2-1.3 and math.abs(y-point[2]) < 0.1 then return true end
+	end
+	return false
 end
 local islands, waters = {}, {}
 for _, island in Layout.Islands do islands[island.Id] = island end
@@ -83,13 +97,18 @@ local function routeGraph()
 	for _, segment in segments do table.insert(nodes, segment.a); table.insert(nodes, segment.b) end
 	local edges: { { [number]: number } } = {}
 	for i = 1, #nodes do edges[i] = {} end
-	for i, point in nodes do
-		for s, segment in segments do
+	for _, segment in segments do
+		local contacts = {}
+		for i, point in nodes do
 			local d, y = projection(point, segment.a, segment.b)
 			if d > 1.5 or math.abs(y-point[2]) > 0.25 then continue end
-			local first = 1 + #Layout.Docks + (s-1)*2 + 1
-			for _, j in {first, first+1} do
-				local weight = distance(point, nodes[j])
+			table.insert(contacts, i)
+		end
+		-- Interior contacts on the same deck connect directly; routing through an
+		-- endpoint first would overstate the walk between spawn and the first cast.
+		for _, i in contacts do
+			for _, j in contacts do
+				local weight = distance(nodes[i], nodes[j])
 				edges[i][j], edges[j][i] = weight, weight
 			end
 		end
@@ -97,8 +116,7 @@ local function routeGraph()
 	return nodes, edges
 end
 
-test("coast polygons and spawn produce a valid walking surface", function()
-	local spawnIsland = nil
+test("coast polygons and the complete spawn pad produce a valid walking surface", function()
 	for _, island in Layout.Islands do
 		local polygon = Layout.outline(island)
 		assert(#polygon >= 3 and contains(polygon, island.Center), island.Id .. " has no central floor")
@@ -109,9 +127,14 @@ test("coast polygons and spawn produce a valid walking surface", function()
 			area += a[1]*b[3]-b[1]*a[3]
 		end
 		assert(math.abs(area)/2 > 100, island.Id .. " has a degenerate land polygon")
-		if contains(polygon, Layout.Spawn) and math.abs(Layout.Spawn[2]-island.Center[2]) < 0.1 then spawnIsland = island end
 	end
-	assert(spawnIsland and clearance(Layout.outline(spawnIsland), Layout.Spawn) >= 5, "Spawn needs a full safe footprint on land")
+	-- The pier is a walking surface too. A center-only coast check misses a pad
+	-- that hangs over an edge or collides with the pier rails.
+	for x = -7, 7 do
+		for z = -7, 7 do
+			assert(supported({Layout.Spawn[1]+x, Layout.Spawn[2], Layout.Spawn[3]+z}), "Spawn needs support under its full 14-by-14 footprint")
+		end
+	end
 end)
 
 test("bridge landings overlap the coast across their full walkable width", function()
@@ -144,7 +167,9 @@ test("trail corridors stay inside their island floors", function()
 	for _, path in Layout.Paths do
 		local island = assert(islands[path.Island])
 		local polygon = Layout.outline(island)
-		assert(path.Width >= 8 and #path.Points >= 2, path.Island .. " has an unusable trail")
+		local workshopSpur = path.Island == "harbor" and Layout.RodStand
+			and distance(path.Points[#path.Points], Layout.RodStand) <= 6
+		assert(path.Width >= (if workshopSpur then 6 else 8) and #path.Points >= 2, path.Island .. " has an unusable trail")
 		for i = 1, #path.Points - 1 do
 			local a, b = path.Points[i], path.Points[i+1]
 			local samples = math.ceil(distance(a, b)/3)
@@ -204,7 +229,7 @@ test("real trail and bridge contacts connect spawn to every island pier", functi
 	for i, dock in Layout.Docks do assert(visited[i+1], dock.Id .. " pier has no connected walking route from spawn") end
 end)
 
-test("the first fishing area is reachable within a short walk from spawn", function()
+test("every spawn-pad position reaches first-cast range within two seconds", function()
 	local nodes, edges = routeGraph()
 	local best: { [number]: number } = {[1]=0}
 	local visited: { [number]: boolean } = {}
@@ -215,7 +240,31 @@ test("the first fishing area is reachable within a short walk from spawn", funct
 		visited[nextNode] = true
 		for j, weight in edges[nextNode] do best[j] = math.min(best[j] or math.huge, nextCost+weight) end
 	end
-	assert(best[2] and best[2] <= 220, "First fishing spot should take less than 14 seconds of standard walking")
+	assert(Layout.WalkSpeed >= 20 and Layout.WalkSpeed <= 26, "Walking should be quick while preserving control on the smallest touch devices")
+	-- Conservatively include the farthest possible spawn-pad corner and a
+	-- three-stud root height in the server's three-dimensional cast range.
+	local padRadius = math.sqrt(7*7+7*7)
+	local horizontalRange = math.sqrt(FishingConfig.MaxDistance^2-3^2)
+	local walkingDistance = math.max(0, assert(best[2], "First pier is disconnected")+padRadius-horizontalRange)
+	assert(walkingDistance/Layout.WalkSpeed < 2, "The farthest spawn position takes more than two seconds to reach first-cast range")
+end)
+
+test("rod upgrades have a supported booth and a short authored approach from fishing", function()
+	local stand = assert(Layout.RodStand, "The first pier needs a nearby rod-upgrade stand")
+	for x = -3, 3 do
+		for z = -4, 4 do
+			assert(supported({stand[1]+x, stand[2], stand[3]+z}), "Rod stand footprint overhangs its walking surface")
+		end
+	end
+	local harborDock = Layout.Docks[1]
+	local bestWalk = math.huge
+	for _, path in Layout.Paths do
+		if path.Island ~= "harbor" or distance(path.Points[#path.Points], stand) > 6 then continue end
+		local length = distance(harborDock.Spot, harborDock.A)+distance(harborDock.A, path.Points[1])
+		for i = 1, #path.Points-1 do length += distance(path.Points[i], path.Points[i+1]) end
+		bestWalk = math.min(bestWalk, length)
+	end
+	assert(bestWalk/Layout.WalkSpeed <= 4, "Fishing-to-upgrade loop takes more than four seconds along its authored approach")
 end)
 
 print(string.format("%d tests passed; 0 skipped", passed))

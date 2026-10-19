@@ -1,16 +1,17 @@
-# Cloud Anglers v0.6 — testprotokoll
+# Cloud Anglers v0.7 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
 - 19 tester av fiskets tillståndsmaskin, 12 tester av fiskeplatser och 18 tester av progression/sparregler passerade.
-- 8 tester av kartans kustlinjer, vägar, broar, kajer och kastmål passerade.
+- 9 tester av kartans kustlinjer, vägar, broar, kajer, kastmål och gångavstånd passerade.
+- 15 tester av snabbresornas destinationer, avstånd, tidsgränser och samtidiga anrop passerade.
 - 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
 - 3 Python-tester för korrekt inbäddade källfiler, sparade ljus/streaming-inställningar och repeterbar platsbyggnad
   passerade.
-- Alla 26 Luau-produktionsfiler samt de fem Luau-testfilerna accepterades av den
+- Alla 29 Luau-produktionsfiler samt de sex Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
-  progression, sparregler, fiskeplatser, världsdata, layoutberäkning och de fem Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
+  progression, sparregler, fiskeplatser, reseregler, världsdata, layoutberäkning och de sex Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
 - `.rbxlx`-filen har byggts med de aktuella källfilerna.
 
 Luau-verktygen byggdes från den officiella källan `luau-lang/luau`, commit
@@ -30,7 +31,7 @@ testet och anteckna enhet, resultat och eventuella Output-fel.
 
 - [ ] Öppna den levererade rbxlx-filen utan importfel.
 - [ ] Starta Play. Se ön, bryggan, avataren och gränssnittet.
-- [ ] Försök fiska direkt vid spawn: ingen fångst, instruktion om bryggan.
+- [ ] Spawna på huvudbryggan och nå första kastområdet på några få steg.
 - [ ] Gå till bryggans markerade fiskeplats, fiska och upprepa minst tio gånger.
 - [ ] Träffa områdena Normal, Fine och Brilliant. Kontrollera fångsträknaren.
 - [ ] Släpp för tidigt och för sent: ingen fångst; nästa försök fungerar.
@@ -207,3 +208,33 @@ utströmning/återbindning passerar. Detta verifierar inte Roblox-motorn.
 
 Offline-renderingar används bara för granskning av geometri och placering.
 Faktisk ljussättning, material, streaming och prestanda ska bedömas i Roblox.
+
+## v0.7 — kortare resor och ny palett, ännu okörda kontroller i Studio
+
+80 tester passerar. Alla 35 Luau-filer kompilerar. Den faktiska exporterade
+geometrin klarar 3 681 vägprovpunkter, 225 provpunkter över hela spawn-ytan och
+125 över ankomstytorna. Tolv scenarier med produktionskod och händelsedubblar
+kontrollerar resornas auktorisering och fel/förändringar under inläsningsväntan.
+Detta är inte ett kört Roblox-test av streaming, fysik eller grafisk kvalitet.
+
+- [ ] Öppna **Cloud-Anglers-v0.7.rbxlx** och tryck Play. Kontrollera Output.
+- [ ] Spawn hamnar på bryggan utan att avataren står i lådor, räcken eller invånare.
+- [ ] Gå till första fiskemarkeringen på ungefär en sekund; starta ett kast.
+- [ ] Kontrollera gånghastigheten 22 på dator, emulerad touch och riktig telefon/iPad.
+- [ ] Besök det gula uppgraderingsståndet vid bryggans början. Prompten öppnar spöverkstaden.
+- [ ] Fånga → köp uppgradering om saldot räcker → återgå direkt till fisket.
+- [ ] Se grönare mark/löv, blått vatten, krämvita hus och mindre rosa/mint/cyan.
+- [ ] Kontrollera att nya material och neutralare färgfilter behåller träd- och takskuggor.
+- [ ] Det blå reseståndet med gul anka står fritt från Captain Pip och spelarens kastplats.
+- [ ] Vid fiskemarkeringen och efter ankomst fungerar E för fiske, utan reseprompt ovanpå.
+- [ ] Öppna ISLAND HOP och res till alla fem destinationer, även från varje annan ö.
+- [ ] Varje ankomst står på rätt brygga inom kastavstånd. Fiska utan extra promenad.
+- [ ] Res innan destinationen har besökts. Ingen faller genom en oladdad brygga.
+- [ ] Res från aktivt fiske: försöket avbryts utan dubbel fångst eller kvarvarande flöte/ljudloop.
+- [ ] Återställ avataren, lämna servern och gå från ståndet under inläsning. Ingen gammal avatar flyttas.
+- [ ] Prova två klienter som reser samtidigt samt upprepade snabba klick.
+- [ ] Öppna/stäng resemenyn med touch, stängknapp och bakgrund; collection/resultat ligger inte kvar ovanpå.
+- [ ] Prova 320 px porträtt och 568×320 landskap: 56 px destinationsrader går att scrolla och stänga.
+- [ ] Efter död/respawn och resa går fiske, rörelse och menyöppning att använda igen.
+- [ ] Kontrollera tidigare sparade mynt/spön/arter och att inga nya ljud tillkommit.
+- [ ] Mät faktisk FPS/minne och resornas laddtid på telefon och iPad.

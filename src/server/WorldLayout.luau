@@ -32,6 +32,7 @@ Layout.Paths = {
 	{ Island = "harbor", Width = 13, Points = {{0,12,-62},{5,12,-40},{4,12,-25},{4,12,3},{0,12,29},{7,12,52},{0,12,72},{0,12,90}} },
 	{ Island = "harbor", Width = 11, Points = {{-106,12,10},{-77,12,9},{-36,12,7},{0,12,4},{34,12,4},{68,12,0},{108,12,4}} },
 	{ Island = "harbor", Width = 8, Points = {{0,12,-30},{-20,12,-47},{-37,12,-73},{-48,12,-69}} },
+	{ Island = "harbor", Width = 6, Points = {{0,12,80},{-8,12,78},{-16,12,80}} },
 	{ Island = "blossom", Width = 10, Points = {{-182,28,12},{-218,28,8},{-246,28,15},{-242,28,45},{-242,28,79}} },
 	{ Island = "blossom", Width = 9, Points = {{-246,28,15},{-247,28,-16},{-247,28,-48}} },
 	{ Island = "forest", Width = 10, Points = {{193,24,-5},{224,24,-5},{264,24,-8},{270,24,30},{270,24,70}} },
@@ -39,7 +40,10 @@ Layout.Paths = {
 	{ Island = "cove", Width = 10, Points = {{-232,4,-149},{-229,4,-181},{-236,4,-211},{-266,4,-211},{-290,4,-211}} },
 	{ Island = "summit", Width = 10, Points = {{253,60,-188},{253,60,-216},{253,60,-244},{286,60,-244},{311,60,-244}} },
 }
-Layout.Spawn = {0, 12, -58}
+-- The play loop starts beside the water; the town remains optional exploration.
+Layout.Spawn = {0, 12, 104}
+Layout.WalkSpeed = 22
+Layout.RodStand = {-20, 12, 82}
 
 function Layout.outline(island: any): {{ number }}
 	local points = {}

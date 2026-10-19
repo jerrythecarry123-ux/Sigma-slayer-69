@@ -11,12 +11,13 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.6.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v0.7.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
     "ReplicatedStorage/FishingShared/FishModel": ("ModuleScript", "src/shared/FishModel.luau"),
     "ReplicatedStorage/FishingShared/FishCatalog": ("ModuleScript", "src/shared/FishCatalog.luau"),
+    "ReplicatedStorage/FishingShared/IslandTravelRules": ("ModuleScript", "src/shared/IslandTravelRules.luau"),
     "ServerScriptService/FishingEngine": ("ModuleScript", "src/server/FishingEngine.luau"),
     "ServerScriptService/WorldPrimitives": ("ModuleScript", "src/server/WorldPrimitives.luau"),
     "ServerScriptService/WorldNature": ("ModuleScript", "src/server/WorldNature.luau"),
@@ -24,6 +25,7 @@ SOURCES = {
     "ServerScriptService/WorldLandscaping": ("ModuleScript", "src/server/WorldLandscaping.luau"),
     "ServerScriptService/WorldResidents": ("ModuleScript", "src/server/WorldResidents.luau"),
     "ServerScriptService/WorldLayout": ("ModuleScript", "src/server/WorldLayout.luau"),
+    "ServerScriptService/IslandTravel": ("ModuleScript", "src/server/IslandTravel.luau"),
     "ServerScriptService/PrototypeWorld": ("ModuleScript", "src/server/PrototypeWorld.luau"),
     "ServerScriptService/FishingLocations": ("ModuleScript", "src/server/FishingLocations.luau"),
     "ServerScriptService/FishingService": ("ModuleScript", "src/server/FishingService.luau"),
@@ -35,6 +37,7 @@ SOURCES = {
     "StarterPlayer/StarterPlayerScripts/FishingAudio": ("ModuleScript", "src/client/FishingAudio.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
     "StarterPlayer/StarterPlayerScripts/ResidentPresentation": ("ModuleScript", "src/client/ResidentPresentation.luau"),
+    "StarterPlayer/StarterPlayerScripts/IslandTravelInterface": ("ModuleScript", "src/client/IslandTravelInterface.luau"),
     "StarterPlayer/StarterPlayerScripts/WorldScenery": ("ModuleScript", "src/client/WorldScenery.luau"),
     "StarterPlayer/StarterPlayerScripts/InterfaceLayout": ("ModuleScript", "src/client/InterfaceLayout.luau"),
     "StarterPlayer/StarterPlayerScripts/UITheme": ("ModuleScript", "src/client/UITheme.luau"),
@@ -86,20 +89,20 @@ def build(output: Path) -> None:
     property_value(lighting, "token", "LightingStyle", "0")  # Realistic
     property_value(lighting, "bool", "PrioritizeLightingQuality", "true")
     property_value(lighting, "bool", "GlobalShadows", "true")
-    property_value(lighting, "float", "ShadowSoftness", "0.45")
-    property_value(lighting, "float", "Brightness", "2.8")
-    property_value(lighting, "string", "TimeOfDay", "13:06:00")
-    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.8")
-    property_value(lighting, "float", "EnvironmentSpecularScale", "0.9")
-    color_value(lighting, "Ambient", (104, 132, 163))
-    color_value(lighting, "OutdoorAmbient", (165, 187, 204))
+    property_value(lighting, "float", "ShadowSoftness", "0.35")
+    property_value(lighting, "float", "Brightness", "2.4")
+    property_value(lighting, "string", "TimeOfDay", "13:48:00")
+    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.65")
+    property_value(lighting, "float", "EnvironmentSpecularScale", "0.6")
+    color_value(lighting, "Ambient", (95, 113, 126))
+    color_value(lighting, "OutdoorAmbient", (143, 157, 165))
 
     for service in ("ReplicatedStorage", "ServerScriptService", "StarterPlayer", "StarterGui"):
         item(service, service)
     starter_player = nodes["StarterPlayer"]
     property_value(starter_player, "float", "CameraMinZoomDistance", "8")
     property_value(starter_player, "float", "CameraMaxZoomDistance", "38")
-    property_value(starter_player, "float", "CharacterWalkSpeed", "16")
+    property_value(starter_player, "float", "CharacterWalkSpeed", "22")
     item("ReplicatedStorage/FishingShared", "Folder")
     item("StarterPlayer/StarterPlayerScripts", "StarterPlayerScripts")
 

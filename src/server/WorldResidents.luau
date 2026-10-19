@@ -5,13 +5,13 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Residents = {}
 
 local COLORS = {
-	Ink = Color3.fromRGB(48, 62, 80), White = Color3.fromRGB(255, 250, 233),
+	Ink = Color3.fromRGB(48, 62, 80), White = Color3.fromRGB(250, 244, 224),
 	Peach = Color3.fromRGB(246, 190, 145), Tan = Color3.fromRGB(178, 111, 76),
 	Brown = Color3.fromRGB(111, 74, 61), Pink = Color3.fromRGB(246, 137, 142),
-	Gold = Color3.fromRGB(255, 204, 87), Teal = Color3.fromRGB(62, 182, 167),
-	Blue = Color3.fromRGB(81, 150, 216), Coral = Color3.fromRGB(247, 122, 104),
-	Lilac = Color3.fromRGB(178, 146, 225), Green = Color3.fromRGB(102, 164, 106),
-	Hair = Color3.fromRGB(85, 59, 51), Blonde = Color3.fromRGB(237, 184, 91),
+	Gold = Color3.fromRGB(236, 189, 61), Teal = Color3.fromRGB(60, 133, 94),
+	Blue = Color3.fromRGB(71, 124, 181), Coral = Color3.fromRGB(209, 101, 76),
+	Lilac = Color3.fromRGB(95, 119, 164), Green = Color3.fromRGB(74, 144, 76),
+	Hair = Color3.fromRGB(85, 59, 51), Blonde = Color3.fromRGB(223, 179, 87),
 }
 
 local BODY_SHADOWS = {

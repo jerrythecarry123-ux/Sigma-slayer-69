@@ -11,6 +11,7 @@ local Progression = require(script.Parent:WaitForChild("FishingProgression"))
 local ProfileStore = require(script.Parent:WaitForChild("FishingProfileStore"))
 local Locations = require(script.Parent:WaitForChild("FishingLocations"))
 local World = require(script.Parent:WaitForChild("PrototypeWorld"))
+local IslandTravel = require(script.Parent:WaitForChild("IslandTravel"))
 local Service = {}
 local started = false
 
@@ -128,7 +129,8 @@ function Service.start()
 	end
 	local function canFish(player: Player, location: any): boolean
 		local position = fishingPosition(player)
-		return position ~= nil and location ~= nil and validSpot(location.spot)
+		return player:GetAttribute("IslandTravelBusy") ~= true
+			and position ~= nil and location ~= nil and validSpot(location.spot)
 			and (position - location.spot.Position).Magnitude <= Config.MaxDistance
 	end
 	local function release(session: any, profile: any)
@@ -187,6 +189,17 @@ function Service.start()
 		engine:removePlayer(player.UserId)
 	end)
 	for _, player in Players:GetPlayers() do addPlayer(player) end
+	if Config.CreatePrototypeWorld then
+		local world=workspace:FindFirstChild("MolnfiskarnaPrototype")
+		if world and world:IsA("Model") then
+			IslandTravel.start(world,function(player)
+				if closing or not connections[player] then return false end
+				local packet=engine:interrupt(player.UserId,workspace:GetServerTimeNow(),"Ready for your next pond.")
+				if packet then emit(player,packet) end
+				return true
+			end)
+		end
+	end
 	action.OnServerEvent:Connect(function(player, verb, attemptId)
 		if closing then return end
 		local session = sessions[player]

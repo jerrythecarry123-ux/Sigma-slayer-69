@@ -5,19 +5,19 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 
 local Architecture = {}
 local C = {
-	Timber = Color3.fromRGB(151, 103, 64),
-	Wood = Color3.fromRGB(202, 151, 99),
-	Plank = Color3.fromRGB(230, 185, 126),
-	Dark = Color3.fromRGB(39, 84, 100),
-	Cream = Color3.fromRGB(255, 247, 220),
-	Stone = Color3.fromRGB(207, 212, 193),
-	Moss = Color3.fromRGB(75, 170, 104),
-	Glass = Color3.fromRGB(136, 225, 230),
-	Gold = Color3.fromRGB(255, 198, 79),
-	Rope = Color3.fromRGB(233, 214, 163),
-	Roof = Color3.fromRGB(53, 178, 188),
-	Coral = Color3.fromRGB(245, 133, 114),
-	Sky = Color3.fromRGB(104, 184, 225),
+	Timber = Color3.fromRGB(127, 91, 58),
+	Wood = Color3.fromRGB(181, 138, 89),
+	Plank = Color3.fromRGB(210, 174, 120),
+	Dark = Color3.fromRGB(49, 68, 81),
+	Cream = Color3.fromRGB(250, 244, 224),
+	Stone = Color3.fromRGB(189, 187, 168),
+	Moss = Color3.fromRGB(63, 137, 65),
+	Glass = Color3.fromRGB(137, 192, 225),
+	Gold = Color3.fromRGB(244, 195, 55),
+	Rope = Color3.fromRGB(220, 202, 154),
+	Roof = Color3.fromRGB(63, 108, 161),
+	Coral = Color3.fromRGB(192, 87, 62),
+	Sky = Color3.fromRGB(91, 116, 151),
 }
 local WOOD = Enum.Material.Wood
 local PLANKS = Enum.Material.WoodPlanks
@@ -113,7 +113,7 @@ local function flowerBox(parent, cf, width, tint)
 	p(parent, "Soil", Vector3.new(width - 0.16, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, Enum.Material.Ground)
 	for i = 1, 4 do
 		local x = (i - 2.5) * width / 4
-		localBall(parent, cf, "TrailingLeaf", Vector3.new(0.65, 0.55, 0.65), Vector3.new(x, 0.5, -0.05), C.Moss, Enum.Material.Grass)
+		localBall(parent, cf, "TrailingLeaf", Vector3.new(0.65, 0.55, 0.65), Vector3.new(x, 0.5, -0.05), C.Moss, Enum.Material.SmoothPlastic)
 		localBall(parent, cf, "WindowBlossom", Vector3.new(0.36, 0.27, 0.36), Vector3.new(x + 0.05, 0.8, -0.12), tint, Enum.Material.SmoothPlastic)
 	end
 end
@@ -126,18 +126,17 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	local half, front = w / 2, -d / 2
 	local roofColor = buildingKind == "Workshop" and C.Roof
 		or (buildingKind == "Cafe" and C.Coral or C.Sky)
-	-- Painted plaster, honey-colored wood and clear shop colors stay legible in
-	-- daylight. Each shop reads as a place to visit from both harbor approaches.
-	tint = buildingKind == "Workshop" and Color3.fromRGB(227, 250, 228)
-		or (buildingKind == "Cafe" and Color3.fromRGB(255, 228, 204)
-		or tint:Lerp(Color3.fromRGB(255, 249, 219), 0.72))
+	-- Cream walls and modest blue / brick-red paint give shops a clear identity
+	-- without tinting the whole village mint or peach.
+	tint = buildingKind == "Cafe" and Color3.fromRGB(245, 237, 215)
+		or Color3.fromRGB(241, 236, 219)
 	-- Stone footings, an open doorway and a real timber floor make the porch explorable.
 	p(model, "RaisedTimberFloor", Vector3.new(w, 0.4, d), cf * CFrame.new(0, 0, 0), C.Plank, PLANKS, true)
-	p(model, "RearWall", Vector3.new(w, h, 0.5), cf * CFrame.new(0, h / 2, d / 2), tint, Enum.Material.Plaster, true)
+	p(model, "RearWall", Vector3.new(w, h, 0.5), cf * CFrame.new(0, h / 2, d / 2), tint, Enum.Material.SmoothPlastic, true)
 	for _, side in { -1, 1 } do
-		p(model, "SideWall", Vector3.new(0.5, h, d), cf * CFrame.new(side * half, h / 2, 0), tint, Enum.Material.Plaster, true)
+		p(model, "SideWall", Vector3.new(0.5, h, d), cf * CFrame.new(side * half, h / 2, 0), tint, Enum.Material.SmoothPlastic, true)
 		local bay = (w - 3.8) / 2
-		p(model, "FrontWallBay", Vector3.new(bay, h, 0.5), cf * CFrame.new(side * (1.9 + bay / 2), h / 2, front), tint, Enum.Material.Plaster, true)
+		p(model, "FrontWallBay", Vector3.new(bay, h, 0.5), cf * CFrame.new(side * (1.9 + bay / 2), h / 2, front), tint, Enum.Material.SmoothPlastic, true)
 		p(model, "DoorJamb", Vector3.new(0.24, 7.2, 0.7), cf * CFrame.new(side * 1.94, 3.6, front - 0.12), C.Timber)
 		for _, z in { front, d / 2 } do
 			p(model, "ExposedCornerTimber", Vector3.new(0.34, h + 0.1, 0.65), cf * CFrame.new(side * (half - 0.1), h / 2, z), C.Timber)
@@ -158,7 +157,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	p(model, "RearWainscotCap", Vector3.new(w - 0.6, 0.18, 0.23), cf * CFrame.new(0, 2.95, rear + 0.04), C.Cream)
 	window(model, cf * CFrame.new(0, 5.45, rear) * CFrame.Angles(0, math.pi, 0), w * 0.37, 3.25, true)
 	p(model, "DoorLintel", Vector3.new(4.2, 0.3, 0.7), cf * CFrame.new(0, 7.15, front - 0.12), C.Timber)
-	p(model, "DoorwayHeadWall", Vector3.new(3.8, h - 7.25, 0.5), cf * CFrame.new(0, (h + 7.25) / 2, front), tint, Enum.Material.Plaster, true)
+	p(model, "DoorwayHeadWall", Vector3.new(3.8, h - 7.25, 0.5), cf * CFrame.new(0, (h + 7.25) / 2, front), tint, Enum.Material.SmoothPlastic, true)
 	-- Layered slate tiles follow the real roof slope, catching light on every row.
 	local overhang, rise = 1.25, 4.3
 	local roofHalf = half + overhang
@@ -168,15 +167,15 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	local cols = math.max(4, math.floor(roofDepth / 2.5))
 	for _, side in { -1, 1 } do
 		local roofCf = cf * CFrame.new(side * roofHalf / 2, h + rise / 2, 0) * CFrame.Angles(0, 0, -side * pitch)
-		p(model, "RoofUnderlay", Vector3.new(slope + 0.2, 0.35, roofDepth), roofCf, roofColor, STONE, true)
+		p(model, "RoofUnderlay", Vector3.new(slope + 0.2, 0.35, roofDepth), roofCf, roofColor, Enum.Material.SmoothPlastic, true)
 		for row = 0, 3 do
 			for col = 0, cols - 1 do
 				local shift = (row % 2 == 1 and 0.12 or -0.12)
 				local tileCf = roofCf * CFrame.new(-slope / 2 + (row + 0.5) * slope / 4, 0.24 + row * 0.008,
 					-roofDepth / 2 + (col + 0.5) * roofDepth / cols + shift)
-				local shade = ((row * 7 + col * 3) % 5) * 0.025
+				local shade = ((row * 7 + col * 3) % 5) * 0.012
 				p(model, "IndividualSlateShingle", Vector3.new(slope / 4 + 0.12, 0.12, roofDepth / cols - 0.09), tileCf,
-					roofColor:Lerp(C.Cream, shade), STONE)
+					roofColor:Lerp(C.Cream, shade), Enum.Material.SmoothPlastic)
 			end
 		end
 		for _, z in { -roofDepth / 2, roofDepth / 2 } do
@@ -191,7 +190,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		for i = -5, 5 do
 			local x = i * w / 11
 			local panelHeight = rise * (1 - (math.abs(x) + w / 22) / roofHalf)
-			p(model, "GablePlasterInfill", Vector3.new(w / 11 + 0.02, panelHeight, 0.18), cf * CFrame.new(x, h + panelHeight / 2, z), tint, Enum.Material.Plaster)
+			p(model, "GablePlasterInfill", Vector3.new(w / 11 + 0.02, panelHeight, 0.18), cf * CFrame.new(x, h + panelHeight / 2, z), tint, Enum.Material.SmoothPlastic)
 		end
 		for i = -3, 3 do
 			local x = i * half / 4
@@ -373,20 +372,20 @@ function Architecture.lighthouse(parent, cf)
 		local angle = i * math.pi * 2 / n
 		local face = cf * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -r)
 		if i == 0 then
-			p(model, "DoorwayUpperWall", Vector3.new(tangentWidth, 17.4, 0.6), face * CFrame.new(0, 16.7, 0), C.Cream, Enum.Material.Plaster, true)
+			p(model, "DoorwayUpperWall", Vector3.new(tangentWidth, 17.4, 0.6), face * CFrame.new(0, 16.7, 0), C.Cream, Enum.Material.SmoothPlastic, true)
 		elseif i == 3 or i == 9 then
-			p(model, "WindowLowerWall", Vector3.new(tangentWidth, 11, 0.6), face * CFrame.new(0, 5.5, 0), C.Cream, Enum.Material.Plaster, true)
-			p(model, "WindowUpperWall", Vector3.new(tangentWidth, 10.9, 0.6), face * CFrame.new(0, 19.95, 0), C.Cream, Enum.Material.Plaster, true)
+			p(model, "WindowLowerWall", Vector3.new(tangentWidth, 11, 0.6), face * CFrame.new(0, 5.5, 0), C.Cream, Enum.Material.SmoothPlastic, true)
+			p(model, "WindowUpperWall", Vector3.new(tangentWidth, 10.9, 0.6), face * CFrame.new(0, 19.95, 0), C.Cream, Enum.Material.SmoothPlastic, true)
 			window(model, face * CFrame.new(0, 12.75, -0.32), tangentWidth - 0.3, 3.5, false)
 		else
-			p(model, "LimewashedTowerWall", Vector3.new(tangentWidth, 25.4, 0.6), face * CFrame.new(0, 12.7, 0), C.Cream, Enum.Material.Plaster, true)
+			p(model, "LimewashedTowerWall", Vector3.new(tangentWidth, 25.4, 0.6), face * CFrame.new(0, 12.7, 0), C.Cream, Enum.Material.SmoothPlastic, true)
 		end
 		-- Painted banding and footings make the silhouette readable from other islands.
 		if i ~= 0 then
 			p(model, "TowerStoneFooting", Vector3.new(tangentWidth + 0.12, 1.2, 0.82), face * CFrame.new(0, 0.6, 0), C.Stone, STONE, true)
 		end
 		for _, y in { 9.3, 23.7 } do
-			p(model, "MarinerBlueBand", Vector3.new(tangentWidth + 0.12, 1, 0.76), face * CFrame.new(0, y, -0.08), C.Roof, Enum.Material.Plaster)
+			p(model, "MarinerBlueBand", Vector3.new(tangentWidth + 0.12, 1, 0.76), face * CFrame.new(0, y, -0.08), C.Roof, Enum.Material.SmoothPlastic)
 		end
 	end
 	-- 7.8 studs of rise per revolution leave enough headroom for a standard R15
@@ -451,7 +450,7 @@ function Architecture.ruins(parent, cf)
 				{ material = Enum.Material.Limestone, collidable = true })
 		end
 		p(model, "ColumnCapital", Vector3.new(3, 0.55, 3), cf * CFrame.new(x, 7.55, -1), C.Stone, Enum.Material.Limestone)
-		localBall(model, cf, "MossOnCapital", Vector3.new(2.2, 0.15, 1.4), Vector3.new(x, 7.87, -1.4), C.Moss, Enum.Material.Grass)
+		localBall(model, cf, "MossOnCapital", Vector3.new(2.2, 0.15, 1.4), Vector3.new(x, 7.87, -1.4), C.Moss, Enum.Material.SmoothPlastic)
 	end
 	for i = 0, 10 do
 		local angle = (i + 0.5) / 11 * math.pi

@@ -7,6 +7,7 @@ Includes invisible floors/rails and exact oriented wedges, cylinders and balls.
 import json
 import math
 from pathlib import Path
+import re
 import sys
 
 EPS = 1e-7
@@ -60,6 +61,24 @@ def interval(part, x, z):
     return (lo, hi) if lo <= hi + EPS else None
 
 
+def walking_surface(colliders, x, y, z, label, tolerance=1):
+    """Find actual collider support and six studs of clear avatar space above it."""
+    hits = []
+    for part, x0, x1, z0, z1 in colliders:
+        if x0-EPS <= x <= x1+EPS and z0-EPS <= z <= z1+EPS:
+            hit = interval(part, x, z)
+            if hit:
+                hits.append((hit, part['path']))
+    floors = [hi for (lo, hi), _ in hits if y-tolerance <= hi <= y+tolerance]
+    if not floors:
+        return f'No supported {label} at ({x:.2f},{y:.2f},{z:.2f})'
+    floor = max(floors)
+    obstacles = [name for (lo, hi), name in hits if lo < floor+6 and hi > floor+.45]
+    if obstacles:
+        return f'Blocked {label} at ({x:.2f},{y:.2f},{z:.2f}): {obstacles[0]}'
+    return None
+
+
 def validate(scene):
     parts = scene['parts']
     assert len(parts) < 10000, 'World exceeds its source-part budget'
@@ -91,28 +110,83 @@ def validate(scene):
                 for offset in (-1.3,0,1.3):
                     x,y,z = [a[i]+(b[i]-a[i])*t for i in range(3)]
                     x,z = x+side[0]*offset,z+side[1]*offset
-                    hits=[]
-                    for p,x0,x1,z0,z1 in colliders:
-                        if x0-EPS<=x<=x1+EPS and z0-EPS<=z<=z1+EPS:
-                            hit=interval(p,x,z)
-                            if hit:
-                                hits.append((hit,p['path']))
-                    floors=[hi for (lo,hi),_ in hits if y-1 <= hi <= y+1]
-                    if not floors:
-                        failures.append(f'No supported route at ({x:.2f},{y:.2f},{z:.2f})')
-                    else:
-                        floor=max(floors)
-                        obstacles=[name for (lo,hi),name in hits if lo<floor+6 and hi>floor+.45]
-                        if obstacles:
-                            failures.append(f'Blocked route at ({x:.2f},{y:.2f},{z:.2f}): {obstacles[0]}')
+                    failure = walking_surface(colliders, x, y, z, 'route')
+                    if failure:
+                        failures.append(failure)
                     sampled+=1
     assert not failures, '\n'.join(failures[:15]) + f'\n{len(failures)} failed samples of {sampled}'
+
+    spawn = layout['Spawn']
+    spawn_parts = [p for p in parts if p['name'] == 'HarborSpawn']
+    assert len(spawn_parts) == 1, 'Exactly one harbor spawn must be captured'
+    spawn_part = spawn_parts[0]
+    assert math.dist([spawn_part['position'][0], spawn_part['position'][2]], [spawn[0], spawn[2]]) < .01, 'Spawn collider disagrees with the configured spawn'
+    assert spawn_part['size'][0] >= 14 and spawn_part['size'][2] >= 14, 'Harbor spawn must retain its full 14-by-14 footprint'
+    # Exclude the spawn plate itself: it must overlay a continuous walkable deck,
+    # rather than conceal a gap that a player falls through when stepping off.
+    spawn_colliders = [entry for entry in colliders if entry[0] is not spawn_part]
+    spawn_samples = 0
+    for dx in range(-7, 8):
+        for dz in range(-7, 8):
+            failure = walking_surface(spawn_colliders, spawn[0]+dx, spawn[1], spawn[2]+dz, 'spawn footprint', .25)
+            assert failure is None, failure
+            spawn_samples += 1
+
+    docks = {dock['Id']: dock for dock in layout['Docks']}
+    travel = scene['travel']
+    assert len(travel) == 5 and {entry['id'] for entry in travel} == set(docks), 'Every island needs exactly one captured travel destination'
+    assert scene['persistentTravelSupport'], 'Arrival support model must remain persistent while scenery streams'
+    supports = [p for p in parts if '/TravelArrivalSupports/' in p['path']]
+    assert len(supports) == 5, 'Exactly five persistent arrival floors must exist'
+    support_by_id = {}
+    for destination in docks:
+        matching = [p for p in supports if p['name'] == destination+'ArrivalFloor']
+        assert len(matching) == 1, destination+' needs its own persistent arrival floor'
+        floor = matching[0]
+        assert floor['anchored'] and floor['collide'] and floor.get('query') is True, floor['path']+' must be anchored, collidable and queryable'
+        assert floor['alpha'] == 0 and not floor['shadow'], floor['path']+' must remain invisible without casting a shadow'
+        assert floor['shape'] == 'Block' and 0 < floor['size'][1] <= .3, floor['path']+' must remain a thin collision plate'
+        support_by_id[destination] = floor
+    config_source = (Path(__file__).resolve().parents[1]/'src/shared/FishingConfig.luau').read_text()
+    config_match = re.search(r'\bMaxDistance\s*=\s*([0-9]+(?:\.[0-9]+)?)', config_source)
+    assert config_match, 'Capture checker could not read the production fishing distance'
+    fishing_range = float(config_match.group(1))
+    arrival_samples = 0
+    arrived_positions = []
+    for entry in travel:
+        destination, arrival, kiosk = entry['id'], entry['arrival'], entry['kiosk']
+        assert all(math.isfinite(value) for point in (arrival, kiosk) for value in point), destination+' has a nonfinite travel position'
+        assert all(math.dist(arrival, other) > 1 for other in arrived_positions), 'Travel destinations must have distinct arrival positions'
+        arrived_positions.append(arrival)
+        spot = docks[destination]['Spot']
+        ground = spot[1]-.1
+        assert 3 <= arrival[1]-ground <= 6, destination+' arrival root has insufficient or excessive ground clearance'
+        assert math.dist(arrival, spot) <= fishing_range, destination+' arrival must be ready to fish in its own pond'
+        # Horizontal separation keeps the native E prompt off the casting marker
+        # for different avatar heights; arriving players must also retain E to fish.
+        assert math.hypot(kiosk[0]-spot[0], kiosk[2]-spot[2]) > 5+EPS, destination+' travel prompt overlaps the fishing marker'
+        assert math.dist(kiosk, arrival) > 5+EPS, destination+' travel prompt intercepts fishing immediately after arrival'
+        floor = support_by_id[destination]
+        # The 3.6-by-3.6 footprint includes the +/-0.8-stud multiplayer lanes and
+        # a one-stud avatar half-width. Persistent floors must support it alone.
+        for dx in (-1.8, -1, 0, 1, 1.8):
+            for dz in (-1.8, -1, 0, 1, 1.8):
+                x, z = arrival[0]+dx, arrival[2]+dz
+                failure = walking_surface(colliders, x, ground, z, destination+' arrival footprint', .25)
+                assert failure is None, failure
+                support_hit = interval(floor, x, z)
+                assert support_hit and abs(support_hit[1]-ground) < .05, destination+' arrival footprint loses persistent support when the pier streams out'
+                assert math.dist([x, arrival[1], z], spot) <= fishing_range, destination+' arrival footprint extends outside fishing range'
+                arrival_samples += 1
+
     shade_names={'LeafShoulder','EvergreenBough','PalmLeaf','StratifiedCliff','RoofUnderlay'}
     for p in parts:
         if p['name'] in shade_names:
             assert p['shadow'],p['path']+' loses required shade'
     print(f'PASS {len(parts)} bounded, anchored source parts; {len(colliders)} colliders incl. invisible floors/rails')
     print(f'PASS {sampled} route rays with continuous support and six-stud headroom across a 2.6-stud corridor')
+    print(f'PASS {spawn_samples} spawn-footprint rays supported by the underlying world with six-stud headroom')
+    print(f'PASS {arrival_samples} arrival-footprint rays, five persistent queryable floors, immediate fishing range and separate travel prompts')
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 
