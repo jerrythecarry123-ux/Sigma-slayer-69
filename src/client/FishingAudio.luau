@@ -12,6 +12,7 @@ local clips = {
 	Chime = "rbxasset://sounds/electronicpingshort.wav",
 	Reel = "rbxasset://sounds/action_swim.mp3",
 	Miss = "rbxasset://sounds/action_jump_land.mp3",
+	Wind = "rbxasset://sounds/action_falling.mp3",
 }
 
 function Audio.new()
@@ -68,16 +69,34 @@ function Audio.new()
 			reel = nil
 		end
 	end
-	local function catchSound(quality: string)
-		local pitch = if quality == "Brilliant" then 1.25 else 1
+	local function catchSound(quality: string, rarity: string?, discovery: boolean?)
+		local pitch = if rarity == "Epic" then 1.5 elseif quality == "Brilliant" then 1.25 else 1
 		play("Chime", pitch, nil, 0.4)
 		task.delay(0.1, function() play("Chime", pitch * 1.25, nil, 0.3) end)
 		task.delay(0.2, function() play("Chime", pitch * 1.5, nil, 0.24) end)
+		if discovery then task.delay(0.35, function() play("Chime", pitch * 2, nil, 0.18) end) end
 	end
+	local wind = templates.Wind:Clone()
+	wind.Looped = true
+	wind.Volume = 0.045
+	wind.PlaybackSpeed = 0.75
+	wind.Parent = folder
+	wind:Play()
 	return {
 		play = play,
 		setReeling = setReeling,
 		catch = catchSound,
+		ui = function(success: boolean?) play(if success == false then "Miss" else "Chime", 1.8, nil, 0.1) end,
+		coins = function() play("Chime", 2.2, nil, 0.14) end,
+		goal = function()
+			play("Chime", 1.3, nil, 0.25)
+			task.delay(0.16, function() play("Chime", 1.8, nil, 0.22) end)
+		end,
+		upgrade = function()
+			for index, pitch in { 0.8, 1, 1.25, 1.6 } do
+				task.delay((index - 1) * 0.1, function() play("Chime", pitch, nil, 0.26) end)
+			end
+		end,
 		toggle = function(): boolean
 			muted = not muted
 			group.Volume = if muted then 0 else 0.8

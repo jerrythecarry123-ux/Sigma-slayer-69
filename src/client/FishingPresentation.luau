@@ -183,7 +183,7 @@ function Presentation.new(audio: any)
 			local position = if actor.bobber then actor.bobber.Position else incoming.castTarget
 			if freshCatch and position then
 				if actor.caughtFish then actor.caughtFish:Destroy() end
-				actor.caughtFish = Fish.create(folder, "CaughtPufflet")
+				actor.caughtFish = Fish.create(folder, "CaughtFish", incoming.result.speciesId)
 				actor.catchAt = workspace:GetServerTimeNow()
 				actor.catchFrom = position
 				burst(position, true)
@@ -247,6 +247,12 @@ function Presentation.new(audio: any)
 			actor.pitch = pitch
 			local direction = forward * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 			actor.rig:PivotTo(CFrame.lookAt(hand.Position, hand.Position + direction) * CFrame.Angles(-math.pi / 2, 0, 0))
+			local shaft = actor.rig:FindFirstChild("Rod")
+			if shaft and shaft:IsA("BasePart") then
+				local level = packet.rodLevel or 0
+				shaft.Color = if level >= 3 then Color3.fromRGB(255, 211, 108)
+					elseif level >= 2 then Color3.fromRGB(187, 155, 243) else Color3.fromRGB(78, 174, 188)
+			end
 			if active then
 				createBobber(actor)
 				local bobber = actor.bobber
@@ -272,6 +278,7 @@ function Presentation.new(audio: any)
 				local destination = root.Position + Vector3.new(0, 3, 0)
 				local position = actor.catchFrom:Lerp(destination, t) + Vector3.new(0, math.sin(t * math.pi) * 7, 0)
 				actor.caughtFish:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * math.pi * 4, math.sin(t * 8) * 0.25))
+				Fish.animate(actor.caughtFish, time)
 				if t >= 1 then
 					burst(destination, true)
 					actor.caughtFish:Destroy()
@@ -283,6 +290,7 @@ function Presentation.new(audio: any)
 		local preview = if world then world:FindFirstChild("PuffletPreview") else nil
 		if preview and preview:IsA("Model") then
 			preview:PivotTo(CFrame.new(0, 4 + math.sin(time * 1.8) * 0.4, 66) * CFrame.Angles(0, math.sin(time) * 0.3, math.sin(time * 2) * 0.08))
+			Fish.animate(preview, time)
 		end
 	end)
 

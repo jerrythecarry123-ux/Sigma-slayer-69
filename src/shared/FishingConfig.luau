@@ -11,4 +11,6 @@ return table.freeze({
 	RequestsPerSecond = 5,
 	SpeciesName = "Pufflet",
 	CreatePrototypeWorld = true,
+	EnableSaving = true,
+	SaveInStudio = false,
 })

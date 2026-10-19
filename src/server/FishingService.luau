@@ -5,7 +5,10 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("FishingShared")
 local Config = require(Shared:WaitForChild("FishingConfig"))
 local Rules = require(Shared:WaitForChild("FishingRules"))
+local Catalog = require(Shared:WaitForChild("FishCatalog"))
 local Engine = require(script.Parent:WaitForChild("FishingEngine"))
+local Progression = require(script.Parent:WaitForChild("FishingProgression"))
+local ProfileStore = require(script.Parent:WaitForChild("FishingProfileStore"))
 local World = require(script.Parent:WaitForChild("PrototypeWorld"))
 local Service = {}
 local started = false
@@ -14,30 +17,59 @@ function Service.start()
 	assert(not started, "FishingService has already started")
 	started = true
 	local spot = if Config.CreatePrototypeWorld then World.create() else World.findCustom()
-	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "FishingRemotes already exists; install one copy only.")
+	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "Install one fishing server only.")
 	local remotes = Instance.new("Folder")
 	remotes.Name = "FishingRemotes"
-	local action = Instance.new("RemoteEvent")
-	action.Name = "FishingAction"
-	action.Parent = remotes
-	local state = Instance.new("RemoteEvent")
-	state.Name = "FishingState"
-	state.Parent = remotes
-	local visual = Instance.new("RemoteEvent")
-	visual.Name = "FishingVisual"
-	visual.Parent = remotes
-	local engine = Engine.new(Config, Rules)
-	local characterConnections: { [Player]: RBXScriptConnection } = {}
+	local function remote(name: string): RemoteEvent
+		local event = Instance.new("RemoteEvent")
+		event.Name, event.Parent = name, remotes
+		return event
+	end
+	local action, state, visual = remote("FishingAction"), remote("FishingState"), remote("FishingVisual")
+	local random = Random.new()
+	local progression = Progression.new(Catalog, function() return random:NextNumber() end)
+	local engine = Engine.new(Config, Rules, progression)
+	local saving = Config.EnableSaving and (not RunService:IsStudio() or Config.SaveInStudio)
+	local store = if saving then ProfileStore.new(Catalog, progression, RunService:IsStudio()) else nil
+	local sessions: { [Player]: any } = {}
+	local loading: { [Player]: boolean } = {}
+	local welcome: { [Player]: any } = {}
+	local connections: { [Player]: RBXScriptConnection } = {}
+	local lastVisual: { [Player]: string } = {}
+	local closing, pendingReleases = false, 0
+
 	local function decorate(player: Player, packet: any)
-		-- A presentation target only. It never changes catch validity or rewards.
 		local lane = (player.UserId % 4 - 1.5) * 2
 		packet.castTarget = (spot.CFrame * CFrame.new(lane, -1.2, -14)).Position
 		return packet
 	end
+	local function publicVisual(player: Player, packet: any)
+		local result = packet.result
+		return decorate(player, {
+			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId,
+			readyAt = packet.readyAt, chargeAt = packet.chargeAt,
+			rodLevel = if packet.profile then packet.profile.level else 0,
+			result = if result then {
+				species = result.species, speciesId = result.speciesId, quality = result.quality,
+				rarity = result.rarity, newDiscovery = result.newDiscovery,
+			} else nil,
+		})
+	end
 	local function emit(player: Player, packet: any)
 		decorate(player, packet)
+		local profile = packet.profile
+		if profile then profile.persistent = saving; profile.offlineRate = profile.species * 0.25 end
+		if welcome[player] then packet.offline = welcome[player]; welcome[player] = nil end
 		state:FireClient(player, packet)
-		visual:FireAllClients(player.UserId, packet)
+		local stats = player:FindFirstChild("leaderstats")
+		local score = if stats then stats:FindFirstChild("Collection") else nil
+		if score and score:IsA("IntValue") and profile then score.Value = profile.points end
+		local key = packet.phase .. ":" .. tostring(packet.attemptId) .. ":" .. packet.catches
+			.. ":" .. (if profile then profile.level else 0)
+		if lastVisual[player] ~= key then
+			lastVisual[player] = key
+			visual:FireAllClients(player.UserId, publicVisual(player, packet))
+		end
 	end
 	local function canFish(player: Player): boolean
 		local character = player.Character
@@ -48,26 +80,64 @@ function Service.start()
 			and root ~= nil and root:IsA("BasePart")
 			and (root.Position - spot.Position).Magnitude <= Config.MaxDistance
 	end
+	local function release(session: any, profile: any)
+		if not store or session.closed or session.releaseRequested then return end
+		session.releaseRequested = true
+		pendingReleases += 1
+		task.spawn(function()
+			local deadline = os.clock() + 20
+			while session.busy and os.clock() < deadline do task.wait(0.1) end
+			local ok, reason = store.save(session, profile, true)
+			if not ok then warn("Cloud Anglers: final save failed: " .. tostring(reason)) end
+			pendingReleases -= 1
+		end)
+	end
 	local function addPlayer(player: Player)
-		engine:addPlayer(player.UserId, workspace:GetServerTimeNow())
-		if characterConnections[player] then return end
-		characterConnections[player] = player.CharacterRemoving:Connect(function()
-			-- Invalidate the old avatar's attempt even if a new avatar spawns before a tick.
-			local packet = engine:interrupt(player.UserId, workspace:GetServerTimeNow(),
-				"Fishing stopped. Return to the dock after respawning.")
-			if packet and player.Parent == Players then emit(player, packet) end
+		if loading[player] or connections[player] then return end
+		loading[player] = true
+		task.spawn(function()
+			local session, reason = nil, nil
+			if store then session, reason = store.load(player.UserId) end
+			loading[player] = nil
+			if store and not session then
+				warn("Cloud Anglers: profile load blocked: " .. tostring(reason))
+				if player.Parent == Players then player:Kick("Your progress could not be loaded safely. Please rejoin in a moment.") end
+				return
+			end
+			if player.Parent ~= Players or closing then
+				if session then release(session, session.profile) end
+				return
+			end
+			if session then sessions[player] = session; welcome[player] = session.offline end
+			engine:addPlayer(player.UserId, workspace:GetServerTimeNow(), if session then session.profile else nil)
+			local stats = player:FindFirstChild("leaderstats") or Instance.new("Folder")
+			stats.Name, stats.Parent = "leaderstats", player
+			if not stats:FindFirstChild("Collection") then
+				local score = Instance.new("IntValue")
+				score.Name, score.Parent = "Collection", stats
+			end
+			connections[player] = player.CharacterRemoving:Connect(function()
+				local packet = engine:interrupt(player.UserId, workspace:GetServerTimeNow(), "Fishing stopped. Return to the dock after respawning.")
+				if packet and player.Parent == Players then emit(player, packet) end
+			end)
+			-- The client asks for Sync after subscribing; it also retries while data loads.
 		end)
 	end
 	Players.PlayerAdded:Connect(addPlayer)
 	Players.PlayerRemoving:Connect(function(player)
-		local connection = characterConnections[player]
+		local profile = engine:exportProfile(player.UserId)
+		local session = sessions[player]
+		if session and profile then release(session, profile) end
+		local connection = connections[player]
 		if connection then connection:Disconnect() end
-		characterConnections[player] = nil
+		connections[player], sessions[player], welcome[player], lastVisual[player] = nil, nil, nil, nil
 		engine:removePlayer(player.UserId)
 	end)
 	for _, player in Players:GetPlayers() do addPlayer(player) end
-
 	action.OnServerEvent:Connect(function(player, verb, attemptId)
+		if closing then return end
+		local session = sessions[player]
+		if session and os.time() >= session.expires then return end
 		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player))
 		if packet then
 			emit(player, packet)
@@ -75,7 +145,7 @@ function Service.start()
 				for _, other in Players:GetPlayers() do
 					local otherPacket = engine:snapshot(other.UserId)
 					if other ~= player and otherPacket and otherPacket.phase ~= "Idle" then
-						visual:FireClient(player, other.UserId, decorate(other, otherPacket))
+						visual:FireClient(player, other.UserId, publicVisual(other, otherPacket))
 					end
 				end
 			end
@@ -83,6 +153,7 @@ function Service.start()
 	end)
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(deltaTime)
+		if closing then return end
 		elapsed += deltaTime
 		if elapsed < 0.1 then return end
 		elapsed = 0
@@ -90,11 +161,39 @@ function Service.start()
 		for _, player in Players:GetPlayers() do
 			local packet = engine:tick(player.UserId, now, canFish(player))
 			if packet then emit(player, packet) end
+			local session = sessions[player]
+			if session and not session.releaseRequested then
+				if os.time() >= session.expires then
+					player:Kick("Saving connection was interrupted. Please rejoin to protect your progress.")
+				elseif not session.busy and os.clock() - session.lastSave >= 30 then
+					local profile = engine:exportProfile(player.UserId)
+					if profile then
+						task.spawn(function()
+							local ok, reason = store.save(session, profile, false)
+							if not ok then
+								warn("Cloud Anglers: autosave failed: " .. tostring(reason))
+								-- Back off; do not exhaust DataStore budgets on every heartbeat.
+								session.lastSave = os.clock()
+								if reason == "lost_lease" or reason == "invalid_data" then
+									player:Kick("Your save session changed. Please rejoin safely.")
+								end
+							end
+						end)
+					end
+				end
+			end
 		end
 	end)
-	-- Publish the remotes only after listeners and sessions are ready.
+	game:BindToClose(function()
+		closing = true
+		for player, session in sessions do
+			local profile = engine:exportProfile(player.UserId)
+			if profile then release(session, profile) end
+		end
+		local deadline = os.clock() + 25
+		while (pendingReleases > 0 or next(loading) ~= nil) and os.clock() < deadline do task.wait(0.1) end
+	end)
 	remotes.Parent = ReplicatedStorage
-	print("Cloud Anglers: fishing is ready. Progress is session-only in this prototype.")
+	print("Cloud Anglers: ready. Saving " .. (if saving then "enabled." else "disabled in this Studio playtest."))
 end
-
 return Service

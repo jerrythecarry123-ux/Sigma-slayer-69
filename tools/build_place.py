@@ -11,18 +11,24 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.2.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v0.3.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
     "ReplicatedStorage/FishingShared/FishModel": ("ModuleScript", "src/shared/FishModel.luau"),
+    "ReplicatedStorage/FishingShared/FishCatalog": ("ModuleScript", "src/shared/FishCatalog.luau"),
     "ServerScriptService/FishingEngine": ("ModuleScript", "src/server/FishingEngine.luau"),
     "ServerScriptService/PrototypeWorld": ("ModuleScript", "src/server/PrototypeWorld.luau"),
     "ServerScriptService/FishingService": ("ModuleScript", "src/server/FishingService.luau"),
+    "ServerScriptService/FishingProgression": ("ModuleScript", "src/server/FishingProgression.luau"),
+    "ServerScriptService/FishingSaveRules": ("ModuleScript", "src/server/FishingSaveRules.luau"),
+    "ServerScriptService/FishingProfileStore": ("ModuleScript", "src/server/FishingProfileStore.luau"),
     "ServerScriptService/FishingServer": ("Script", "src/server/FishingServer.server.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingClient": ("LocalScript", "src/client/FishingClient.client.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingAudio": ("ModuleScript", "src/client/FishingAudio.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
+    "StarterPlayer/StarterPlayerScripts/UITheme": ("ModuleScript", "src/client/UITheme.luau"),
+    "StarterPlayer/StarterPlayerScripts/FishingInterface": ("ModuleScript", "src/client/FishingInterface.luau"),
 }
 
 

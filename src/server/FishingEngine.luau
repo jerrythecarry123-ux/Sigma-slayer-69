@@ -11,6 +11,7 @@ type Attempt = {
 type Session = {
 	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
 	tokenTime: number,
+	profile: any?,
 }
 type Packet = { [string]: any }
 local Engine = {}
@@ -20,19 +21,27 @@ type EngineData = {
 	rules: { read qualityAt: (number) -> string? },
 	sessions: { [number]: Session },
 	sequence: number,
+	progression: any?,
 }
 export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
 
-function Engine.new(config: Config, rules: { read qualityAt: (number) -> string? }): FishingEngine
-	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0 }, Engine)
+function Engine.new(config: Config, rules: { read qualityAt: (number) -> string? }, progression: any?): FishingEngine
+	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0, progression = progression }, Engine)
 end
 
-function Engine.addPlayer(self: FishingEngine, userId: number, now: number)
+function Engine.addPlayer(self: FishingEngine, userId: number, now: number, initialProfile: any?)
 	if self.sessions[userId] then return end
 	self.sessions[userId] = {
 		attempt = nil, catches = 0, nextStart = now,
 		tokens = self.config.RequestCapacity, tokenTime = now,
+		profile = if self.progression then (if initialProfile then self.progression.copy(initialProfile) else self.progression.create()) else nil,
 	}
+	if initialProfile then self.sessions[userId].catches = initialProfile.catches end
+end
+
+function Engine.exportProfile(self: FishingEngine, userId: number): any?
+	local session = self.sessions[userId]
+	return if session and session.profile and self.progression then self.progression.copy(session.profile) else nil
 end
 
 function Engine.removePlayer(self: FishingEngine, userId: number)
@@ -43,6 +52,7 @@ function Engine.snapshot(self: FishingEngine, userId: number): Packet?
 	local session = self.sessions[userId]
 	if not session then return nil end
 	local packet: Packet = { phase = "Idle", catches = session.catches, nextStart = session.nextStart }
+	if self.progression and session.profile then packet.profile = self.progression.snapshot(session.profile) end
 	local attempt = session.attempt
 	if attempt then
 		packet.phase = attempt.phase
@@ -98,6 +108,22 @@ function Engine.command(
 	if action == "Sync" then return self:snapshot(userId) end
 	local aborted = self:tick(userId, now, canFish)
 	if aborted then return aborted end
+	if action == "Upgrade" and self.progression and session.profile then
+		local packet = self:snapshot(userId) :: Packet
+		if session.attempt then
+			packet.message = "Finish your cast before changing rods."
+			return packet
+		end
+		if type(attemptId) ~= "number" or attemptId ~= session.profile.level then
+			packet.message = "Your rod changed. Check the workshop again."
+			return packet
+		end
+		local purchase = self.progression.upgrade(session.profile)
+		packet = self:snapshot(userId) :: Packet
+		packet.purchase = purchase
+		packet.message = purchase.message
+		return packet
+	end
 	if action == "Start" then
 		if session.attempt or now < session.nextStart then return self:snapshot(userId) end
 		if not canFish then
@@ -130,8 +156,11 @@ function Engine.command(
 		local quality = self.rules.qualityAt(progress)
 		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
 		session.catches += 1
+		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality)
+			else { species = self.config.SpeciesName, quality = quality }
 		local packet = self:finish(userId, now, "You caught a " .. self.config.SpeciesName .. "!")
-		packet.result = { species = self.config.SpeciesName, quality = quality }
+		packet.message = "You caught a " .. reward.species .. "!"
+		packet.result = reward
 		return packet
 	end
 	return nil

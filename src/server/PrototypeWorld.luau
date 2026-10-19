@@ -52,11 +52,41 @@ function World.create(): BasePart
 	Lighting.FogColor = Color3.fromRGB(190, 218, 245)
 	Lighting.FogStart = 130
 	Lighting.FogEnd = 420
+	Lighting.EnvironmentDiffuseScale = 0.8
+	Lighting.EnvironmentSpecularScale = 0.6
+	local atmosphere = Instance.new("Atmosphere")
+	atmosphere.Name = "SundriftAir"
+	atmosphere.Density, atmosphere.Haze, atmosphere.Glare = 0.22, 1.2, 0.12
+	atmosphere.Color = Color3.fromRGB(216, 237, 248)
+	atmosphere.Decay = Color3.fromRGB(177, 193, 221)
+	atmosphere.Parent = Lighting
+	local color = Instance.new("ColorCorrectionEffect")
+	color.Name = "SundriftColor"
+	color.Saturation, color.Contrast, color.Brightness = 0.1, 0.05, 0.015
+	color.TintColor = Color3.fromRGB(255, 247, 236)
+	color.Parent = Lighting
+	local bloom = Instance.new("BloomEffect")
+	bloom.Name = "SundriftGlow"
+	bloom.Intensity, bloom.Size, bloom.Threshold = 0.12, 20, 1.5
+	bloom.Parent = Lighting
+	local sun = Instance.new("SunRaysEffect")
+	sun.Intensity, sun.Spread = 0.035, 0.8
+	sun.Parent = Lighting
 
 	local island = part(folder, "Island", Vector3.new(72, 7, 56), CFrame.new(0, -1.5, 0), Color3.fromRGB(121, 178, 151))
 	island.Material = Enum.Material.Grass
 	part(folder, "IslandRock", Vector3.new(66, 10, 50), CFrame.new(0, -8, 0), Color3.fromRGB(120, 147, 171))
+	for index = 1, 10 do
+		local angle = index * math.pi / 5
+		local rock = part(folder, "RockRim", Vector3.new(15, 11, 13),
+			CFrame.new(math.cos(angle) * 29, -4, math.sin(angle) * 22), Color3.fromRGB(136, 159, 178))
+		rock.Shape = Enum.PartType.Ball
+	end
 	part(folder, "Path", Vector3.new(12, 0.12, 40), CFrame.new(0, 2.06, 6), Color3.fromRGB(223, 210, 174))
+	for index = 0, 7 do
+		local stone = part(folder, "Wayfinder", Vector3.new(1.8, 0.1, 0.7), CFrame.new(0, 2.14, -4 + index * 4), Color3.fromRGB(255, 222, 146))
+		stone.Material, stone.CanCollide = Enum.Material.Neon, false
+	end
 	part(folder, "DockBase", Vector3.new(18, 0.7, 26), CFrame.new(0, 1.5, 39), Color3.fromRGB(105, 77, 65))
 	for index = 0, 12 do
 		part(folder, "DockPlank", Vector3.new(18, 0.32, 1.88), CFrame.new(0, 1.99, 27 + index * 2),
@@ -101,6 +131,35 @@ function World.create(): BasePart
 				if z < 0 then Color3.fromRGB(175, 206, 183) else Color3.fromRGB(244, 194, 163))
 			crown.Shape = Enum.PartType.Ball
 		end
+	end
+	local random = Random.new(31)
+	for index = 1, 32 do
+		local x = (if index % 2 == 0 then -1 else 1) * random:NextNumber(9, 30)
+		local z = random:NextNumber(-21, 19)
+		local stem = part(folder, "FlowerStem", Vector3.new(0.14, 1.2, 0.14), CFrame.new(x, 2.7, z), Color3.fromRGB(107, 160, 131))
+		stem.CanCollide, stem.CanTouch = false, false
+		local flower = part(folder, "Flower", Vector3.new(0.9, 0.45, 0.9), CFrame.new(x, 3.35, z),
+			if index % 3 == 0 then Color3.fromRGB(233, 173, 214) else Color3.fromRGB(255, 224, 160))
+		flower.Shape, flower.CanCollide, flower.CanTouch = Enum.PartType.Ball, false, false
+	end
+	local shop = part(folder, "WorkshopCounter", Vector3.new(10, 3, 5), CFrame.new(17, 3.5, 12), Color3.fromRGB(159, 116, 87))
+	for _, x in { 12, 22 } do
+		part(folder, "WorkshopPost", Vector3.new(0.6, 7, 0.6), CFrame.new(x, 5.5, 14), Color3.fromRGB(135, 101, 81))
+	end
+	part(folder, "WorkshopAwning", Vector3.new(12, 0.5, 8), CFrame.new(17, 9, 12), Color3.fromRGB(101, 187, 182))
+	sign(shop, "ROD WORKSHOP\nUpgrade / discover / earn while away", Vector3.new(0, 7.5, 0), 290, 15)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "RodWorkshopPrompt"
+	prompt.ActionText, prompt.ObjectText = "Open journal", "Rod Workshop"
+	prompt.HoldDuration, prompt.MaxActivationDistance = 0, 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = shop
+	for _, x in { -31, 31 } do
+		local crystal = part(folder, "CloudCrystal", Vector3.new(1.6, 4, 1.6),
+			CFrame.new(x, 3.7, 24) * CFrame.Angles(0.1, 0.4, 0.2), Color3.fromRGB(145, 231, 235))
+		crystal.Material = Enum.Material.Neon
+		crystal.Transparency = 0.25
+		crystal.CanCollide = false
 	end
 	for index = 1, 14 do
 		local angle = index * math.pi / 7

@@ -1,14 +1,14 @@
-# Cloud Anglers v0.2 — testprotokoll
+# Cloud Anglers v0.3 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
-- 19 Luau-tester av de riktiga reglerna och serverns tillståndsmaskin passerade.
+- 19 tester av fiskets tillståndsmaskin och 18 tester av progression/sparregler passerade.
 - 2 Python-tester för korrekt inbäddade källfiler och repeterbar platsbyggnad
   passerade.
-- Alla 10 Luau-produktionsfiler samt Luau-testfilen accepterades av den
+- Alla 16 Luau-produktionsfiler samt båda Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
-- Typkontrollen passerade för FishingConfig, FishingRules, FishingEngine och
-  Luau-testsviten. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
+- Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
+  progression, sparregler och båda Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
 - `.rbxlx`-filen har byggts med de aktuella källfilerna.
 
 Luau-verktygen byggdes från den officiella källan `luau-lang/luau`, commit
@@ -77,3 +77,22 @@ Ljudreferenser för kast, plask, invevning och miss utgår från Roblox klientlj
 som också används i Roblox officiella Core-Scripts. Napp/fångst använder den
 inbyggda electronicpingshort-signalen. Ljuduppspelning är inte verifierad i
 molnmiljön; lyssna på varje effekt i Studio innan den markeras godkänd.
+
+## v0.3 — nya manuella kontroller, ännu okörda
+
+- [ ] Se mål, mynt, spönivå och journal på dator, mobil och iPad.
+- [ ] De tre första godkända fångsterna är olika arter.
+- [ ] Fångster ger rätt mynt; målbonus betalas en gång.
+- [ ] Journalen visar 6 arter, bästa kvalitet, låsta arter och nästa uppgradering.
+- [ ] Köp ett spö med rätt saldo; försök utan tillräckliga mynt och under ett kast.
+- [ ] Två upprepade köpanrop för samma nivå köper inte nästa nivå av misstag.
+- [ ] Breeze Rod låser upp 2 arter och Nimbus Rod låser upp Aurorafin.
+- [ ] Verkstadens prompt öppnar journalen utan att starta ett fiskekast.
+- [ ] Ljud för UI, mynt, mål, uppgradering och nya arter hörs och går att tysta.
+- [ ] Alla 6 fiskars 3D-modeller syns korrekt och fenorna rör sig.
+- [ ] Collection-topplistan visar rätt poäng och myntsaldon skickas inte till andra.
+- [ ] Publicera separat privat testupplevelse och följ återkomsttestet i discovery-and-return-play.md.
+- [ ] Verifiera faktiskt sparande av saldo, uppgraderingar, kvaliteter och mål.
+- [ ] Återkomst efter 5 minuter ger korrekt offlinebelopp; direkt återanslutning ger ingen dubbelbonus.
+- [ ] Samtidiga sessioner, DataStore-fel och serverstängning hanteras utan ny tom profil.
+- [ ] Studio utan publicering fungerar med tillfällig profil och tydlig information om att inget sparas.
