@@ -1,30 +1,43 @@
-# Cloud Anglers — v0.3
+# Cloud Anglers — v0.4
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.3.rbxlx)
+[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.4.rbxlx)
 
 Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
 press **Play**. The island is generated when Play starts.
 
 ## Play
 
-Follow the glowing path to the dock. **CAST LINE** with the button or E; at the
+Follow the stepping stones to the lantern-lit dock. **CAST LINE** with the button or E; at the
 bite, hold and release in the colored zone. Gold gives Brilliant quality.
 Catch six species, fill the field journal and earn coins for three rod upgrades.
 Breeze Rod unlocks two rare fish; Nimbus Rod unlocks Aurorafin. Your best grade
-per species adds to the collection leaderboard. Open **JOURNAL** or visit the
+per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop** or visit the
 workshop to upgrade.
 
-## New in v0.3
+## New in v0.4
 
-- A redesigned responsive HUD, animated coin counter, goal bar and field journal.
-- Six fish with distinct colors and silhouettes, moving fins and discovery reveals.
-- Five goals, coin rewards, three rod upgrades and visible collection scores.
-- Lighting/atmosphere pass, rim rocks, flowers, crystals and a rod workshop.
-- UI, coin, goal, upgrade, quality-meter and discovery audio plus quiet wind ambience.
-- Saved collections, coins, goals and rods, with server-owned offline income.
+- A cream-and-jade interface: smaller fishing controls, a single wallet, clear
+  adventure progress and larger, separated collection/workshop pages.
+- Actual 3D fish portraits in the collection, selectable entries, rarity details
+  and a larger animated discovery card. All game text is English.
+- A rebuilt harbor: curved floating cliffs, a suspended lagoon, flowing waterfall,
+  rope boardwalk, framed lanterns, striped workshop, branching trees, flowers,
+  distant islands and a gently drifting airship.
+- **No additional sound clips or event types.** The same six built-in clips have
+  softer pitches, equalization, peak control, quieter ambience and reel fades.
+  Reward phrases are shorter, goals avoid stacking on catches, meter pings are
+  removed, and nearby multiplayer effects have a voice limit and shorter range.
+- Layout arithmetic covers phone portrait/landscape, tablet and desktop. Portrait
+  fishing controls sit above the thumb controls; short landscape pages scroll.
 
-All in-game text remains English. Sounds use Roblox client content and visuals
-are procedural, so custom audio/animation/mesh uploads are not needed.
+Collections, coins, rod upgrades, goals and offline income carry forward from
+v0.3 with the same save namespace and rules. The map uses 707 visible primitive
+parts, of which 56 are collidable. These counts are measured by the geometry
+capture tool; frame rate must still be measured on an actual phone/iPad.
+
+All art is procedural and all six sound clips are Roblox client content. No
+custom mesh, animation or audio uploads are needed. These are improvements to the
+existing built-in sounds; they are not newly recorded audio assets.
 
 ## Saving and offline income
 
@@ -66,14 +79,19 @@ With the official Luau CLI:
 ```powershell
 luau tests/fishing_engine.spec.luau
 luau tests/fishing_progression.spec.luau
+luau tests/interface_layout.spec.luau
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.3.rbxlx` and `artifacts/Cloud-Anglers-v0.3.zip`.
+Outputs: `artifacts/Cloud-Anglers-v0.4.rbxlx` and `artifacts/Cloud-Anglers-v0.4.zip`.
 
 Shared modules contain tuning, quality rules, species data and fish geometry.
 Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
 and world construction. Client modules separate input, UI theme/interface, sounds
 and 3D effects. All production modules are checked for inclusion in the place.
+
+Optional geometry inspection (Luau and Blender required) is described in
+`tools/preview_world.py`. It captures production geometry for offline art review;
+it does not emulate Roblox lighting, sound, physics, UI or runtime behavior.
 
 The supplied YouTube video was blocked here. The return-income request was supplied
 by the user; recommendation guidance was checked against [Roblox's official discovery

@@ -1,0 +1,2372 @@
+<?xml version='1.0' encoding='utf-8'?>
+<roblox version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="Workspace" referent="RBX00000001">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <float name="FallenPartsDestroyHeight">-80</float>
+    </Properties>
+  </Item>
+  <Item class="Lighting" referent="RBX00000002">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <float name="ClockTime">14</float>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="RBX00000003">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="RBX00000007">
+      <Properties>
+        <string name="Name">FishingShared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="RBX00000009">
+        <Properties>
+          <string name="Name">FishingConfig</string>
+          <ProtectedString name="Source">--!strict
+-- Shared presentation/tuning values. The server still owns every attempt.
+return table.freeze({
+	PreparationTime = 0.8,
+	BiteTimeout = 12,
+	ChargeLeadTime = 0.3,
+	ChargeDuration = 2.8,
+	StartCooldown = 0.6,
+	MaxDistance = 16,
+	RequestCapacity = 12,
+	RequestsPerSecond = 5,
+	SpeciesName = "Pufflet",
+	CreatePrototypeWorld = true,
+	EnableSaving = true,
+	SaveInStudio = false,
+})
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000A">
+        <Properties>
+          <string name="Name">FishingRules</string>
+          <ProtectedString name="Source">--!strict
+-- Pure rules: usable in Roblox and the standalone Luau test runner.
+local Rules = {
+	NormalMin = 0.22,
+	NormalMax = 0.95,
+	FineMin = 0.48,
+	FineMax = 0.84,
+	BrilliantMin = 0.61,
+	BrilliantMax = 0.75,
+}
+
+function Rules.qualityAt(progress: number): string?
+	if progress ~= progress or progress &lt; Rules.NormalMin or progress &gt; Rules.NormalMax then
+		return nil
+	end
+	if progress &gt;= Rules.BrilliantMin and progress &lt;= Rules.BrilliantMax then
+		return "Brilliant"
+	end
+	if progress &gt;= Rules.FineMin and progress &lt;= Rules.FineMax then
+		return "Fine"
+	end
+	return "Normal"
+end
+
+return table.freeze(Rules)
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000B">
+        <Properties>
+          <string name="Name">FishModel</string>
+          <ProtectedString name="Source">--!strict
+local Catalog = require(script.Parent:WaitForChild("FishCatalog"))
+local Fish = {}
+
+local function shape(parent: Model, name: string, size: Vector3, position: Vector3, color: Color3): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Shape = Enum.PartType.Ball
+	part.Size = size
+	part.Position = position
+	part.Color = color
+	part.Material = Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Parent = parent
+	return part
+end
+
+function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
+	local species = Catalog.get(speciesId)
+	local bodyColor = Color3.fromRGB(table.unpack(species.Body))
+	local finColor = Color3.fromRGB(table.unpack(species.Fin))
+	local model = Instance.new("Model")
+	model.Name = name or species.Name
+	model:SetAttribute("SpeciesId", species.Id)
+	local kind = species.Shape
+	local size = if kind == "Ray" then Vector3.new(3.8, 0.95, 2.1)
+		elseif kind == "Long" or kind == "Lure" then Vector3.new(2.2, 1.5, 2.7) else Vector3.new(2.8, 2, 1.9)
+	local body = shape(model, "Body", size, Vector3.zero, bodyColor)
+	model.PrimaryPart = body
+	shape(model, "Belly", size * Vector3.new(0.75, 0.65, 0.86), Vector3.new(0, -size.Y * 0.18, -0.1),
+		bodyColor:Lerp(Color3.new(1, 1, 1), 0.65))
+	local front = -size.Z * 0.45
+	for _, side in { -1, 1 } do
+		local fin = shape(model, "Fin", if kind == "Ray" then Vector3.new(2.4, 0.2, 2.2) else Vector3.new(0.9, 0.22, 1),
+			Vector3.new(side * size.X * 0.48, -0.08, 0.2), finColor)
+		fin.CFrame *= CFrame.Angles(0, 0, side * 0.22)
+		fin:SetAttribute("FinRest", fin.CFrame)
+		fin:SetAttribute("Side", side)
+		shape(model, "Tail", Vector3.new(0.9, 1, 0.28), Vector3.new(side * 0.32, 0, size.Z * 0.7), finColor)
+		shape(model, "EyeWhite", Vector3.new(0.58, 0.6, 0.3), Vector3.new(side * 0.65, size.Y * 0.16, front), Color3.new(1, 1, 1))
+		shape(model, "Pupil", Vector3.new(0.27, 0.32, 0.15), Vector3.new(side * 0.65, size.Y * 0.17, front - 0.17), Color3.fromRGB(25, 44, 63))
+		shape(model, "EyeGlint", Vector3.new(0.09, 0.11, 0.07), Vector3.new(side * 0.65 - 0.05, size.Y * 0.17 + 0.08, front - 0.25), Color3.new(1, 1, 1))
+		shape(model, "Cheek", Vector3.new(0.36, 0.17, 0.15), Vector3.new(side * 0.98, -0.12, front + 0.16), Color3.fromRGB(255, 164, 153))
+		if kind == "Whiskers" then
+			local whisker = shape(model, "Whisker", Vector3.new(1.1, 0.09, 0.09), Vector3.new(side * 1.12, -0.18, front - 0.03), finColor)
+			whisker.CFrame *= CFrame.Angles(0, side * -0.35, side * 0.2)
+		end
+	end
+	shape(model, "Mouth", Vector3.new(0.3, 0.14, 0.16), Vector3.new(0, -0.2, front - 0.18), Color3.fromRGB(81, 59, 61))
+	if kind == "Spiky" or kind == "Whiskers" then
+		for index = -1, 1 do
+			shape(model, "Crown", Vector3.new(0.35, 0.6 - math.abs(index) * 0.15, 0.5), Vector3.new(index * 0.4, size.Y * 0.5, 0.1), finColor)
+		end
+	elseif kind == "Lure" then
+		shape(model, "LureStem", Vector3.new(0.13, 0.9, 0.13), Vector3.new(0, 1, front + 0.2), finColor)
+		local lure = shape(model, "LureGlow", Vector3.new(0.45, 0.45, 0.45), Vector3.new(0, 1.5, front + 0.2), finColor)
+		lure.Material = Enum.Material.Neon
+	end
+	model.Parent = parent
+	return model
+end
+
+function Fish.animate(model: Model, time: number)
+	local pivot = model:GetPivot()
+	for _, child in model:GetChildren() do
+		if child.Name == "Fin" and child:IsA("BasePart") then
+			local rest = child:GetAttribute("FinRest")
+			local side = child:GetAttribute("Side")
+			if typeof(rest) == "CFrame" and typeof(side) == "number" then
+				child.CFrame = pivot * rest * CFrame.Angles(0, 0, math.sin(time * 6) * 0.16 * side)
+			end
+		end
+	end
+end
+
+return Fish
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000C">
+        <Properties>
+          <string name="Name">FishCatalog</string>
+          <ProtectedString name="Source">--!strict
+-- Plain data so server progression can be tested without Roblox services.
+export type Species = {
+	Id: string, Name: string, Rarity: string, Level: number, Weight: number,
+	Coins: number, Body: { number }, Fin: { number }, Shape: string, Hint: string,
+}
+local Catalog = {}
+Catalog.Species = {
+	{ Id = "pufflet", Name = "Pufflet", Rarity = "Common", Level = 0, Weight = 40, Coins = 8,
+		Body = {255, 206, 99}, Fin = {247, 146, 107}, Shape = "Round", Hint = "A sunny little cloud drifter." },
+	{ Id = "mintfin", Name = "Mintfin", Rarity = "Common", Level = 0, Weight = 35, Coins = 9,
+		Body = {96, 221, 192}, Fin = {54, 157, 163}, Shape = "Long", Hint = "Follows the coolest cloud currents." },
+	{ Id = "emberfin", Name = "Emberfin", Rarity = "Uncommon", Level = 0, Weight = 25, Coins = 12,
+		Body = {255, 139, 123}, Fin = {255, 212, 120}, Shape = "Spiky", Hint = "A warm glow beneath the mist." },
+	{ Id = "starwhisker", Name = "Starwhisker", Rarity = "Rare", Level = 1, Weight = 16, Coins = 18,
+		Body = {182, 164, 249}, Fin = {255, 220, 139}, Shape = "Whiskers", Hint = "Breeze Rod unlocks this stargazer." },
+	{ Id = "moonray", Name = "Moonray", Rarity = "Rare", Level = 1, Weight = 12, Coins = 22,
+		Body = {124, 184, 249}, Fin = {192, 223, 255}, Shape = "Ray", Hint = "Breeze Rod reaches its quiet current." },
+	{ Id = "aurorafin", Name = "Aurorafin", Rarity = "Epic", Level = 2, Weight = 7, Coins = 35,
+		Body = {218, 146, 245}, Fin = {110, 241, 226}, Shape = "Lure", Hint = "Nimbus Rod reveals a living aurora." },
+} :: { Species }
+Catalog.Rods = {
+	{ Name = "Driftwood Rod", Cost = 0, Bonus = 0, Description = "Your first three species await." },
+	{ Name = "Breeze Rod", Cost = 32, Bonus = 15, Description = "Unlock 2 rare species. Earn 15% more coins." },
+	{ Name = "Nimbus Rod", Cost = 90, Bonus = 30, Description = "Unlock Aurorafin. Earn 30% more coins." },
+	{ Name = "Aurora Rod", Cost = 160, Bonus = 45, Description = "A golden rod. Earn 45% more coins." },
+}
+Catalog.Goals = {
+	{ Title = "Land your first fish", Kind = "Catches", Target = 1, Reward = 10 },
+	{ Title = "Discover 3 different species", Kind = "Species", Target = 3, Reward = 20 },
+	{ Title = "Upgrade to the Breeze Rod", Kind = "Rod", Target = 1, Reward = 20 },
+	{ Title = "Land a Brilliant catch", Kind = "Brilliant", Target = 1, Reward = 25 },
+	{ Title = "Complete your field journal", Kind = "Species", Target = 6, Reward = 50 },
+}
+
+function Catalog.get(id: string?): Species
+	for _, species in Catalog.Species do
+		if species.Id == id then return species end
+	end
+	return Catalog.Species[1]
+end
+
+return Catalog
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="RBX00000004">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="ModuleScript" referent="RBX0000000D">
+      <Properties>
+        <string name="Name">FishingEngine</string>
+        <ProtectedString name="Source">--!strict
+-- Pure server state machine. Roblox services are kept in FishingService.
+type Config = {
+	read PreparationTime: number, read BiteTimeout: number, read ChargeLeadTime: number,
+	read ChargeDuration: number, read StartCooldown: number, read RequestCapacity: number,
+	read RequestsPerSecond: number, read SpeciesName: string,
+}
+type Attempt = {
+	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?,
+}
+type Session = {
+	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
+	tokenTime: number,
+	profile: any?,
+}
+type Packet = { [string]: any }
+local Engine = {}
+Engine.__index = Engine
+type EngineData = {
+	config: Config,
+	rules: { read qualityAt: (number) -&gt; string? },
+	sessions: { [number]: Session },
+	sequence: number,
+	progression: any?,
+}
+export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
+
+function Engine.new(config: Config, rules: { read qualityAt: (number) -&gt; string? }, progression: any?): FishingEngine
+	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0, progression = progression }, Engine)
+end
+
+function Engine.addPlayer(self: FishingEngine, userId: number, now: number, initialProfile: any?)
+	if self.sessions[userId] then return end
+	self.sessions[userId] = {
+		attempt = nil, catches = 0, nextStart = now,
+		tokens = self.config.RequestCapacity, tokenTime = now,
+		profile = if self.progression then (if initialProfile then self.progression.copy(initialProfile) else self.progression.create()) else nil,
+	}
+	if initialProfile then self.sessions[userId].catches = initialProfile.catches end
+end
+
+function Engine.exportProfile(self: FishingEngine, userId: number): any?
+	local session = self.sessions[userId]
+	return if session and session.profile and self.progression then self.progression.copy(session.profile) else nil
+end
+
+function Engine.removePlayer(self: FishingEngine, userId: number)
+	self.sessions[userId] = nil
+end
+
+function Engine.snapshot(self: FishingEngine, userId: number): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	local packet: Packet = { phase = "Idle", catches = session.catches, nextStart = session.nextStart }
+	if self.progression and session.profile then packet.profile = self.progression.snapshot(session.profile) end
+	local attempt = session.attempt
+	if attempt then
+		packet.phase = attempt.phase
+		packet.attemptId = attempt.id
+		packet.readyAt = attempt.readyAt
+		packet.expiresAt = attempt.expiresAt
+		packet.chargeAt = attempt.chargeAt
+		packet.duration = self.config.ChargeDuration
+	end
+	return packet
+end
+
+function Engine.finish(self: FishingEngine, userId: number, now: number, message: string): Packet
+	local session = self.sessions[userId]
+	session.attempt = nil
+	session.nextStart = now + self.config.StartCooldown
+	local packet = self:snapshot(userId) :: Packet
+	packet.message = message
+	return packet
+end
+
+function Engine.interrupt(self: FishingEngine, userId: number, now: number, message: string): Packet?
+	local session = self.sessions[userId]
+	if not session or not session.attempt then return nil end
+	return self:finish(userId, now, message)
+end
+
+function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: boolean): Packet?
+	local session = self.sessions[userId]
+	local attempt = if session then session.attempt else nil
+	if not attempt then return nil end
+	if not canFish then
+		return self:finish(userId, now, "Fishing stopped. Return to the glowing spot on the dock.")
+	end
+	if now &gt; attempt.expiresAt then
+		return self:finish(userId, now, "It swam away. Cast again!")
+	end
+	return nil
+end
+
+function Engine.command(
+	self: FishingEngine, userId: number, action: any, attemptId: any, now: number, canFish: boolean
+): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	-- Rate-limit all requests, including malformed and unknown actions.
+	session.tokens = math.min(self.config.RequestCapacity,
+		session.tokens + math.max(0, now - session.tokenTime) * self.config.RequestsPerSecond)
+	session.tokenTime = now
+	if session.tokens &lt; 1 then return nil end
+	session.tokens -= 1
+	if type(action) ~= "string" then return nil end
+	if action == "Sync" then return self:snapshot(userId) end
+	local aborted = self:tick(userId, now, canFish)
+	if aborted then return aborted end
+	if action == "Upgrade" and self.progression and session.profile then
+		local packet = self:snapshot(userId) :: Packet
+		if session.attempt then
+			packet.message = "Finish your cast before changing rods."
+			return packet
+		end
+		if type(attemptId) ~= "number" or attemptId ~= session.profile.level then
+			packet.message = "Your rod changed. Check the workshop again."
+			return packet
+		end
+		local purchase = self.progression.upgrade(session.profile)
+		packet = self:snapshot(userId) :: Packet
+		packet.purchase = purchase
+		packet.message = purchase.message
+		return packet
+	end
+	if action == "Start" then
+		if session.attempt or now &lt; session.nextStart then return self:snapshot(userId) end
+		if not canFish then
+			local packet = self:snapshot(userId) :: Packet
+			packet.message = "Walk to the glowing spot at the end of the dock."
+			return packet
+		end
+		self.sequence += 1
+		local readyAt = now + self.config.PreparationTime
+		session.attempt = {
+			id = self.sequence, phase = "Waiting", readyAt = readyAt,
+			expiresAt = readyAt + self.config.BiteTimeout,
+		}
+		return self:snapshot(userId)
+	end
+	local attempt = session.attempt
+	if not attempt or type(attemptId) ~= "number" or attemptId ~= attempt.id then return nil end
+	if action == "Cancel" then
+		return self:finish(userId, now, "Cast cancelled. Ready when you are.")
+	elseif action == "Hold" then
+		if attempt.phase ~= "Waiting" or now &lt; attempt.readyAt then return self:snapshot(userId) end
+		attempt.phase = "Reeling"
+		local chargeAt = now + self.config.ChargeLeadTime
+		attempt.chargeAt = chargeAt
+		attempt.expiresAt = chargeAt + self.config.ChargeDuration
+		return self:snapshot(userId)
+	elseif action == "Release" and attempt.phase == "Reeling" then
+		-- No client-supplied quality, timestamp, species or reward is trusted.
+		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
+		local quality = self.rules.qualityAt(progress)
+		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
+		session.catches += 1
+		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality)
+			else { species = self.config.SpeciesName, quality = quality }
+		local packet = self:finish(userId, now, "You caught a " .. self.config.SpeciesName .. "!")
+		packet.message = "You caught a " .. reward.species .. "!"
+		packet.result = reward
+		return packet
+	end
+	return nil
+end
+
+return Engine
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000E">
+      <Properties>
+        <string name="Name">PrototypeWorld</string>
+        <ProtectedString name="Source">--!strict
+-- Original procedural art. Walkable surfaces are separate from decorative detail.
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Fish = require(ReplicatedStorage:WaitForChild("FishingShared"):WaitForChild("FishModel"))
+local World = {}
+local C = {
+	Grass = Color3.fromRGB(134, 181, 142), Moss = Color3.fromRGB(93, 148, 125),
+	Stone = Color3.fromRGB(143, 164, 166), DeepStone = Color3.fromRGB(99, 130, 146),
+	Sand = Color3.fromRGB(229, 215, 178), Wood = Color3.fromRGB(150, 104, 73),
+	Plank = Color3.fromRGB(198, 154, 105), Cream = Color3.fromRGB(252, 239, 205),
+	Teal = Color3.fromRGB(65, 139, 132), Water = Color3.fromRGB(93, 193, 194),
+	Cloud = Color3.fromRGB(243, 242, 234), Coral = Color3.fromRGB(232, 168, 143),
+}
+local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, decor: boolean?): Part
+	local p = Instance.new("Part")
+	p.Name, p.Size, p.CFrame, p.Color = name, size, cf, color
+	p.Anchored, p.Material = true, Enum.Material.SmoothPlastic
+	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	if decor then p.CanCollide, p.CanTouch, p.CanQuery, p.CastShadow = false, false, false, false end
+	p.Parent = parent
+	return p
+end
+local function ball(parent: Instance, name: string, size: Vector3, pos: Vector3, color: Color3, decor: boolean?): Part
+	local p = part(parent, name, size, CFrame.new(pos), color, decor)
+	p.Shape = Enum.PartType.Ball
+	return p
+end
+local function disk(parent: Instance, name: string, width: number, depth: number, thickness: number, pos: Vector3, color: Color3, decor: boolean?): Part
+	local p = part(parent, name, Vector3.new(thickness, width, depth), CFrame.new(pos) * CFrame.Angles(0, 0, math.pi / 2), color, decor)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+local function strut(parent: Instance, name: string, a: Vector3, b: Vector3, width: number, color: Color3, decor: boolean?): Part
+	local p = part(parent, name, Vector3.new((b - a).Magnitude, width, width),
+		CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.pi / 2, 0), color, decor)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+local function plaque(parent: BasePart, text: string, sub: string)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name, gui.Face = "PaintedSign", Enum.NormalId.Front
+	gui.SizingMode, gui.CanvasSize = Enum.SurfaceGuiSizingMode.FixedSize, Vector2.new(700, 240)
+	gui.LightInfluence, gui.Parent = 0.35, parent
+	local label = Instance.new("TextLabel")
+	label.Size, label.Position = UDim2.fromScale(0.92, 0.48), UDim2.fromScale(0.04, 0.09)
+	label.BackgroundTransparency, label.Text = 1, text
+	label.Font, label.TextSize = Enum.Font.GothamBold, 48
+	label.TextColor3, label.AutoLocalize, label.Parent = C.Cream, false, gui
+	local caption = label:Clone()
+	caption.Text, caption.TextSize = sub, 25
+	caption.Position, caption.Size, caption.Parent = UDim2.fromScale(0.04, 0.6), UDim2.fromScale(0.92, 0.25), gui
+end
+local function lantern(parent: Instance, pos: Vector3)
+	strut(parent, "LanternHanger", pos + Vector3.new(0, 0.9, 0), pos + Vector3.new(0, 1.6, 0), 0.1, C.Wood, true)
+	local glow = part(parent, "WarmLantern", Vector3.new(0.8, 1.05, 0.8), CFrame.new(pos), C.Cream, true)
+	glow.Material = Enum.Material.Neon
+	for _, y in { -0.63, 0.63 } do
+		part(parent, "LanternCap", Vector3.new(1.05, 0.17, 1.05), CFrame.new(pos + Vector3.new(0, y, 0)), C.Teal, true)
+	end
+	for _, x in { -0.45, 0.45 } do
+		for _, z in { -0.45, 0.45 } do
+			strut(parent, "LanternFrame", pos + Vector3.new(x, -0.6, z), pos + Vector3.new(x, 0.6, z), 0.07, C.Wood, true)
+		end
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Brightness, light.Range, light.Shadows = Color3.fromRGB(255, 218, 160), 0.6, 13, false
+	light.Parent = glow
+end
+local function tree(parent: Instance, pos: Vector3, scale: number, tint: Color3, seed: number)
+	local model = Instance.new("Model")
+	model.Name = "WindTree"
+	local r = Random.new(seed)
+	local top = pos + Vector3.new(0, 9 * scale, 0)
+	local trunk = strut(model, "Trunk", pos, top, 1.25 * scale, C.Wood)
+	trunk.Material = Enum.Material.Wood
+	for index = 1, 4 do
+		local angle = index * math.pi / 2 + seed
+		local endPos = top + Vector3.new(math.cos(angle) * 3, index % 2, math.sin(angle) * 3) * scale
+		strut(model, "Branch", pos + Vector3.new(0, 5.2 * scale, 0), endPos, 0.55 * scale, C.Wood, true)
+		for layer = 1, 2 do
+			local crown = ball(model, "Canopy", Vector3.new(6.7, 4.4, 6.3) * scale,
+				endPos + Vector3.new(0, (layer - 1) * 2.3, 0) * scale, tint:Lerp(C.Cream, r:NextNumber(0, 0.17)), true)
+			crown.CFrame *= CFrame.Angles(r:NextNumber(-0.2, 0.2), angle, 0.13)
+		end
+	end
+	ball(model, "CanopyTop", Vector3.new(6.6, 5.5, 6.8) * scale, top + Vector3.new(0, 3.3 * scale, 0), tint, true)
+	model.Parent = parent
+end
+local function floatingIsland(parent: Instance, pos: Vector3, size: number, seed: number)
+	local model = Instance.new("Model")
+	model.Name = "DistantIsle"
+	disk(model, "Meadow", size, size * 0.76, 2, pos, C.Moss, true)
+	ball(model, "Cliff", Vector3.new(size * 0.95, size * 0.6, size * 0.72), pos - Vector3.new(0, size * 0.22, 0), C.DeepStone, true)
+	ball(model, "Taper", Vector3.new(size * 0.5, size * 0.52, size * 0.4), pos - Vector3.new(0, size * 0.5, 0), C.Stone, true)
+	tree(model, pos + Vector3.yAxis, size / 30, if seed % 2 == 0 then C.Coral else Color3.fromRGB(170, 198, 153), seed)
+	-- Distant tree trunks must not create invisible obstacles to falling players.
+	for _, child in model:GetDescendants() do
+		if child:IsA("BasePart") then child.CanCollide, child.CanTouch, child.CanQuery = false, false, false end
+	end
+	model.Parent = parent
+end
+
+function World.create(): BasePart
+	assert(not workspace:FindFirstChild("MolnfiskarnaPrototype"), "Prototype world already exists. Disable CreatePrototypeWorld for a custom world.")
+	local folder = Instance.new("Folder")
+	folder.Name, folder.Parent = "MolnfiskarnaPrototype", workspace
+	Lighting.ClockTime, Lighting.Brightness, Lighting.GlobalShadows = 16.25, 2.4, true
+	Lighting.Ambient, Lighting.OutdoorAmbient = Color3.fromRGB(117, 140, 153), Color3.fromRGB(173, 189, 186)
+	Lighting.FogColor, Lighting.FogStart, Lighting.FogEnd = Color3.fromRGB(209, 229, 228), 170, 650
+	Lighting.EnvironmentDiffuseScale, Lighting.EnvironmentSpecularScale = 0.8, 0.8
+	local atmosphere = Instance.new("Atmosphere")
+	atmosphere.Name, atmosphere.Density, atmosphere.Haze, atmosphere.Glare = "SundriftAir", 0.27, 1.5, 0.12
+	atmosphere.Color, atmosphere.Decay, atmosphere.Offset = Color3.fromRGB(228, 235, 218), Color3.fromRGB(160, 183, 196), 0.15
+	atmosphere.Parent = Lighting
+	local grade = Instance.new("ColorCorrectionEffect")
+	grade.Name, grade.Saturation, grade.Contrast, grade.Brightness = "SundriftGrade", 0.06, 0.09, 0.015
+	grade.TintColor, grade.Parent = Color3.fromRGB(255, 246, 230), Lighting
+	local bloom = Instance.new("BloomEffect")
+	bloom.Name, bloom.Intensity, bloom.Size, bloom.Threshold, bloom.Parent = "LanternBloom", 0.15, 24, 1.8, Lighting
+	local sun = Instance.new("SunRaysEffect")
+	sun.Intensity, sun.Spread, sun.Parent = 0.035, 0.85, Lighting
+
+	-- A curved silhouette and layered cliff replace the rectangular platform.
+	local meadow = disk(folder, "Meadow", 74, 60, 4, Vector3.new(0, 0, 0), C.Grass)
+	meadow.Material = Enum.Material.Grass
+	disk(folder, "EarthLip", 75, 61, 2, Vector3.new(0, -2.3, 0), C.Sand)
+	ball(folder, "CliffBody", Vector3.new(70, 22, 56), Vector3.new(0, -12, 0), C.Stone)
+	ball(folder, "IslandKeel", Vector3.new(42, 27, 35), Vector3.new(-3, -25, 2), C.DeepStone)
+	for i = 1, 16 do
+		local a = i * math.pi / 8
+		local pos = Vector3.new(math.cos(a) * 31, -6 - i % 3, math.sin(a) * 24)
+		local rock = part(folder, "CliffFacet", Vector3.new(9, 15, 9), CFrame.new(pos) * CFrame.Angles(0.1, a, 0.15),
+			if i % 3 == 0 then C.DeepStone else C.Stone, true)
+		rock.Material = Enum.Material.Slate
+		ball(folder, "GrassBank", Vector3.new(10, 2.2, 9), Vector3.new(math.cos(a) * 31, 1.2, math.sin(a) * 24), C.Grass, true)
+	end
+	-- Rounded stepping stones keep the central route readable without a neon runway.
+	for i = 0, 9 do
+		local z = -9 + i * 3.8
+		local p = disk(folder, "PathStone", 5.4 + i % 2, 3.2, 0.13, Vector3.new(math.sin(i * 0.7) * 1.6, 2.08, z), C.Sand)
+		p.CFrame *= CFrame.Angles(0, i * 0.3, 0)
+	end
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name, spawn.Size, spawn.CFrame = "PrototypeSpawn", Vector3.new(6, 0.5, 6), CFrame.new(0, 2.3, -8) * CFrame.Angles(0, math.pi, 0)
+	spawn.Anchored, spawn.Neutral, spawn.Duration, spawn.Transparency, spawn.Parent = true, true, 0, 1, folder
+
+	-- Boardwalk: staggered warm timber, pegs, rope rails and a broad casting platform.
+	part(folder, "DockBase", Vector3.new(17.5, 0.8, 29), CFrame.new(0, 1.4, 38.5), C.Wood)
+	for i = 0, 14 do
+		local p = part(folder, "DockBoard", Vector3.new(18, 0.3, 1.85), CFrame.new(0, 1.98, 25 + i * 1.9),
+			C.Plank:Lerp(C.Cream, (i % 3) * 0.045))
+		p.Material = Enum.Material.Wood
+		for _, x in { -7.4, 7.4 } do disk(folder, "BoardPeg", 0.12, 0.12, 0.02, Vector3.new(x, 2.14, 25 + i * 1.9), C.Wood, true) end
+	end
+	for _, x in { -9.3, 9.3 } do
+		for i, z in { 28, 38, 49 } do
+			strut(folder, "DockPiling", Vector3.new(x, -3, z), Vector3.new(x, 5.1, z), 0.75, C.Wood)
+			disk(folder, "PostCap", 1.05, 1.05, 0.22, Vector3.new(x, 5.15, z), C.Plank, true)
+			if i &lt; 3 then
+				local nextZ = if i == 1 then 38 else 49
+				for segment = 0, 5 do
+					local function ropePoint(t: number): Vector3
+						return Vector3.new(x, 4.6 - math.sin(t * math.pi) * 0.75, z + (nextZ - z) * t)
+					end
+					strut(folder, "RopeRail", ropePoint(segment / 6), ropePoint((segment + 1) / 6), 0.14, C.Cream, true)
+				end
+			end
+		end
+	end
+	for _, x in { -7, 7 } do
+		strut(folder, "LampPost", Vector3.new(x, 2.2, 28), Vector3.new(x, 8, 28), 0.25, C.Teal)
+		strut(folder, "LampArm", Vector3.new(x, 8, 28), Vector3.new(x * 0.84, 8, 28), 0.2, C.Teal, true)
+		lantern(folder, Vector3.new(x * 0.84, 6.4, 28))
+	end
+	local spot = part(folder, "FishingSpot", Vector3.new(12, 0.08, 9), CFrame.new(0, 2.19, 45) * CFrame.Angles(0, math.pi, 0), C.Teal, true)
+	spot.Transparency = 0.65
+	-- Inlaid edge marks guide new players but leave the timber visible.
+	for _, x in { -6, 6 } do
+		part(folder, "CastingInlay", Vector3.new(0.12, 0.03, 5), CFrame.new(x, 2.25, 45), C.Cream, true)
+	end
+	local dockSign = part(folder, "HarborPlaque", Vector3.new(5, 1.7, 0.25), CFrame.new(-5, 3.5, 37), C.Teal, true)
+	plaque(dockSign, "SUNDRIFT", "Cast. Discover. Unwind.")
+
+	-- A suspended lagoon with a stone bowl, shallow shelves and fine foam edges.
+	ball(folder, "LagoonBowl", Vector3.new(61, 17, 47), Vector3.new(0, -9.4, 68), C.Stone)
+	ball(folder, "LagoonKeel", Vector3.new(29, 23, 26), Vector3.new(3, -18, 71), C.DeepStone, true)
+	disk(folder, "LagoonBed", 56, 42, 1.2, Vector3.new(0, -1.2, 68), Color3.fromRGB(54, 139, 148), true)
+	local water = disk(folder, "CloudPond", 56, 42, 0.16, Vector3.new(0, 0.77, 68), C.Water, true)
+	water.Material, water.Transparency, water.Reflectance = Enum.Material.Glass, 0.22, 0.12
+	for i = 1, 32 do
+		local a = i * math.pi / 16
+		local pos = Vector3.new(math.cos(a) * 28.4, -0.15, 68 + math.sin(a) * 21.5)
+		-- Keep the near edge low where the dock meets the lagoon.
+		ball(folder, "LagoonRim", Vector3.new(5.6, if math.sin(a) &lt; -0.6 then 1.5 else 3, 4.7), pos,
+			if i % 4 == 0 then C.Moss else C.Sand, true)
+	end
+	for ring = 1, 3 do
+		for i = 1, 18 do
+			local a, b = i * math.pi / 9, (i + 0.65) * math.pi / 9
+			local rx, rz = 25 - ring * 1.5, 18.5 - ring
+			local p = strut(folder, "WaterGlint", Vector3.new(math.cos(a) * rx, 0.89, 68 + math.sin(a) * rz),
+				Vector3.new(math.cos(b) * rx, 0.89, 68 + math.sin(b) * rz), 0.045, C.Cream, true)
+			p.Transparency = 0.68
+		end
+	end
+	-- Broad flowing sheets and a misty base: animated locally, with no additional sound.
+	for i = -1, 1 do
+		local sheet = part(folder, "WaterfallRibbon", Vector3.new(2.4, 37 + i * 3, 0.18),
+			CFrame.new(7 + i * 2.2, -18 - i * 1.5, 88), C.Water:Lerp(C.Cream, 0.2), true)
+		sheet.Material, sheet.Transparency = Enum.Material.Glass, 0.3
+		sheet:SetAttribute("FlowRibbon", true)
+		for stripe = 1, 3 do
+			local streak = part(folder, "WaterfallStreak", Vector3.new(0.1, 5 + stripe, 0.06),
+				CFrame.new(6.2 + i * 2.2 + stripe * 0.38, -stripe * 9, 87.85), C.Cream, true)
+			streak.Transparency = 0.65
+			streak:SetAttribute("FlowStart", streak.CFrame)
+			streak:SetAttribute("FlowPhase", stripe * 0.28 + i)
+		end
+	end
+	-- A small roofed workshop, with curved stripe tiles, a counter and tackle props.
+	local shopModel = Instance.new("Model")
+	shopModel.Name, shopModel.Parent = "RodWorkshop", folder
+	part(shopModel, "ShopDeck", Vector3.new(15, 0.35, 11), CFrame.new(20, 2.24, 8), C.Plank)
+	for _, x in { 13.5, 26.5 } do
+		for _, z in { 3.5, 12.5 } do
+			strut(shopModel, "PavilionPost", Vector3.new(x, 2.4, z), Vector3.new(x, 10, z), 0.5, C.Wood)
+		end
+	end
+	part(shopModel, "CounterBody", Vector3.new(11, 2.5, 2.3), CFrame.new(20, 3.7, 11), C.Teal)
+	local counter = part(shopModel, "WorkshopCounter", Vector3.new(12, 0.35, 3), CFrame.new(20, 5.1, 11), C.Cream)
+	for x = 15, 25, 2 do part(shopModel, "CounterSlat", Vector3.new(0.12, 2.3, 0.08), CFrame.new(x, 3.7, 12.2), C.Cream, true) end
+	for i = 0, 7 do
+		for _, side in { -1, 1 } do
+			local roof = part(shopModel, "CanopyStripe", Vector3.new(1.95, 0.3, 6.8),
+				CFrame.new(13.2 + i * 1.95, 10.7, 8 + side * 3.1) * CFrame.Angles(side * 0.24, 0, 0),
+				if i % 2 == 0 then C.Teal else C.Cream)
+			roof.CanCollide = false
+		end
+	end
+	strut(shopModel, "RoofRidge", Vector3.new(12.3, 11.5, 8), Vector3.new(28.2, 11.5, 8), 0.32, C.Wood, true)
+	local shopSign = part(shopModel, "WorkshopSign", Vector3.new(8.5, 2, 0.25), CFrame.new(20, 8.8, 1.6), C.Teal, true)
+	plaque(shopSign, "ROD &amp; REEL", "A little upgrade. A bigger adventure.")
+	lantern(shopModel, Vector3.new(13.5, 7.1, 12.5))
+	for i = 1, 3 do
+		strut(shopModel, "DisplayRod", Vector3.new(17 + i, 5.3, 10.8), Vector3.new(16.6 + i, 8.1, 10.6), 0.08,
+			if i == 3 then C.Coral else C.Teal, true)
+		disk(shopModel, "Spool", 0.7, 0.7, 0.55, Vector3.new(22 + i * 0.6, 5.5, 11), C.Plank, true)
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name, prompt.ActionText, prompt.ObjectText = "RodWorkshopPrompt", "Browse rods", "Rod &amp; Reel"
+	prompt.HoldDuration, prompt.MaxActivationDistance, prompt.RequiresLineOfSight, prompt.Parent = 0, 10, false, counter
+
+	-- A shady picnic corner balances the shop on the opposite side.
+	for _, z in { -3.5, -2.4, -1.3 } do part(folder, "BenchSlat", Vector3.new(7, 0.25, 0.9), CFrame.new(-19, 4, z), C.Plank) end
+	for _, x in { -21.5, -16.5 } do part(folder, "BenchLeg", Vector3.new(0.5, 2, 3), CFrame.new(x, 3, -2.4), C.Wood) end
+	part(folder, "BenchBack", Vector3.new(7, 1.6, 0.25), CFrame.new(-19, 5.2, -3.7), C.Teal)
+	tree(folder, Vector3.new(-24, 2, -12), 1.05, Color3.fromRGB(172, 197, 153), 11)
+	tree(folder, Vector3.new(22, 2, -15), 0.9, C.Coral, 15)
+	tree(folder, Vector3.new(-25, 2, 13), 0.85, Color3.fromRGB(152, 184, 146), 19)
+	tree(folder, Vector3.new(28, 2, 20), 0.65, Color3.fromRGB(226, 188, 155), 22)
+	local random = Random.new(31)
+	for i = 1, 34 do
+		local x = (if i % 2 == 0 then -1 else 1) * random:NextNumber(9, 29)
+		local z = random:NextNumber(-21, 21)
+		if x &gt; 10 and z &gt; 0 and z &lt; 16 then continue end
+		for blade = 1, 3 do
+			local grass = part(folder, "MeadowBlade", Vector3.new(0.13, random:NextNumber(0.7, 1.5), 0.28),
+				CFrame.new(x + blade * 0.23, 2.4, z) * CFrame.Angles(0, blade, (blade - 2) * 0.3), C.Moss, true)
+			grass.Material = Enum.Material.Grass
+		end
+		if i % 2 == 0 then
+			local center = Vector3.new(x, 3.05, z)
+			strut(folder, "FlowerStem", Vector3.new(x, 2, z), center, 0.08, C.Moss, true)
+			for petal = 1, 5 do
+				local a = petal * math.pi * 0.4
+				ball(folder, "Petal", Vector3.new(0.42, 0.16, 0.65), center + Vector3.new(math.cos(a) * 0.25, 0, math.sin(a) * 0.25),
+					if i % 4 == 0 then C.Cream else C.Coral, true)
+			end
+			ball(folder, "FlowerHeart", Vector3.new(0.2, 0.2, 0.2), center + Vector3.yAxis * 0.1, Color3.fromRGB(243, 194, 85), true)
+		end
+	end
+	for i = 1, 10 do
+		local a = i * math.pi / 5
+		for puff = 0, 2 do
+			ball(folder, "CloudPuff", Vector3.new(27, 9 + puff * 2, 23),
+				Vector3.new(math.cos(a) * (47 + puff * 6), -12 - puff * 3, 15 + math.sin(a) * 62), C.Cloud, true)
+		end
+	end
+	for i, pos in {
+		Vector3.new(-102, 12, 106), Vector3.new(112, 25, 142), Vector3.new(-165, 40, 210),
+		Vector3.new(55, 48, 245), Vector3.new(180, 5, 230),
+	} do floatingIsland(folder, pos, 24 + i * 3, i * 7) end
+	-- Airship silhouette provides a focal point beyond the lagoon.
+	local ship = Instance.new("Model")
+	ship.Name = "SkySail"
+	ball(ship, "Envelope", Vector3.new(15, 10, 27), Vector3.new(-72, 43, 166), C.Coral, true)
+	ball(ship, "EnvelopeStripe", Vector3.new(15.3, 10.3, 6), Vector3.new(-72, 43, 166), C.Cream, true)
+	part(ship, "Gondola", Vector3.new(5, 2.3, 9), CFrame.new(-72, 33, 166), C.Wood, true)
+	for _, x in { -74, -70 } do
+		strut(ship, "Rigging", Vector3.new(x, 34, 162), Vector3.new(x, 39, 161), 0.1, C.Cream, true)
+		strut(ship, "Rigging", Vector3.new(x, 34, 170), Vector3.new(x, 39, 171), 0.1, C.Cream, true)
+	end
+	ship.Parent = folder
+	local fish = Fish.create(folder, "PuffletPreview")
+	fish:PivotTo(CFrame.new(0, 4, 66))
+	return spot
+end
+function World.findCustom(): BasePart
+	local folder = workspace:FindFirstChild("World")
+	local spot = if folder then folder:FindFirstChild("FishingSpot") else nil
+	assert(spot and spot:IsA("BasePart"), "Create an anchored Part at Workspace.World.FishingSpot.")
+	return spot :: BasePart
+end
+return World
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000F">
+      <Properties>
+        <string name="Name">FishingService</string>
+        <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Config = require(Shared:WaitForChild("FishingConfig"))
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local Catalog = require(Shared:WaitForChild("FishCatalog"))
+local Engine = require(script.Parent:WaitForChild("FishingEngine"))
+local Progression = require(script.Parent:WaitForChild("FishingProgression"))
+local ProfileStore = require(script.Parent:WaitForChild("FishingProfileStore"))
+local World = require(script.Parent:WaitForChild("PrototypeWorld"))
+local Service = {}
+local started = false
+
+function Service.start()
+	assert(not started, "FishingService has already started")
+	started = true
+	local spot = if Config.CreatePrototypeWorld then World.create() else World.findCustom()
+	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "Install one fishing server only.")
+	local remotes = Instance.new("Folder")
+	remotes.Name = "FishingRemotes"
+	local function remote(name: string): RemoteEvent
+		local event = Instance.new("RemoteEvent")
+		event.Name, event.Parent = name, remotes
+		return event
+	end
+	local action, state, visual = remote("FishingAction"), remote("FishingState"), remote("FishingVisual")
+	local random = Random.new()
+	local progression = Progression.new(Catalog, function() return random:NextNumber() end)
+	local engine = Engine.new(Config, Rules, progression)
+	local saving = Config.EnableSaving and (not RunService:IsStudio() or Config.SaveInStudio)
+	local store = if saving then ProfileStore.new(Catalog, progression, RunService:IsStudio()) else nil
+	local sessions: { [Player]: any } = {}
+	local loading: { [Player]: boolean } = {}
+	local welcome: { [Player]: any } = {}
+	local connections: { [Player]: RBXScriptConnection } = {}
+	local lastVisual: { [Player]: string } = {}
+	local closing, pendingReleases = false, 0
+
+	local function decorate(player: Player, packet: any)
+		local lane = (player.UserId % 4 - 1.5) * 2
+		packet.castTarget = (spot.CFrame * CFrame.new(lane, -1.2, -14)).Position
+		return packet
+	end
+	local function publicVisual(player: Player, packet: any)
+		local result = packet.result
+		return decorate(player, {
+			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId,
+			readyAt = packet.readyAt, chargeAt = packet.chargeAt,
+			rodLevel = if packet.profile then packet.profile.level else 0,
+			result = if result then {
+				species = result.species, speciesId = result.speciesId, quality = result.quality,
+				rarity = result.rarity, newDiscovery = result.newDiscovery,
+			} else nil,
+		})
+	end
+	local function emit(player: Player, packet: any)
+		decorate(player, packet)
+		local profile = packet.profile
+		if profile then profile.persistent = saving; profile.offlineRate = profile.species * 0.25 end
+		if welcome[player] then packet.offline = welcome[player]; welcome[player] = nil end
+		state:FireClient(player, packet)
+		local stats = player:FindFirstChild("leaderstats")
+		local score = if stats then stats:FindFirstChild("Collection") else nil
+		if score and score:IsA("IntValue") and profile then score.Value = profile.points end
+		local key = packet.phase .. ":" .. tostring(packet.attemptId) .. ":" .. packet.catches
+			.. ":" .. (if profile then profile.level else 0)
+		if lastVisual[player] ~= key then
+			lastVisual[player] = key
+			visual:FireAllClients(player.UserId, publicVisual(player, packet))
+		end
+	end
+	local function canFish(player: Player): boolean
+		local character = player.Character
+		if not character then return false end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+		return spot:IsDescendantOf(workspace) and humanoid ~= nil and humanoid.Health &gt; 0
+			and root ~= nil and root:IsA("BasePart")
+			and (root.Position - spot.Position).Magnitude &lt;= Config.MaxDistance
+	end
+	local function release(session: any, profile: any)
+		if not store or session.closed or session.releaseRequested then return end
+		session.releaseRequested = true
+		pendingReleases += 1
+		task.spawn(function()
+			local deadline = os.clock() + 20
+			while session.busy and os.clock() &lt; deadline do task.wait(0.1) end
+			local ok, reason = store.save(session, profile, true)
+			if not ok then warn("Cloud Anglers: final save failed: " .. tostring(reason)) end
+			pendingReleases -= 1
+		end)
+	end
+	local function addPlayer(player: Player)
+		if loading[player] or connections[player] then return end
+		loading[player] = true
+		task.spawn(function()
+			local session, reason = nil, nil
+			if store then session, reason = store.load(player.UserId) end
+			loading[player] = nil
+			if store and not session then
+				warn("Cloud Anglers: profile load blocked: " .. tostring(reason))
+				if player.Parent == Players then player:Kick("Your progress could not be loaded safely. Please rejoin in a moment.") end
+				return
+			end
+			if player.Parent ~= Players or closing then
+				if session then release(session, session.profile) end
+				return
+			end
+			if session then sessions[player] = session; welcome[player] = session.offline end
+			engine:addPlayer(player.UserId, workspace:GetServerTimeNow(), if session then session.profile else nil)
+			local stats = player:FindFirstChild("leaderstats") or Instance.new("Folder")
+			stats.Name, stats.Parent = "leaderstats", player
+			if not stats:FindFirstChild("Collection") then
+				local score = Instance.new("IntValue")
+				score.Name, score.Parent = "Collection", stats
+			end
+			connections[player] = player.CharacterRemoving:Connect(function()
+				local packet = engine:interrupt(player.UserId, workspace:GetServerTimeNow(), "Fishing stopped. Return to the dock after respawning.")
+				if packet and player.Parent == Players then emit(player, packet) end
+			end)
+			-- The client asks for Sync after subscribing; it also retries while data loads.
+		end)
+	end
+	Players.PlayerAdded:Connect(addPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		local profile = engine:exportProfile(player.UserId)
+		local session = sessions[player]
+		if session and profile then release(session, profile) end
+		local connection = connections[player]
+		if connection then connection:Disconnect() end
+		connections[player], sessions[player], welcome[player], lastVisual[player] = nil, nil, nil, nil
+		engine:removePlayer(player.UserId)
+	end)
+	for _, player in Players:GetPlayers() do addPlayer(player) end
+	action.OnServerEvent:Connect(function(player, verb, attemptId)
+		if closing then return end
+		local session = sessions[player]
+		if session and os.time() &gt;= session.expires then return end
+		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player))
+		if packet then
+			emit(player, packet)
+			if verb == "Sync" then
+				for _, other in Players:GetPlayers() do
+					local otherPacket = engine:snapshot(other.UserId)
+					if other ~= player and otherPacket and otherPacket.phase ~= "Idle" then
+						visual:FireClient(player, other.UserId, publicVisual(other, otherPacket))
+					end
+				end
+			end
+		end
+	end)
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(deltaTime)
+		if closing then return end
+		elapsed += deltaTime
+		if elapsed &lt; 0.1 then return end
+		elapsed = 0
+		local now = workspace:GetServerTimeNow()
+		for _, player in Players:GetPlayers() do
+			local packet = engine:tick(player.UserId, now, canFish(player))
+			if packet then emit(player, packet) end
+			local session = sessions[player]
+			if session and not session.releaseRequested then
+				if os.time() &gt;= session.expires then
+					player:Kick("Saving connection was interrupted. Please rejoin to protect your progress.")
+				elseif not session.busy and os.clock() - session.lastSave &gt;= 30 then
+					local profile = engine:exportProfile(player.UserId)
+					if profile then
+						task.spawn(function()
+							local ok, reason = store.save(session, profile, false)
+							if not ok then
+								warn("Cloud Anglers: autosave failed: " .. tostring(reason))
+								-- Back off; do not exhaust DataStore budgets on every heartbeat.
+								session.lastSave = os.clock()
+								if reason == "lost_lease" or reason == "invalid_data" then
+									player:Kick("Your save session changed. Please rejoin safely.")
+								end
+							end
+						end)
+					end
+				end
+			end
+		end
+	end)
+	game:BindToClose(function()
+		closing = true
+		for player, session in sessions do
+			local profile = engine:exportProfile(player.UserId)
+			if profile then release(session, profile) end
+		end
+		local deadline = os.clock() + 25
+		while (pendingReleases &gt; 0 or next(loading) ~= nil) and os.clock() &lt; deadline do task.wait(0.1) end
+	end)
+	remotes.Parent = ReplicatedStorage
+	print("Cloud Anglers: ready. Saving " .. (if saving then "enabled." else "disabled in this Studio playtest."))
+end
+return Service
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX00000010">
+      <Properties>
+        <string name="Name">FishingProgression</string>
+        <ProtectedString name="Source">--!strict
+-- Session progression; no persistence is implied. All rewards are server-owned.
+type Profile = {
+	coins: number, level: number, catches: number, brilliant: number, goalIndex: number,
+	best: { [string]: number }, duplicateCount: number,
+}
+local Progression = {}
+local ranks = { Normal = 1, Fine = 2, Brilliant = 3 }
+
+function Progression.new(catalog: any, randomRoll: () -&gt; number)
+	local function create(): Profile
+		return { coins = 0, level = 0, catches = 0, brilliant = 0, goalIndex = 1, best = {}, duplicateCount = 0 }
+	end
+	local function collection(profile: Profile): (number, number)
+		local count, points = 0, 0
+		for _, species in catalog.Species do
+			local best = profile.best[species.Id]
+			if best then count += 1; points += best end
+		end
+		return count, points
+	end
+	local function goalValue(profile: Profile, kind: string): number
+		if kind == "Catches" then return profile.catches end
+		if kind == "Rod" then return profile.level end
+		if kind == "Brilliant" then return profile.brilliant end
+		local count = collection(profile)
+		return count
+	end
+	local function resolveGoals(profile: Profile): (number, { string })
+		local reward = 0
+		local names: { string } = {}
+		while true do
+			local goal = catalog.Goals[profile.goalIndex]
+			if not goal or goalValue(profile, goal.Kind) &lt; goal.Target then break end
+			reward += goal.Reward
+			table.insert(names, goal.Title)
+			profile.goalIndex += 1
+		end
+		profile.coins += reward
+		return reward, names
+	end
+	local function snapshot(profile: Profile)
+		local found, points = collection(profile)
+		local goal = catalog.Goals[profile.goalIndex]
+		local nextRod = catalog.Rods[profile.level + 2]
+		local best: { [string]: number } = {}
+		for id, quality in profile.best do best[id] = quality end
+		return {
+			coins = profile.coins, level = profile.level, species = found, points = points, best = best,
+			rod = catalog.Rods[profile.level + 1].Name,
+			nextUpgrade = if nextRod then {
+				name = nextRod.Name, cost = nextRod.Cost, description = nextRod.Description,
+			} else nil,
+			goal = if goal then {
+				title = goal.Title, progress = math.min(goalValue(profile, goal.Kind), goal.Target),
+				target = goal.Target, reward = goal.Reward,
+			} else { title = "Journal complete! Improve your catch grades.", progress = 1, target = 1, reward = 0 },
+		}
+	end
+	local function catch(profile: Profile, quality: string)
+		assert(ranks[quality], "Unknown catch quality")
+		local available: { any } = {}
+		local unseen: { any } = {}
+		local totalWeight = 0
+		for _, species in catalog.Species do
+			if species.Level &lt;= profile.level then
+				table.insert(available, species)
+				totalWeight += species.Weight
+				if not profile.best[species.Id] then table.insert(unseen, species) end
+			end
+		end
+		local picked = available[1]
+		-- Teach variety early; afterwards, at most two duplicates before an unseen unlocked fish.
+		if #unseen &gt; 0 and (profile.catches &lt; 3 or profile.duplicateCount &gt;= 2) then
+			picked = unseen[1]
+		else
+			local roll = math.clamp(randomRoll(), 0, 0.999999) * totalWeight
+			for _, species in available do
+				roll -= species.Weight
+				if roll &lt; 0 then picked = species; break end
+			end
+		end
+		local previous = profile.best[picked.Id]
+		local discovery = previous == nil
+		profile.best[picked.Id] = math.max(previous or 0, ranks[quality])
+		profile.duplicateCount = if discovery then 0 else profile.duplicateCount + 1
+		profile.catches += 1
+		if quality == "Brilliant" then profile.brilliant += 1 end
+		local multiplier = 1 + catalog.Rods[profile.level + 1].Bonus / 100
+		local coins = math.floor(picked.Coins * multiplier * (if quality == "Brilliant" then 1.6 elseif quality == "Fine" then 1.25 else 1))
+		profile.coins += coins
+		local bonus, goals = resolveGoals(profile)
+		return {
+			species = picked.Name, speciesId = picked.Id, rarity = picked.Rarity, quality = quality,
+			coins = coins, goalBonus = bonus, milestones = goals, newDiscovery = discovery,
+			improved = previous ~= nil and ranks[quality] &gt; previous,
+		}
+	end
+	local function upgrade(profile: Profile): { success: boolean, message: string, goalBonus: number?, milestones: { string }? }
+		local nextRod = catalog.Rods[profile.level + 2]
+		if not nextRod then return { success = false, message = "Your rod is fully upgraded." } end
+		if profile.coins &lt; nextRod.Cost then
+			return { success = false, message = "Catch more fish to afford " .. nextRod.Name .. "." }
+		end
+		profile.coins -= nextRod.Cost
+		profile.level += 1
+		local bonus, goals = resolveGoals(profile)
+		return { success = true, message = nextRod.Name .. " equipped!", goalBonus = bonus, milestones = goals }
+	end
+	local function copy(profile: Profile): Profile
+		local best: { [string]: number } = {}
+		for id, rank in profile.best do best[id] = rank end
+		return {
+			coins = profile.coins, level = profile.level, catches = profile.catches, brilliant = profile.brilliant,
+			goalIndex = profile.goalIndex, duplicateCount = profile.duplicateCount, best = best,
+		}
+	end
+	return { create = create, snapshot = snapshot, catch = catch, upgrade = upgrade, copy = copy }
+end
+
+return Progression
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX00000011">
+      <Properties>
+        <string name="Name">FishingSaveRules</string>
+        <ProtectedString name="Source">--!strict
+-- Atomic record transitions. UpdateAsync may retry its callback; no side effects here.
+local SaveRules = {}
+SaveRules.LeaseSeconds = 120
+SaveRules.MaxOfflineSeconds = 8 * 60 * 60
+SaveRules.MaxOfflineCoins = 120
+
+local function uint(value: any, maximum: number): boolean
+	return type(value) == "number" and value == value and value &gt;= 0 and value &lt;= maximum and value % 1 == 0
+end
+
+function SaveRules.new(catalog: any, progression: any)
+	local function validate(profile: any): boolean
+		if type(profile) ~= "table" or type(profile.best) ~= "table" then return false end
+		if not uint(profile.coins, 1000000000) or not uint(profile.level, #catalog.Rods - 1)
+			or not uint(profile.catches, 1000000000) or not uint(profile.brilliant, profile.catches)
+			or not uint(profile.duplicateCount, 1000000000) or not uint(profile.goalIndex, #catalog.Goals + 1)
+			or profile.goalIndex &lt; 1 then return false end
+		for id, rank in profile.best do
+			local exists = false
+			for _, species in catalog.Species do if species.Id == id then exists = true; break end end
+			if not exists or not uint(rank, 3) or rank &lt; 1 then return false end
+		end
+		return true
+	end
+	local function recordValid(record: any): boolean
+		if type(record) ~= "table" or record.version ~= 1 or not validate(record.profile)
+			or not uint(record.lastSeen, 100000000000) then return false end
+		local lease = record.lease
+		local award = record.offlineAward
+		if award ~= nil and (type(award) ~= "table" or type(award.leaseId) ~= "string"
+			or not uint(award.coins, SaveRules.MaxOfflineCoins)
+			or not uint(award.seconds, SaveRules.MaxOfflineSeconds)) then return false end
+		return lease == nil or (type(lease) == "table" and type(lease.id) == "string"
+			and uint(lease.expires, 100000000000))
+	end
+	local function acquire(old: any, leaseId: string, now: number): (any?, string?)
+		if old == nil then
+			return { version = 1, profile = progression.create(), lastSeen = now,
+				lease = { id = leaseId, expires = now + SaveRules.LeaseSeconds } }, nil
+		end
+		if not recordValid(old) then return nil, "invalid_data" end
+		if old.lease and old.lease.id == leaseId then
+			return { version = 1, profile = progression.copy(old.profile), lastSeen = now,
+				lease = { id = leaseId, expires = now + SaveRules.LeaseSeconds }, offlineAward = old.offlineAward }, nil
+		end
+		if old.lease and old.lease.expires &gt; now then return nil, "active_session" end
+		local profile = progression.copy(old.profile)
+		local found = 0
+		for _ in profile.best do found += 1 end
+		local lastActive = if old.lease then math.max(old.lastSeen, old.lease.expires) else old.lastSeen
+		local elapsed = math.clamp(now - lastActive, 0, SaveRules.MaxOfflineSeconds)
+		local earned = math.min(SaveRules.MaxOfflineCoins, 1000000000 - profile.coins,
+			math.floor(elapsed / 60 * found * 0.25))
+		profile.coins = math.min(1000000000, profile.coins + earned)
+		return {
+			version = 1, profile = profile, lastSeen = now,
+			lease = { id = leaseId, expires = now + SaveRules.LeaseSeconds },
+			offlineAward = { leaseId = leaseId, coins = earned, seconds = elapsed },
+		}, nil
+	end
+	local function save(old: any, profile: any, leaseId: string, now: number, release: boolean): (any?, string?)
+		if not recordValid(old) or not validate(profile) then return nil, "invalid_data" end
+		if not old.lease or old.lease.id ~= leaseId then return nil, "lost_lease" end
+		return {
+			version = 1, profile = progression.copy(profile), lastSeen = now,
+			lease = if release then nil else { id = leaseId, expires = now + SaveRules.LeaseSeconds },
+		}, nil
+	end
+	return { acquire = acquire, save = save, validate = validate }
+end
+return SaveRules
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX00000012">
+      <Properties>
+        <string name="Name">FishingProfileStore</string>
+        <ProtectedString name="Source">--!strict
+local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
+local SaveRules = require(script.Parent:WaitForChild("FishingSaveRules"))
+local Store = {}
+
+function Store.new(catalog: any, progression: any, studio: boolean)
+	-- Test saves never share the production namespace.
+	local dataStore = DataStoreService:GetDataStore(if studio then "CloudAnglers_Test_v03" else "CloudAnglers_Player_v03")
+	local rules = SaveRules.new(catalog, progression)
+	local function update(key: string, transform: any): (any?, string?)
+		local rejection: string? = nil
+		for attempt = 1, 3 do
+			local ok, value = pcall(function()
+				return dataStore:UpdateAsync(key, function(old)
+					local record, reason = transform(old)
+					rejection = reason
+					return record
+				end)
+			end)
+			if ok then return value, rejection end
+			if attempt &lt; 3 then task.wait(attempt) end
+		end
+		return nil, "unavailable"
+	end
+	local function load(userId: number): (any?, string?)
+		local id = HttpService:GenerateGUID(false)
+		local key = "player_" .. userId
+		local record, reason = update(key, function(old) return rules.acquire(old, id, os.time()) end)
+		for _ = 1, 3 do
+			if reason ~= "active_session" then break end
+			task.wait(2)
+			record, reason = update(key, function(old) return rules.acquire(old, id, os.time()) end)
+		end
+		if not record or not record.lease or record.lease.id ~= id then return nil, reason or "lost_lease" end
+		return {
+			key = key, id = id, profile = record.profile, expires = record.lease.expires,
+			lastSave = os.clock(), busy = false, closed = false, offline = record.offlineAward,
+		}, nil
+	end
+	local function save(session: any, profile: any, release: boolean): (boolean, string?)
+		if session.closed or session.busy then return false, "busy" end
+		session.busy = true
+		-- Keep a single snapshot across UpdateAsync retries.
+		local copy = progression.copy(profile)
+		local record, reason = update(session.key, function(old)
+			return rules.save(old, copy, session.id, os.time(), release)
+		end)
+		session.busy = false
+		if not record then return false, reason or "unavailable" end
+		session.lastSave = os.clock()
+		session.expires = if record.lease then record.lease.expires else 0
+		if release then session.closed = true end
+		return true, nil
+	end
+	return { load = load, save = save }
+end
+return Store
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="RBX00000013">
+      <Properties>
+        <string name="Name">FishingServer</string>
+        <ProtectedString name="Source">--!strict
+require(script.Parent:WaitForChild("FishingService")).start()
+</ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="RBX00000005">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="RBX00000008">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="RBX00000014">
+        <Properties>
+          <string name="Name">FishingClient</string>
+          <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local audio = require(script.Parent:WaitForChild("FishingAudio")).new()
+local presentation = require(script.Parent:WaitForChild("FishingPresentation")).new(audio)
+local Interface = require(script.Parent:WaitForChild("FishingInterface"))
+local remotes = ReplicatedStorage:WaitForChild("FishingRemotes")
+local action = remotes:WaitForChild("FishingAction") :: RemoteEvent
+local state = remotes:WaitForChild("FishingState") :: RemoteEvent
+local visual = remotes:WaitForChild("FishingVisual") :: RemoteEvent
+local player = Players.LocalPlayer
+local packet: any = { phase = "Connecting", catches = 0, nextStart = 0 }
+local ui: any = nil
+local pendingSince: number? = nil
+local heldInput: InputObject? = nil
+local heldConnection: RBXScriptConnection? = nil
+local releasedBeforeAck = false
+local workshopVisible = false
+local message = "Find the lantern-lit dock and cast your first line."
+local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
+local function now(): number return workspace:GetServerTimeNow() end
+local function clearHeld()
+	heldInput = nil
+	if heldConnection then heldConnection:Disconnect() end
+	heldConnection = nil
+	if ui then TweenService:Create(ui.buttonScale, TweenInfo.new(0.12), { Scale = 1 }):Play() end
+end
+local function request(verb: string, argument: any?)
+	pendingSince = now()
+	action:FireServer(verb, if verb == "Upgrade" then argument else packet.attemptId)
+end
+local function cancel()
+	clearHeld()
+	releasedBeforeAck = false
+	if packet.attemptId then request("Cancel") end
+end
+ui = Interface.new(player:WaitForChild("PlayerGui"), audio, {
+	openJournal = function() cancel(); ui.hideResult() end,
+	upgrade = function()
+		if not packet.profile or pendingSince then return end
+		request("Upgrade", packet.profile.level)
+	end,
+})
+local function release()
+	if not heldInput then return end
+	clearHeld()
+	if packet.phase == "Reeling" then request("Release") else releasedBeforeAck = true end
+end
+local function press(input: InputObject)
+	if ui.isJournalOpen() then return end
+	if ui.isResultOpen() then ui.hideResult(); return end
+	if heldInput or pendingSince then return end
+	if packet.phase == "Idle" and now() &gt;= packet.nextStart then
+		ui.hideResult()
+		message = "Casting into the clouds..."
+		request("Start")
+	elseif packet.phase == "Waiting" and now() &gt;= (packet.readyAt or math.huge) then
+		heldInput, releasedBeforeAck = input, false
+		TweenService:Create(ui.buttonScale, TweenInfo.new(0.1), { Scale = 0.95 }):Play()
+		heldConnection = input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.Cancel then cancel()
+			elseif input.UserInputState == Enum.UserInputState.End then release() end
+		end)
+		request("Hold")
+	end
+end
+ui.button.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then press(input) end
+end)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if not processed and not workshopVisible and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then press(input) end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	local held = heldInput
+	if not held then return end
+	if input == held
+		or (held.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)
+		or (held.KeyCode == Enum.KeyCode.E and input.KeyCode == Enum.KeyCode.E) then release() end
+end)
+UserInputService.WindowFocusReleased:Connect(cancel)
+UserInputService.TextBoxFocused:Connect(cancel)
+ProximityPromptService.PromptShown:Connect(function(prompt)
+	if prompt.Name == "RodWorkshopPrompt" then workshopVisible = true end
+end)
+ProximityPromptService.PromptHidden:Connect(function(prompt)
+	if prompt.Name == "RodWorkshopPrompt" then workshopVisible = false end
+end)
+ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
+	if prompt.Name == "RodWorkshopPrompt" and who == player then ui.openJournal("Workshop") end
+end)
+visual.OnClientEvent:Connect(presentation.apply)
+state.OnClientEvent:Connect(function(incoming)
+	local previousId, previousCatches = packet.attemptId, packet.catches
+	packet, pendingSince = incoming, nil
+	ui.updateProfile(packet.profile)
+	ui.setState(packet.phase)
+	if packet.result and packet.catches &gt; previousCatches then
+		local result = packet.result
+		message = result.species .. " / " .. result.quality .. "! What will you discover next?"
+		ui.showResult(result)
+		if (result.goalBonus or 0) &gt; 0 then
+			ui.notify("Adventure complete! +" .. result.goalBonus .. " bonus coins")
+			task.delay(0.45, audio.goal)
+		elseif result.newDiscovery then ui.notify("New journal entry: " .. result.species) end
+	elseif packet.message then message = packet.message end
+	if packet.purchase then
+		if packet.purchase.success then audio.upgrade(); ui.notify(packet.purchase.message)
+		else audio.ui(false); ui.notify(packet.purchase.message) end
+	end
+	if packet.offline and packet.offline.coins &gt; 0 then
+		ui.notify("Welcome back! Your collection earned " .. packet.offline.coins .. " coins.")
+		audio.coins()
+	end
+	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false end
+	if packet.phase == "Waiting" and packet.attemptId ~= previousId then ui.hideResult() end
+	audio.setReeling(packet.phase == "Reeling")
+	if ui.isJournalOpen() and packet.phase == "Waiting" then request("Cancel"); return end
+	if packet.phase == "Reeling" then
+		if releasedBeforeAck then releasedBeforeAck = false; request("Release")
+		elseif not heldInput then request("Cancel") end
+	end
+end)
+RunService.RenderStepped:Connect(function()
+	local time = now()
+	if pendingSince and time - pendingSince &gt; 3 then clearHeld(); releasedBeforeAck = false; request("Sync") end
+	local camera = workspace.CurrentCamera
+	if camera then ui.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y) end
+	ui.button.BackgroundColor3 = Color3.fromRGB(37, 119, 109)
+	ui.legend.Text = "NORMAL  ·  FINE  ·  BRILLIANT"
+	if packet.phase == "Waiting" then
+		if time &lt; (packet.readyAt or math.huge) then
+			ui.status.Text, ui.button.Text = "Watch your bobber...", "CASTING..."
+		else
+			ui.status.Text = "BITE! Hold, then release inside the zone."
+			ui.button.Text = if pendingSince then "ONE MOMENT..." else "HOLD TO REEL" .. keyHint
+		end
+	elseif packet.phase == "Reeling" then
+		local progress = math.clamp((time - (packet.chargeAt or time)) / (packet.duration or 1), 0, 1)
+		ui.marker.Position = UDim2.fromScale(progress, 0)
+		local quality = Rules.qualityAt(progress)
+		ui.legend.Text = "NOW: " .. string.upper(quality or "OUTSIDE THE ZONE")
+		ui.status.Text = if pendingSince then "Checking your catch..." else "Release in the zone. Aim for gold!"
+		ui.button.Text = if pendingSince then "ONE MOMENT..." else "RELEASE!"
+		ui.button.BackgroundColor3 = Color3.fromRGB(151, 105, 31)
+	elseif packet.phase == "Idle" then
+		ui.status.Text = message
+		ui.button.Text = if pendingSince then "ONE MOMENT..." elseif time &lt; packet.nextStart then "GET READY..." else "CAST LINE" .. keyHint
+	else
+		ui.status.Text = "Loading your collection safely..."
+		ui.button.Text = "CONNECTING..."
+	end
+end)
+request("Sync")
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000015">
+        <Properties>
+          <string name="Name">FishingAudio</string>
+          <ProtectedString name="Source">--!strict
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local Audio = {}
+-- Same six shipped clips as v0.3. This release changes their mix, not the library.
+local clips = {
+	Cast = "rbxasset://sounds/action_jump.mp3",
+	Splash = "rbxasset://sounds/impact_water.mp3",
+	Chime = "rbxasset://sounds/electronicpingshort.wav",
+	Reel = "rbxasset://sounds/action_swim.mp3",
+	Miss = "rbxasset://sounds/action_jump_land.mp3",
+	Wind = "rbxasset://sounds/action_falling.mp3",
+}
+local trim = { Cast = 0.62, Splash = 0.65, Chime = 0.52, Reel = 0.5, Miss = 0.55, Wind = 0.5 }
+function Audio.new()
+	local folder = Instance.new("Folder")
+	folder.Name, folder.Parent = "CloudAnglersSounds", SoundService
+	local group = Instance.new("SoundGroup")
+	group.Name, group.Volume, group.Parent = "CloudAnglersMix", 0.75, SoundService
+	local eq = Instance.new("EqualizerSoundEffect")
+	eq.Name, eq.HighGain, eq.MidGain, eq.LowGain, eq.Parent = "SoftenUpperFrequencies", -7, -1, -2, group
+	local compressor = Instance.new("CompressorSoundEffect")
+	compressor.Name, compressor.Threshold, compressor.Ratio = "GentlePeakControl", -14, 3
+	compressor.Attack, compressor.Release, compressor.GainMakeup, compressor.Parent = 0.02, 0.15, 0, group
+	local templates: { [string]: Sound } = {}
+	local preload: { Instance } = {}
+	for name, path in clips do
+		local sound = Instance.new("Sound")
+		sound.Name, sound.SoundId, sound.SoundGroup = name, path, group
+		sound.Volume, sound.RollOffMinDistance, sound.RollOffMaxDistance = 0.2, 7, 48
+		sound.RollOffMode, sound.Parent = Enum.RollOffMode.InverseTapered, folder
+		templates[name] = sound
+		table.insert(preload, sound)
+	end
+	task.spawn(function()
+		local ok, err = pcall(function() ContentProvider:PreloadAsync(preload) end)
+		if not ok then warn("Cloud Anglers: sound preload failed: " .. tostring(err)) end
+	end)
+	local muted, reeling = false, false
+	local reel: Sound? = nil
+	local voices: { Sound } = {}
+	local lastUi = -math.huge
+	local melodyUntil = 0
+	local rewardGeneration = 0
+	local wind = templates.Wind:Clone()
+	wind.Looped, wind.Volume, wind.PlaybackSpeed, wind.Parent = true, 0, 0.62, folder
+	wind:Play()
+	local windTween: Tween? = TweenService:Create(wind, TweenInfo.new(2), { Volume = 0.018 })
+	windTween:Play()
+	local function ambience(volume: number)
+		if windTween then windTween:Cancel() end
+		windTween = TweenService:Create(wind, TweenInfo.new(0.45), { Volume = volume })
+		windTween:Play()
+	end
+	local function play(name: string, pitch: number?, parent: Instance?, volume: number?)
+		local template = templates[name]
+		if not template or muted then return end
+		for i = #voices, 1, -1 do if not voices[i].Parent then table.remove(voices, i) end end
+		-- Multiplayer casts cannot create an unlimited pile of overlapping sounds.
+		if #voices &gt;= 10 then voices[1]:Destroy(); table.remove(voices, 1) end
+		local sound = template:Clone()
+		sound.PlaybackSpeed = math.clamp(pitch or 1, 0.7, 1.45)
+		sound.Volume = math.clamp((volume or 0.25) * (trim[name] or 0.6), 0, 0.3)
+		sound.Parent = parent or folder
+		table.insert(voices, sound)
+		sound.Ended:Once(function() sound:Destroy() end)
+		sound:Play()
+		Debris:AddItem(sound, 5)
+	end
+	local function setReeling(enabled: boolean)
+		if reeling == enabled then return end
+		reeling = enabled
+		ambience(if enabled then 0.006 elseif os.clock() &lt; melodyUntil then 0.005 else 0.018)
+		if enabled then
+			local sound = templates.Reel:Clone()
+			sound.Looped, sound.PlaybackSpeed, sound.Volume, sound.Parent = true, 1.08, 0, folder
+			sound:Play()
+			TweenService:Create(sound, TweenInfo.new(0.25), { Volume = 0.055 }):Play()
+			reel = sound
+		elseif reel then
+			TweenService:Create(reel, TweenInfo.new(0.18), { Volume = 0 }):Play()
+			Debris:AddItem(reel, 0.22)
+			reel = nil
+		end
+	end
+	-- One short reward phrase owns the foreground, so goals do not stack on catches.
+	local function phrase(pitches: { number }, volume: number)
+		rewardGeneration += 1
+		local generation = rewardGeneration
+		melodyUntil = os.clock() + 0.8
+		ambience(0.005)
+		for i, pitch in pitches do
+			task.delay((i - 1) * 0.18, function()
+				if generation == rewardGeneration then play("Chime", pitch, nil, volume * (1 - (i - 1) * 0.16)) end
+			end)
+		end
+		task.delay(0.85, function()
+			if generation == rewardGeneration then ambience(if reeling then 0.006 else 0.018) end
+		end)
+	end
+	return {
+		play = play, setReeling = setReeling,
+		catch = function(quality: string, rarity: string?, _discovery: boolean?)
+			local pitch = if rarity == "Epic" then 1.08 elseif quality == "Brilliant" then 1 else 0.88
+			phrase({ pitch, pitch * 1.25 }, 0.36)
+		end,
+		ui = function(success: boolean?)
+			if os.clock() - lastUi &lt; 0.14 then return end
+			lastUi = os.clock()
+			play(if success == false then "Miss" else "Chime", if success == false then 0.88 else 1.12, nil, 0.09)
+		end,
+		coins = function() phrase({ 1, 1.25 }, 0.24) end,
+		goal = function()
+			if os.clock() &lt; melodyUntil then return end
+			phrase({ 0.94, 1.18 }, 0.26)
+		end,
+		upgrade = function() phrase({ 0.82, 1, 1.25 }, 0.34) end,
+		toggle = function(): boolean
+			muted = not muted
+			group.Volume = if muted then 0 else 0.75
+			return muted
+		end,
+	}
+end
+return Audio
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000016">
+        <Properties>
+          <string name="Name">FishingPresentation</string>
+          <ProtectedString name="Source">--!strict
+-- Local procedural animation, driven exclusively by server-approved state.
+-- Every client renders the same casts; no animation asset uploads are required.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Config = require(Shared:WaitForChild("FishingConfig"))
+local Fish = require(Shared:WaitForChild("FishModel"))
+local Presentation = {}
+
+type Actor = {
+	player: Player, character: Model?, rig: Model?, tip: Attachment?,
+	bobber: Part?, line: Beam?, state: any, landed: boolean, bite: boolean,
+	lastCatches: number, castFrom: Vector3?, caughtFish: Model?, catchAt: number,
+	catchFrom: Vector3, shoulder: Motor6D?, leftShoulder: Motor6D?, pitch: number, poseWeight: number,
+}
+
+local function visualPart(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
+	local object = Instance.new("Part")
+	object.Name = name
+	object.Size = size
+	object.CFrame = cf
+	object.Color = color
+	object.Anchored = true
+	object.CanCollide = false
+	object.CanTouch = false
+	object.CanQuery = false
+	object.CastShadow = false
+	object.Material = Enum.Material.SmoothPlastic
+	object.Parent = parent
+	return object
+end
+
+function Presentation.new(audio: any)
+	local folder = Instance.new("Folder")
+	folder.Name = "CloudAnglersEffects"
+	folder.Parent = workspace
+	local actors: { [number]: Actor } = {}
+	local random = Random.new()
+	local flowing: { { part: BasePart, rest: CFrame, phase: number } } = {}
+	local worldCache: Instance? = nil
+	local skyShip: Model? = nil
+	local shipRest = CFrame.identity
+	local function cacheScenery(world: Instance)
+		table.clear(flowing)
+		worldCache = world
+		for _, child in world:GetDescendants() do
+			if child:IsA("BasePart") then
+				local rest, phase = child:GetAttribute("FlowStart"), child:GetAttribute("FlowPhase")
+				if typeof(rest) == "CFrame" and typeof(phase) == "number" then
+					table.insert(flowing, { part = child, rest = rest, phase = phase })
+				end
+			end
+		end
+		local ship = world:FindFirstChild("SkySail")
+		skyShip = if ship and ship:IsA("Model") then ship else nil
+		if skyShip then shipRest = skyShip:GetPivot() end
+	end
+
+	local function ripple(position: Vector3)
+		local ring = visualPart(folder, "Ripple", Vector3.new(0.06, 0.8, 0.8),
+			CFrame.new(position - Vector3.yAxis * 0.25) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(229, 251, 255))
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Transparency = 0.45
+		TweenService:Create(ring, TweenInfo.new(0.65, Enum.EasingStyle.Quad),
+			{ Size = Vector3.new(0.04, 6, 6), Transparency = 1 }):Play()
+		Debris:AddItem(ring, 0.7)
+	end
+
+	local function burst(position: Vector3, golden: boolean)
+		for _ = 1, 12 do
+			local size = random:NextNumber(0.12, 0.3)
+			local bubble = visualPart(folder, "CatchSpark", Vector3.new(size, size, size), CFrame.new(position),
+				if golden then Color3.fromRGB(255, 218, 120) else Color3.fromRGB(182, 239, 250))
+			bubble.Shape = Enum.PartType.Ball
+			bubble.Material = Enum.Material.Neon
+			TweenService:Create(bubble, TweenInfo.new(0.65, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = position + Vector3.new(random:NextNumber(-2, 2), random:NextNumber(1, 4), random:NextNumber(-2, 2)),
+				Transparency = 1,
+			}):Play()
+			Debris:AddItem(bubble, 0.7)
+		end
+	end
+
+	local function clearRig(actor: Actor)
+		if actor.shoulder and actor.shoulder.Parent then actor.shoulder.Transform = CFrame.identity end
+		if actor.leftShoulder and actor.leftShoulder.Parent then actor.leftShoulder.Transform = CFrame.identity end
+		if actor.rig then actor.rig:Destroy() end
+		if actor.bobber then actor.bobber:Destroy() end
+		if actor.caughtFish then actor.caughtFish:Destroy() end
+		actor.rig, actor.tip, actor.bobber, actor.line = nil, nil, nil, nil
+		actor.shoulder, actor.leftShoulder, actor.caughtFish = nil, nil, nil
+	end
+
+	local function getActor(player: Player): Actor
+		local existing = actors[player.UserId]
+		if existing then return existing end
+		local actor: Actor = {
+			player = player, state = { phase = "Idle", catches = 0 }, landed = false, bite = false,
+			lastCatches = 0, catchAt = 0, catchFrom = Vector3.zero, pitch = 0, poseWeight = 0,
+		}
+		actors[player.UserId] = actor
+		return actor
+	end
+
+	local function ensureRig(actor: Actor): BasePart?
+		local character = actor.player.Character
+		if character ~= actor.character then
+			clearRig(actor)
+			if actor.character then actor.state = { phase = "Idle", catches = actor.lastCatches } end
+			actor.character = character
+		end
+		if not character then return nil end
+		local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+		if not hand or not hand:IsA("BasePart") then return nil end
+		if not actor.rig then
+			local rig = Instance.new("Model")
+			rig.Name = "FishingRod_" .. actor.player.UserId
+			local origin = visualPart(rig, "Grip", Vector3.new(0.28, 0.8, 0.28), CFrame.identity, Color3.fromRGB(101, 76, 66))
+			rig.PrimaryPart = origin
+			local shaft = visualPart(rig, "Rod", Vector3.new(0.12, 3.5, 0.12), CFrame.new(0, 2, 0), Color3.fromRGB(78, 174, 188))
+			visualPart(rig, "Reel", Vector3.new(0.45, 0.45, 0.32), CFrame.new(0, 0.35, -0.25), Color3.fromRGB(243, 196, 107))
+			local tip = Instance.new("Attachment")
+			tip.Position = Vector3.new(0, 1.75, 0)
+			tip.Parent = shaft
+			rig.Parent = folder
+			actor.rig, actor.tip = rig, tip
+			local right = character:FindFirstChild("RightShoulder", true) or character:FindFirstChild("Right Shoulder", true)
+			local left = character:FindFirstChild("LeftShoulder", true) or character:FindFirstChild("Left Shoulder", true)
+			actor.shoulder = if right and right:IsA("Motor6D") then right else nil
+			actor.leftShoulder = if left and left:IsA("Motor6D") then left else nil
+		end
+		return hand
+	end
+
+	local function createBobber(actor: Actor)
+		if actor.bobber or not actor.tip or not actor.rig then return end
+		local bobber = visualPart(folder, "Bobber_" .. actor.player.UserId, Vector3.new(0.65, 0.65, 0.65),
+			CFrame.new(actor.castFrom or Vector3.zero), Color3.fromRGB(255, 129, 111))
+		bobber.Shape = Enum.PartType.Ball
+		bobber.Material = Enum.Material.Neon
+		local anchor = Instance.new("Attachment")
+		anchor.Parent = bobber
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = actor.tip
+		beam.Attachment1 = anchor
+		beam.Width0, beam.Width1 = 0.045, 0.025
+		beam.FaceCamera = true
+		beam.Segments = 12
+		beam.Color = ColorSequence.new(Color3.fromRGB(242, 248, 235))
+		beam.Transparency = NumberSequence.new(0.12)
+		beam.Parent = bobber
+		actor.bobber, actor.line = bobber, beam
+	end
+
+	local function biteCue(actor: Actor)
+		local bobber = actor.bobber
+		if not bobber then return end
+		actor.bite = true
+		ripple(bobber.Position)
+		audio.play("Chime", 1.1, bobber, 0.34)
+		local gui = Instance.new("BillboardGui")
+		gui.Size = UDim2.fromOffset(60, 72)
+		gui.StudsOffset = Vector3.new(0, 2, 0)
+		gui.AlwaysOnTop = true
+		gui.Parent = bobber
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Text = "!"
+		label.Font = Enum.Font.GothamBlack
+		label.TextSize = 52
+		label.TextColor3 = Color3.fromRGB(255, 221, 115)
+		label.TextStrokeTransparency = 0.2
+		label.Parent = gui
+		TweenService:Create(gui, TweenInfo.new(0.3, Enum.EasingStyle.Back), { StudsOffset = Vector3.new(0, 3, 0) }):Play()
+		Debris:AddItem(gui, 0.85)
+	end
+
+	local function apply(userId: number, incoming: any)
+		local player = Players:GetPlayerByUserId(userId)
+		if not player then return end
+		local actor = getActor(player)
+		local previous = actor.state
+		local changed = previous.phase ~= incoming.phase or previous.attemptId ~= incoming.attemptId
+		local freshCatch = incoming.result ~= nil and incoming.catches &gt; actor.lastCatches
+		local hand = ensureRig(actor)
+		actor.state = incoming
+		actor.lastCatches = incoming.catches
+		if changed and incoming.phase == "Waiting" then
+			actor.landed, actor.bite = false, false
+			actor.castFrom = if hand then hand.Position + Vector3.new(0, 2, 0) else incoming.castTarget
+			if actor.bobber then actor.bobber:Destroy() end
+			actor.bobber, actor.line = nil, nil
+			createBobber(actor)
+			if hand then audio.play("Cast", 0.94, hand, 0.26) end
+		end
+		if incoming.phase == "Idle" then
+			local position = if actor.bobber then actor.bobber.Position else incoming.castTarget
+			if freshCatch and position then
+				if actor.caughtFish then actor.caughtFish:Destroy() end
+				actor.caughtFish = Fish.create(folder, "CaughtFish", incoming.result.speciesId)
+				actor.catchAt = workspace:GetServerTimeNow()
+				actor.catchFrom = position
+				burst(position, true)
+				ripple(position)
+			elseif changed and previous.phase == "Reeling" and position then
+				burst(position, false)
+				if player == Players.LocalPlayer then audio.play("Miss", 0.8, nil, 0.16) end
+			end
+			if actor.bobber then actor.bobber:Destroy() end
+			actor.bobber, actor.line = nil, nil
+		end
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		local actor = actors[player.UserId]
+		if actor then clearRig(actor) end
+		actors[player.UserId] = nil
+	end)
+
+	RunService.PreSimulation:Connect(function(deltaTime)
+		-- Animator writes Transform before PreSimulation. This pass supplies the fishing pose.
+		for _, actor in actors do
+			local active = actor.state.phase == "Waiting" or actor.state.phase == "Reeling"
+			local previousWeight = actor.poseWeight
+			local target = if active then 1 else 0
+			actor.poseWeight += (target - actor.poseWeight) * (1 - math.exp(-deltaTime * 14))
+			if actor.poseWeight &lt; 0.001 then actor.poseWeight = 0 end
+			if actor.poseWeight &gt; 0 then
+				if actor.shoulder then
+					actor.shoulder.Transform = CFrame.identity:Lerp(CFrame.Angles(1.05 + actor.pitch * 0.3, 0, -0.18), actor.poseWeight)
+				end
+				if actor.leftShoulder then
+					actor.leftShoulder.Transform = CFrame.identity:Lerp(CFrame.Angles(0.7, 0.1, 0.4), actor.poseWeight)
+				end
+			elseif previousWeight &gt; 0 then
+				if actor.shoulder then actor.shoulder.Transform = CFrame.identity end
+				if actor.leftShoulder then actor.leftShoulder.Transform = CFrame.identity end
+			end
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function()
+		local time = workspace:GetServerTimeNow()
+		for _, player in Players:GetPlayers() do getActor(player) end
+		for _, actor in actors do
+			local hand = ensureRig(actor)
+			local root = if actor.character then actor.character:FindFirstChild("HumanoidRootPart") else nil
+			if not hand or not root or not root:IsA("BasePart") or not actor.rig then continue end
+			local packet = actor.state
+			local active = packet.phase == "Waiting" or packet.phase == "Reeling"
+			local target = packet.castTarget or (root.Position + root.CFrame.LookVector * 14)
+			local flat = (target - root.Position) * Vector3.new(1, 0, 1)
+			local forward = if flat.Magnitude &gt; 0.1 then flat.Unit else root.CFrame.LookVector
+			local castT = if packet.readyAt then math.clamp((time - packet.readyAt + Config.PreparationTime) / 0.65, 0, 1) else 1
+			local pitch = 0.95
+			if packet.phase == "Waiting" then
+				pitch = if castT &lt; 0.35 then 0.6 + castT / 0.35 else 1.6 - (castT - 0.35) / 0.65 * 1.1
+			elseif packet.phase == "Reeling" then
+				pitch = 0.65 + math.sin(time * 18) * 0.07
+			end
+			actor.pitch = pitch
+			local direction = forward * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
+			actor.rig:PivotTo(CFrame.lookAt(hand.Position, hand.Position + direction) * CFrame.Angles(-math.pi / 2, 0, 0))
+			local shaft = actor.rig:FindFirstChild("Rod")
+			if shaft and shaft:IsA("BasePart") then
+				local level = packet.rodLevel or 0
+				shaft.Color = if level &gt;= 3 then Color3.fromRGB(255, 211, 108)
+					elseif level &gt;= 2 then Color3.fromRGB(187, 155, 243) else Color3.fromRGB(78, 174, 188)
+			end
+			if active then
+				createBobber(actor)
+				local bobber = actor.bobber
+				if bobber then
+					local from = actor.castFrom or hand.Position
+					local arc = from:Lerp(target, castT) + Vector3.new(0, math.sin(castT * math.pi) * 5, 0)
+					if castT &gt;= 1 then
+						local bob = math.sin(time * (if packet.phase == "Reeling" then 22 else 3)) * 0.16
+						arc = target + Vector3.new(0, bob - (if actor.bite then 0.25 else 0), 0)
+						if not actor.landed then
+							actor.landed = true
+							ripple(target)
+							audio.play("Splash", 0.95, bobber, 0.32)
+						end
+					end
+					bobber.Position = arc
+					if not actor.bite and time &gt;= packet.readyAt then biteCue(actor) end
+					if actor.line then actor.line.CurveSize0 = if packet.phase == "Reeling" then 0 else 0.7 end
+				end
+			end
+			if actor.caughtFish then
+				local t = math.clamp((time - actor.catchAt) / 1.2, 0, 1)
+				local destination = root.Position + Vector3.new(0, 3, 0)
+				local position = actor.catchFrom:Lerp(destination, t) + Vector3.new(0, math.sin(t * math.pi) * 7, 0)
+				actor.caughtFish:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * math.pi * 4, math.sin(t * 8) * 0.25))
+				Fish.animate(actor.caughtFish, time)
+				if t &gt;= 1 then
+					burst(destination, true)
+					actor.caughtFish:Destroy()
+					actor.caughtFish = nil
+				end
+			end
+		end
+		local world = workspace:FindFirstChild("MolnfiskarnaPrototype")
+		-- Replication can deliver the folder before its children. Cache after the fish arrives.
+		local preview = if world then world:FindFirstChild("PuffletPreview") else nil
+		if world and preview and world ~= worldCache then cacheScenery(world) end
+		for _, flow in flowing do
+			if flow.part.Parent then
+				flow.part.CFrame = flow.rest + Vector3.new(0, -((time * 7 + flow.phase * 13) % 28) + 14, 0)
+			end
+		end
+		if skyShip and skyShip.Parent then
+			skyShip:PivotTo(shipRest * CFrame.new(math.sin(time * 0.09) * 5, math.sin(time * 0.35) * 1.1, 0) * CFrame.Angles(0, 0, math.sin(time * 0.23) * 0.025))
+		end
+		if preview and preview:IsA("Model") then
+			preview:PivotTo(CFrame.new(0, 4 + math.sin(time * 1.8) * 0.4, 66) * CFrame.Angles(0, math.sin(time) * 0.3, math.sin(time * 2) * 0.08))
+			Fish.animate(preview, time)
+		end
+	end)
+
+	return { apply = apply }
+end
+
+return Presentation
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000017">
+        <Properties>
+          <string name="Name">InterfaceLayout</string>
+          <ProtectedString name="Source">--!strict
+-- Pure layout arithmetic: measured in the ScreenGui's inset-safe canvas.
+local Layout = {}
+function Layout.measure(width: number, height: number)
+	local w, h = math.max(280, width), math.max(240, height)
+	local compact = h &lt; 480
+	local narrow = w &lt; 660
+	local portrait = narrow and not compact
+	local panelWidth = if compact then math.min(340, math.max(220, w - 320)) else math.min(360, w - 32)
+	return {
+		width = w, height = h, narrow = narrow, compact = compact,
+		panelWidth = panelWidth, panelBottom = if portrait then 152 else 20,
+		goalWidth = if narrow then w - 32 else 264,
+		goalHeight = if compact then 0 else 64,
+		journalY = if compact then 66 elseif narrow then 140 else 150,
+		bookWidth = math.min(900, w - 24), bookHeight = math.min(590, h - 24),
+		columns = if narrow then 2 else 3,
+		cardHeight = if compact then 124 elseif narrow then 150 else 174,
+		workshopVertical = narrow and not compact,
+		revealScale = math.min(1, (w - 24) / 360, (h - 32) / 370),
+	}
+end
+return Layout
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000018">
+        <Properties>
+          <string name="Name">UITheme</string>
+          <ProtectedString name="Source">--!strict
+local TweenService = game:GetService("TweenService")
+local Theme = {
+	Ink = Color3.fromRGB(31, 63, 66), Panel = Color3.fromRGB(255, 250, 237),
+	Text = Color3.fromRGB(36, 66, 66), Muted = Color3.fromRGB(90, 111, 106),
+	Teal = Color3.fromRGB(37, 119, 109), Gold = Color3.fromRGB(246, 190, 81),
+	Purple = Color3.fromRGB(118, 87, 166), Blue = Color3.fromRGB(44, 113, 156),
+	Line = Color3.fromRGB(226, 227, 209), Soft = Color3.fromRGB(239, 241, 224),
+}
+function Theme.round(parent: Instance, radius: number)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius)
+	corner.Parent = parent
+end
+function Theme.frame(parent: Instance, name: string, size: UDim2, position: UDim2, color: Color3?): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Size, frame.Position = size, position
+	frame.BackgroundColor3 = color or Theme.Panel
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	Theme.round(frame, 18)
+	return frame
+end
+function Theme.stroke(frame: GuiObject, color: Color3?, thickness: number?): UIStroke
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color or Theme.Line
+	stroke.Thickness = thickness or 1
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = frame
+	return stroke
+end
+function Theme.surface(frame: GuiObject, _accent: Color3?)
+	frame.BackgroundColor3 = Theme.Panel
+	Theme.stroke(frame)
+end
+function Theme.text(parent: Instance, value: string, size: UDim2, position: UDim2, fontSize: number, color: Color3?, bold: boolean?): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Size, label.Position = size, position
+	label.BackgroundTransparency = 1
+	label.Text = value
+	label.TextSize = fontSize
+	label.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
+	label.TextColor3 = color or Theme.Text
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.AutoLocalize = false
+	label.Parent = parent
+	return label
+end
+function Theme.button(parent: Instance, value: string, size: UDim2, position: UDim2, color: Color3?): TextButton
+	local button = Instance.new("TextButton")
+	button.Size, button.Position = size, position
+	button.BackgroundColor3 = color or Theme.Teal
+	button.TextColor3 = Color3.fromRGB(255, 253, 243)
+	button.Font = Enum.Font.GothamBold
+	button.TextSize = 14
+	button.Text = value
+	button.AutoLocalize = false
+	button.AutoButtonColor = false
+	button.BorderSizePixel = 0
+	button.Parent = parent
+	Theme.round(button, 14)
+	button.MouseEnter:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.14), { BackgroundTransparency = 0.12 }):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.14), { BackgroundTransparency = 0 }):Play()
+	end)
+	return button
+end
+-- Drawn locally: no icon asset IDs or image permissions required.
+function Theme.coin(parent: Instance, position: UDim2, diameter: number)
+	local disc = Theme.frame(parent, "CoinIcon", UDim2.fromOffset(diameter, diameter), position, Theme.Gold)
+	Theme.round(disc, diameter)
+	local inset = Theme.frame(disc, "Emboss", UDim2.new(1, -8, 1, -8), UDim2.fromOffset(4, 4), Theme.Gold)
+	Theme.stroke(inset, Color3.fromRGB(201, 143, 45), 1.5)
+	local mark = Theme.text(disc, "+", UDim2.fromScale(1, 1), UDim2.fromOffset(0, -1), diameter * 0.65, Color3.fromRGB(157, 105, 32), true)
+	mark.TextXAlignment = Enum.TextXAlignment.Center
+end
+function Theme.rarity(name: string): Color3
+	return if name == "Epic" then Theme.Purple elseif name == "Rare" then Theme.Blue
+		elseif name == "Uncommon" then Theme.Teal else Color3.fromRGB(132, 94, 34)
+end
+return Theme
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000019">
+        <Properties>
+          <string name="Name">FishingInterface</string>
+          <ProtectedString name="Source">--!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Catalog = require(Shared:WaitForChild("FishCatalog"))
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local Fish = require(Shared:WaitForChild("FishModel"))
+local Theme = require(script.Parent:WaitForChild("UITheme"))
+local Layout = require(script.Parent:WaitForChild("InterfaceLayout"))
+local Interface = {}
+
+local function centered(label: TextLabel): TextLabel
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	return label
+end
+local function viewport(parent: Instance, name: string, size: UDim2, position: UDim2)
+	local view = Instance.new("ViewportFrame")
+	view.Name, view.Size, view.Position = name, size, position
+	view.BackgroundTransparency = 1
+	view.Ambient = Color3.fromRGB(185, 204, 204)
+	view.LightColor = Color3.fromRGB(255, 240, 213)
+	view.LightDirection = Vector3.new(-1, -1, -2)
+	view.Parent = parent
+	local camera = Instance.new("Camera")
+	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.4, -6.5), Vector3.zero)
+	camera.FieldOfView = 36
+	camera.Parent = view
+	view.CurrentCamera = camera
+	local world = Instance.new("WorldModel")
+	world.Parent = view
+	return view, world, camera
+end
+
+function Interface.new(playerGui: Instance, audio: any, handlers: any)
+	assert(not playerGui:FindFirstChild("MolnfiskarnaFishing"), "Install one fishing interface only.")
+	local gui = Instance.new("ScreenGui")
+	gui.Name, gui.ResetOnSpawn = "MolnfiskarnaFishing", false
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = playerGui
+	-- A small location label leaves the landscape visible, with one wallet chip.
+	local location = Theme.frame(gui, "Location", UDim2.fromOffset(208, 48), UDim2.fromOffset(16, 12))
+	location.BackgroundTransparency = 0.08
+	local locationName = Theme.text(location, "CLOUD ANGLERS", UDim2.new(1, -24, 0, 21), UDim2.fromOffset(12, 5), 14, Theme.Ink, true)
+	local locationSub = Theme.text(location, "SUNDRIFT HARBOR", UDim2.new(1, -24, 0, 14), UDim2.fromOffset(12, 28), 9, Theme.Muted, true)
+	local coins = Theme.frame(gui, "Wallet", UDim2.fromOffset(122, 48), UDim2.new(1, -138, 0, 12))
+	Theme.surface(coins)
+	Theme.coin(coins, UDim2.fromOffset(10, 10), 28)
+	local coinText = Theme.text(coins, "0", UDim2.new(1, -50, 1, 0), UDim2.fromOffset(46, 0), 19, Theme.Ink, true)
+	local coinValue = Instance.new("NumberValue")
+	coinValue.Parent = gui
+	coinValue.Changed:Connect(function(value)
+		local amount = math.floor(value + 0.5)
+		coinText.Text = if amount &gt;= 1000000 then string.format("%.1fm", amount / 1000000)
+			elseif amount &gt;= 10000 then string.format("%.1fk", amount / 1000) else tostring(amount)
+	end)
+	local coinTween: Tween? = nil
+	local soundButton = Theme.button(gui, "SFX", UDim2.fromOffset(44, 48), UDim2.new(1, -190, 0, 12), Theme.Panel)
+	soundButton.TextColor3, soundButton.TextSize = Theme.Teal, 11
+	soundButton.Activated:Connect(function()
+		local muted = audio.toggle()
+		soundButton.Text = if muted then "OFF" else "SFX"
+		if not muted then audio.ui() end
+	end)
+	local goalCard = Theme.frame(gui, "Adventure", UDim2.fromOffset(264, 64), UDim2.fromOffset(16, 72))
+	Theme.surface(goalCard)
+	local goalKicker = Theme.text(goalCard, "NEXT ADVENTURE", UDim2.new(1, -70, 0, 13), UDim2.fromOffset(14, 9), 9, Theme.Teal, true)
+	local goalTitle = Theme.text(goalCard, "Land your first fish", UDim2.new(1, -70, 0, 25), UDim2.fromOffset(14, 25), 13, nil, true)
+	local goalReward = Theme.text(goalCard, "+10", UDim2.fromOffset(42, 35), UDim2.new(1, -52, 0, 12), 15, Theme.rarity("Common"), true)
+	goalReward.TextXAlignment = Enum.TextXAlignment.Right
+	local goalTrack = Theme.frame(goalCard, "Progress", UDim2.new(1, -28, 0, 3), UDim2.fromOffset(14, 55), Theme.Line)
+	goalTrack.ClipsDescendants = true
+	local goalFill = Theme.frame(goalTrack, "Fill", UDim2.fromScale(0, 1), UDim2.fromOffset(0, 0), Theme.Teal)
+	local journalButton = Theme.button(gui, "COLLECTION  0/6", UDim2.fromOffset(156, 48), UDim2.fromOffset(16, 150), Theme.Ink)
+	journalButton.TextSize = 12
+
+	local panel = Theme.frame(gui, "CastCard", UDim2.fromOffset(360, 122), UDim2.new(0.5, 0, 1, -20))
+	panel.AnchorPoint = Vector2.new(0.5, 1)
+	Theme.surface(panel)
+	local status = centered(Theme.text(panel, "Find the lantern-lit dock to begin.", UDim2.new(1, -32, 0, 34), UDim2.fromOffset(16, 8), 12, Theme.Muted))
+	local meter = Theme.frame(panel, "TimingTrack", UDim2.new(1, -40, 0, 20), UDim2.fromOffset(20, 52), Theme.Ink)
+	meter.ClipsDescendants = true
+	for _, zone in {
+		{"Normal", Rules.NormalMin, Rules.NormalMax, Color3.fromRGB(151, 186, 147)},
+		{"Fine", Rules.FineMin, Rules.FineMax, Color3.fromRGB(74, 166, 151)},
+		{"Brilliant", Rules.BrilliantMin, Rules.BrilliantMax, Theme.Gold},
+	} do
+		local area = Instance.new("Frame")
+		area.Name, area.Position = zone[1], UDim2.fromScale(zone[2], 0)
+		area.Size, area.BackgroundColor3 = UDim2.fromScale(zone[3] - zone[2], 1), zone[4]
+		area.BorderSizePixel, area.Parent = 0, meter
+	end
+	local marker = Instance.new("Frame")
+	marker.Name, marker.Size = "Needle", UDim2.new(0, 4, 1, 0)
+	marker.AnchorPoint, marker.BackgroundColor3 = Vector2.new(0.5, 0), Color3.new(1, 1, 1)
+	marker.BorderSizePixel, marker.ZIndex, marker.Parent = 0, 2, meter
+	local legend = centered(Theme.text(panel, "AIM FOR GOLD", UDim2.new(1, -32, 0, 18), UDim2.fromOffset(16, 78), 10, Theme.Teal, true))
+	local button = Theme.button(panel, "CONNECTING...", UDim2.new(1, -24, 0, 52), UDim2.new(0.5, 0, 0, 46))
+	button.AnchorPoint, button.TextSize = Vector2.new(0.5, 0), 16
+	local buttonScale = Instance.new("UIScale")
+	buttonScale.Parent = button
+	local sessionText = centered(Theme.text(panel, "YOUR FIRST DISCOVERY IS WAITING", UDim2.new(1, -24, 0, 16), UDim2.fromOffset(12, 101), 9, Theme.Muted))
+
+	local toast = Theme.frame(gui, "Notice", UDim2.fromOffset(340, 54), UDim2.new(0.5, 0, 0, 12), Theme.Ink)
+	toast.AnchorPoint, toast.ZIndex, toast.Visible = Vector2.new(0.5, 0), 30, false
+	local toastText = centered(Theme.text(toast, "", UDim2.new(1, -28, 1, 0), UDim2.fromOffset(14, 0), 13, Theme.Panel, true))
+	local toastGeneration = 0
+	local function notify(text: string)
+		toastGeneration += 1
+		local generation = toastGeneration
+		toastText.Text, toast.Visible = text, true
+		task.delay(3, function() if toastGeneration == generation then toast.Visible = false end end)
+	end
+	-- The collection is a gallery, with a separate workshop rather than squeezed controls.
+	local modal = Instance.new("Frame")
+	modal.Name, modal.Size = "CollectionOverlay", UDim2.fromScale(1, 1)
+	modal.BackgroundColor3, modal.BackgroundTransparency = Theme.Ink, 0.26
+	modal.BorderSizePixel, modal.ZIndex, modal.Visible, modal.Parent = 0, 10, false, gui
+	modal.Active = true
+	local book = Theme.frame(modal, "CollectionBook", UDim2.fromOffset(900, 590), UDim2.fromScale(0.5, 0.5))
+	book.AnchorPoint, book.ClipsDescendants = Vector2.new(0.5, 0.5), true
+	Theme.surface(book)
+	local title = Theme.text(book, "The fish collection", UDim2.new(1, -84, 0, 32), UDim2.fromOffset(22, 16), 25, Theme.Ink, true)
+	local bookStats = Theme.text(book, "0 of 6 discovered", UDim2.new(1, -44, 0, 20), UDim2.fromOffset(22, 50), 12, Theme.Muted)
+	local close = Theme.button(book, "×", UDim2.fromOffset(44, 44), UDim2.new(1, -58, 0, 14), Theme.Soft)
+	close.TextColor3, close.TextSize = Theme.Ink, 25
+	local collectionTab = Theme.button(book, "Collection", UDim2.new(0.5, -26, 0, 44), UDim2.fromOffset(18, 80), Theme.Ink)
+	local workshopTab = Theme.button(book, "Rod workshop", UDim2.new(0.5, -26, 0, 44), UDim2.new(0.5, 8, 0, 80), Theme.Soft)
+	workshopTab.TextColor3 = Theme.Ink
+	local function scrollFrame(name: string): ScrollingFrame
+		local scroll = Instance.new("ScrollingFrame")
+		scroll.Name, scroll.Position = name, UDim2.fromOffset(18, 136)
+		scroll.Size = UDim2.new(1, -36, 1, -182)
+		scroll.BackgroundTransparency, scroll.BorderSizePixel = 1, 0
+		scroll.ScrollBarThickness, scroll.ScrollBarImageColor3 = 3, Theme.Teal
+		scroll.CanvasSize, scroll.AutomaticCanvasSize = UDim2.fromOffset(0, 0), Enum.AutomaticSize.Y
+		scroll.Parent = book
+		return scroll
+	end
+	local collection = scrollFrame("FishGallery")
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize, grid.CellPadding = UDim2.new(1 / 3, -8, 0, 174), UDim2.fromOffset(10, 10)
+	grid.SortOrder, grid.Parent = Enum.SortOrder.LayoutOrder, collection
+	local entries: { [string]: any } = {}
+	local selectedId = Catalog.Species[1].Id
+	local hint = Theme.text(book, "Select a fish to explore its entry.", UDim2.new(1, -44, 0, 34), UDim2.new(0, 22, 1, -40), 12, Theme.Muted)
+	local currentProfile: any = nil
+	local function selectSpecies(id: string)
+		selectedId = id
+		for fishId, entry in entries do
+			entry.stroke.Color = if fishId == id then Theme.Teal else Theme.Line
+			entry.stroke.Thickness = if fishId == id then 2 else 1
+		end
+		local species = Catalog.get(id)
+		hint.Text = species.Name .. " · " .. species.Hint
+	end
+	for index, species in Catalog.Species do
+		local card = Theme.button(collection, "", UDim2.fromOffset(200, 174), UDim2.fromOffset(0, 0), Theme.Soft)
+		card.Name, card.LayoutOrder = species.Id, index
+		local stroke = Theme.stroke(card)
+		local view, world = viewport(card, "Portrait", UDim2.new(1, -8, 1, -56), UDim2.fromOffset(4, 0))
+		view.Active = false
+		local fish = Fish.create(world, nil, species.Id)
+		fish:PivotTo(CFrame.Angles(0, -0.24, 0))
+		local badge = Theme.frame(card, "RarityDot", UDim2.fromOffset(7, 7), UDim2.fromOffset(12, 12), Theme.rarity(species.Rarity))
+		local name = Theme.text(card, species.Name, UDim2.new(1, -20, 0, 23), UDim2.new(0, 10, 1, -51), 14, Theme.Ink, true)
+		local best = Theme.text(card, "Undiscovered", UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 1, -27), 11, Theme.Muted)
+		entries[species.Id] = { view = view, model = fish, status = best, name = name, badge = badge, stroke = stroke, species = species }
+		card.Activated:Connect(function() selectSpecies(species.Id); audio.ui() end)
+	end
+	selectSpecies(selectedId)
+	local workshop = scrollFrame("WorkshopPage")
+	workshop.Visible = false
+	local shopBody = Theme.frame(workshop, "WorkshopContent", UDim2.new(1, -6, 0, 362), UDim2.fromOffset(0, 0), Theme.Panel)
+	shopBody.BackgroundTransparency = 1
+	local rodStage = Theme.frame(shopBody, "RodStage", UDim2.new(0.4, -12, 0, 230), UDim2.fromOffset(0, 0), Theme.Soft)
+	local rodView, rodWorld, rodCamera = viewport(rodStage, "RodPreview", UDim2.fromScale(1, 1), UDim2.fromOffset(0, 0))
+	rodCamera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -11), Vector3.zero)
+	local rod = Instance.new("Model")
+	local function rodPart(name: string, size: Vector3, cf: CFrame, color: Color3)
+		local p = Instance.new("Part")
+		p.Name, p.Size, p.CFrame, p.Color = name, size, cf, color
+		p.Anchored, p.CanCollide, p.Material, p.Parent = true, false, Enum.Material.SmoothPlastic, rod
+		return p
+	end
+	local grip = rodPart("Grip", Vector3.new(0.28, 1.5, 0.28), CFrame.new(0, -1.7, 0), Color3.fromRGB(133, 91, 59))
+	rod.PrimaryPart = grip
+	rodPart("Shaft", Vector3.new(0.1, 4.6, 0.1), CFrame.new(0, 1.1, 0), Theme.Teal)
+	local reelPart = rodPart("Reel", Vector3.new(0.7, 0.7, 0.34), CFrame.new(0.32, -1.4, -0.1), Theme.Gold)
+	reelPart.Shape = Enum.PartType.Cylinder
+	for y = -1, 3, 0.8 do rodPart("Binding", Vector3.new(0.16, 0.08, 0.16), CFrame.new(0, y, 0), Theme.Gold) end
+	-- Set a central model pivot before rotating it as a unit.
+	rod.PrimaryPart = nil
+	rod.WorldPivot = CFrame.identity
+	rod.Parent = rodWorld
+	rod:PivotTo(CFrame.Angles(0, 0, -0.4))
+	local equipped = centered(Theme.text(rodStage, "EQUIPPED · DRIFTWOOD", UDim2.new(1, -16, 0, 26), UDim2.new(0, 8, 1, -32), 10, Theme.Teal, true))
+	local shopInfo = Theme.frame(shopBody, "UpgradeDetails", UDim2.new(0.6, -8, 0, 230), UDim2.new(0.4, 8, 0, 0), Theme.Panel)
+	shopInfo.BackgroundTransparency = 1
+	Theme.text(shopInfo, "YOUR NEXT UPGRADE", UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 8), 10, Theme.Teal, true)
+	local upgradeName = Theme.text(shopInfo, "Breeze Rod", UDim2.new(1, 0, 0, 38), UDim2.fromOffset(0, 30), 27, Theme.Ink, true)
+	local upgradeDesc = Theme.text(shopInfo, "Unlock more fish and earn extra coins.", UDim2.new(1, 0, 0, 58), UDim2.fromOffset(0, 75), 14, Theme.Muted)
+	local upgradeButton = Theme.button(book, "Upgrade · 32 coins", UDim2.new(1, -36, 0, 48), UDim2.new(0, 18, 1, -62))
+	upgradeButton.Visible = false
+	upgradeButton.Activated:Connect(function()
+		local nextRod = if currentProfile then currentProfile.nextUpgrade else nil
+		if not nextRod then return end
+		if currentProfile.coins &lt; nextRod.cost then
+			audio.ui(false)
+			notify("Just " .. (nextRod.cost - currentProfile.coins) .. " more coins to go!")
+			return
+		end
+		handlers.upgrade()
+	end)
+	local income = Theme.frame(shopBody, "OfflineIncome", UDim2.new(1, 0, 0, 100), UDim2.fromOffset(0, 248), Theme.Soft)
+	Theme.text(income, "A little gift for your next visit", UDim2.new(1, -32, 0, 27), UDim2.fromOffset(16, 10), 15, Theme.Teal, true)
+	local incomeText = Theme.text(income, "Discover fish to earn coins while you are away.", UDim2.new(1, -32, 0, 52), UDim2.fromOffset(16, 40), 12, Theme.Muted)
+	local tab = "Collection"
+	local function setTab(nextTab: string)
+		tab = nextTab
+		collection.Visible, workshop.Visible = tab == "Collection", tab == "Workshop"
+		collectionTab.BackgroundColor3 = if collection.Visible then Theme.Ink else Theme.Soft
+		collectionTab.TextColor3 = if collection.Visible then Theme.Panel else Theme.Ink
+		workshopTab.BackgroundColor3 = if workshop.Visible then Theme.Ink else Theme.Soft
+		workshopTab.TextColor3 = if workshop.Visible then Theme.Panel else Theme.Ink
+		hint.Visible = collection.Visible
+		upgradeButton.Visible = workshop.Visible
+		title.Text = if collection.Visible then "The fish collection" else "Rod &amp; Reel"
+	end
+	collectionTab.Activated:Connect(function() setTab("Collection"); audio.ui() end)
+	workshopTab.Activated:Connect(function() setTab("Workshop"); audio.ui() end)
+	local function openJournal(target: string?)
+		setTab(if target == "Workshop" then "Workshop" else "Collection")
+		handlers.openJournal()
+		audio.ui()
+		modal.Visible, panel.Visible = true, false
+	end
+	journalButton.Activated:Connect(function() openJournal("Collection") end)
+	close.Activated:Connect(function() audio.ui(); modal.Visible, panel.Visible = false, true end)
+
+	local reveal = Theme.frame(gui, "DiscoveryCard", UDim2.fromOffset(360, 370), UDim2.fromScale(0.5, 0.46))
+	reveal.AnchorPoint, reveal.ZIndex, reveal.Visible = Vector2.new(0.5, 0.5), 5, false
+	Theme.surface(reveal)
+	local revealScale = Instance.new("UIScale")
+	revealScale.Parent = reveal
+	local revealTitle = centered(Theme.text(reveal, "A FRESH CATCH", UDim2.new(1, -64, 0, 22), UDim2.fromOffset(32, 18), 11, Theme.Teal, true))
+	local halo = Theme.frame(reveal, "PortraitHalo", UDim2.fromOffset(176, 176), UDim2.new(0.5, -88, 0, 53), Theme.Soft)
+	Theme.round(halo, 100)
+	local view, fishWorld = viewport(reveal, "CatchPortrait", UDim2.new(1, 0, 0, 192), UDim2.fromOffset(0, 43))
+	local revealFish: Model? = nil
+	local revealName = centered(Theme.text(reveal, "Pufflet", UDim2.new(1, -32, 0, 36), UDim2.fromOffset(16, 232), 28, Theme.Ink, true))
+	local revealQuality = centered(Theme.text(reveal, "Common · Normal", UDim2.new(1, -32, 0, 22), UDim2.fromOffset(16, 270), 13, Theme.Muted))
+	local earnings = Theme.frame(reveal, "Earnings", UDim2.new(1, -40, 0, 48), UDim2.fromOffset(20, 309), Theme.Soft)
+	Theme.coin(earnings, UDim2.fromOffset(14, 10), 28)
+	local revealCoins = centered(Theme.text(earnings, "+8 coins", UDim2.new(1, -58, 1, 0), UDim2.fromOffset(46, 0), 16, Theme.Ink, true))
+	local closeReveal = Theme.button(reveal, "×", UDim2.fromOffset(44, 44), UDim2.new(1, -48, 0, 3), Theme.Panel)
+	closeReveal.TextColor3, closeReveal.TextSize = Theme.Muted, 23
+	local revealGeneration, revealBaseScale = 0, 1
+	local revealTween: Tween? = nil
+	local function hideResult()
+		revealGeneration += 1
+		if revealTween then revealTween:Cancel() end
+		reveal.Visible, panel.Visible = false, not modal.Visible
+	end
+	closeReveal.Activated:Connect(hideResult)
+	local lastPhase = ""
+	local panelWidth = 360
+	local panelTween: Tween? = nil
+	local function setState(phase: string)
+		if phase == lastPhase then return end
+		lastPhase = phase
+		local reeling = phase == "Reeling"
+		meter.Visible, legend.Visible, marker.Visible = reeling, reeling, reeling
+		button.Position = UDim2.new(0.5, 0, 0, if reeling then 104 else 46)
+		sessionText.Position = UDim2.fromOffset(12, if reeling then 159 else 101)
+		if panelTween then panelTween:Cancel() end
+		panelTween = TweenService:Create(panel, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = UDim2.fromOffset(panelWidth, if reeling then 180 else 122) })
+		panelTween:Play()
+	end
+	local function updateProfile(profile: any)
+		if not profile then return end
+		if not currentProfile or profile.coins ~= currentProfile.coins then
+			if coinTween then coinTween:Cancel() end
+			coinTween = TweenService:Create(coinValue, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Value = profile.coins })
+			coinTween:Play()
+		end
+		currentProfile = profile
+		journalButton.Text = "COLLECTION  " .. profile.species .. "/6"
+		sessionText.Text = profile.species .. "/6 DISCOVERED  ·  " .. profile.points .. " COLLECTION POINTS"
+		bookStats.Text = profile.species .. " / 6 fish found   ·   " .. profile.points .. " / 18 points"
+		equipped.Text = "EQUIPPED · " .. string.upper(profile.rod)
+		incomeText.Text = if profile.persistent then "Your fish earn " .. profile.offlineRate .. " coins/min while you are away. Up to 120 coins over 8 hours. Progress saves automatically."
+			else "Offline earnings start in the published game. This Studio playtest uses temporary progress."
+		goalTitle.Text = profile.goal.title
+		goalKicker.Text = "NEXT ADVENTURE  ·  " .. profile.goal.progress .. "/" .. profile.goal.target
+		goalReward.Text = "+" .. profile.goal.reward
+		TweenService:Create(goalFill, TweenInfo.new(0.35), { Size = UDim2.fromScale(math.clamp(profile.goal.progress / math.max(1, profile.goal.target), 0, 1), 1) }):Play()
+		for id, entry in entries do
+			local best = profile.best[id]
+			entry.view.ImageColor3 = if best then Color3.new(1, 1, 1) else Color3.fromRGB(83, 112, 108)
+			entry.view.ImageTransparency = if best then 0 else 0.45
+			entry.name.Text = if best then entry.species.Name else "???"
+			entry.status.Text = if best then entry.species.Rarity .. " · " .. ({"Normal", "Fine", "Brilliant"})[best]
+				elseif entry.species.Level &gt; profile.level then "Rod level " .. entry.species.Level else "Waiting to be found"
+		end
+		local nextRod = profile.nextUpgrade
+		upgradeName.Text = if nextRod then nextRod.name else "Beautifully equipped"
+		upgradeDesc.Text = if nextRod then nextRod.description else "Your rod is fully upgraded. Find every fish and chase Brilliant catches."
+		upgradeButton.Text = if nextRod then "Upgrade · " .. nextRod.cost .. " coins" else "Fully upgraded"
+		upgradeButton.BackgroundColor3 = if nextRod and profile.coins &gt;= nextRod.cost then Theme.Teal else Theme.Muted
+	end
+	local function showResult(result: any)
+		revealGeneration += 1
+		local generation = revealGeneration
+		audio.catch(result.quality, result.rarity, result.newDiscovery)
+		task.delay(0.65, function()
+			if generation ~= revealGeneration or modal.Visible then return end
+			if revealFish then revealFish:Destroy() end
+			revealFish = Fish.create(fishWorld, nil, result.speciesId)
+			revealTitle.Text = if result.newDiscovery then "A NEW DISCOVERY" elseif result.improved then "YOUR NEW PERSONAL BEST" else "A FRESH CATCH"
+			revealTitle.TextColor3 = Theme.rarity(result.rarity or "Common")
+			halo.BackgroundColor3 = Theme.rarity(result.rarity or "Common"):Lerp(Theme.Panel, 0.86)
+			revealName.Text, revealQuality.Text = result.species, (result.rarity or "Common") .. " · " .. result.quality
+			revealCoins.Text = "+" .. (result.coins or 0) .. " coins" .. (if (result.goalBonus or 0) &gt; 0 then "  +" .. result.goalBonus .. " bonus" else "")
+			panel.Visible, reveal.Visible = false, true
+			revealScale.Scale = revealBaseScale * 0.85
+			if revealTween then revealTween:Cancel() end
+			revealTween = TweenService:Create(revealScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = revealBaseScale })
+			revealTween:Play()
+			task.delay(2.8, function() if generation == revealGeneration then hideResult() end end)
+		end)
+	end
+	local lastWidth, lastHeight = 0, 0
+	local function animate(time: number, width: number, height: number)
+		if reveal.Visible and revealFish then
+			revealFish:PivotTo(CFrame.Angles(0, math.sin(time * 1.3) * 0.24, math.sin(time * 2) * 0.035))
+			Fish.animate(revealFish, time)
+		end
+		if modal.Visible and collection.Visible then
+			local entry = entries[selectedId]
+			entry.model:PivotTo(CFrame.Angles(0, -0.24 + math.sin(time) * 0.18, math.sin(time * 1.5) * 0.035))
+			Fish.animate(entry.model, time)
+		end
+		local canvas = gui.AbsoluteSize
+		local safeWidth = if canvas.X &gt; 0 then canvas.X else width
+		local safeHeight = if canvas.Y &gt; 0 then canvas.Y else height
+		if safeWidth == lastWidth and safeHeight == lastHeight then return end
+		lastWidth, lastHeight = safeWidth, safeHeight
+		if panelTween then panelTween:Cancel() end
+		if revealTween then revealTween:Cancel() end
+		local layout = Layout.measure(safeWidth, safeHeight)
+		location.Size = UDim2.fromOffset(math.min(208, layout.width - 218), 48)
+		locationName.Text = if layout.narrow then "ANGLERS" else "CLOUD ANGLERS"
+		locationName.TextSize = if layout.narrow then 11 else 14
+		locationSub.Text = if layout.narrow then "SUNDRIFT" else "SUNDRIFT HARBOR"
+		locationSub.TextSize = if layout.narrow then 8 else 9
+		goalCard.Size, goalCard.Visible = UDim2.fromOffset(layout.goalWidth, 64), not layout.compact
+		journalButton.Position = UDim2.fromOffset(16, layout.journalY)
+		journalButton.Size = UDim2.fromOffset(if layout.narrow then 144 else 156, 48)
+		panelWidth = layout.panelWidth
+		panel.Size = UDim2.fromOffset(panelWidth, if lastPhase == "Reeling" then 180 else 122)
+		panel.Position = UDim2.new(0.5, 0, 1, -layout.panelBottom)
+		book.Size = UDim2.fromOffset(layout.bookWidth, layout.bookHeight)
+		title.TextSize = if layout.narrow or layout.compact then 20 else 25
+		bookStats.Visible = not layout.compact
+		collectionTab.Position = UDim2.fromOffset(18, if layout.compact then 50 else 80)
+		workshopTab.Position = UDim2.new(0.5, 8, 0, if layout.compact then 50 else 80)
+		local contentY = if layout.compact then 108 else 136
+		collection.Position, collection.Size = UDim2.fromOffset(18, contentY), UDim2.new(1, -36, 1, -contentY - 46)
+		workshop.Position, workshop.Size = UDim2.fromOffset(18, contentY), UDim2.new(1, -36, 1, -contentY - 78)
+		upgradeButton.Size = UDim2.fromOffset(if layout.narrow or layout.compact then layout.bookWidth - 36 else 244, 48)
+		upgradeButton.Position = UDim2.new(1, -18, 1, -62)
+		upgradeButton.AnchorPoint = Vector2.new(1, 0)
+		grid.CellSize = UDim2.new(1 / layout.columns, -7, 0, layout.cardHeight)
+		toast.Size = UDim2.fromOffset(math.min(340, layout.width - 32), 54)
+		toast.Position = UDim2.new(0.5, 0, 0, if layout.compact then 64 else 72)
+		revealBaseScale = layout.revealScale
+		revealScale.Scale = revealBaseScale
+		closeReveal.Size = UDim2.fromOffset(44 / revealBaseScale, 44 / revealBaseScale)
+		closeReveal.Position = UDim2.new(1, -4 - 44 / revealBaseScale, 0, 3)
+		upgradeName.TextSize = if layout.compact then 23 else 27
+		upgradeName.Position = UDim2.fromOffset(0, if layout.compact then 22 else 30)
+		upgradeDesc.Position = UDim2.fromOffset(0, if layout.compact then 62 else 75)
+		upgradeDesc.TextSize = if layout.compact then 12 else 14
+		local vertical = layout.workshopVertical
+		rodStage.Size = if vertical then UDim2.new(1, 0, 0, 180) else UDim2.new(0.4, -12, 0, 230)
+		shopInfo.Size = if vertical then UDim2.new(1, 0, 0, 148) else UDim2.new(0.6, -8, 0, 230)
+		shopInfo.Position = if vertical then UDim2.fromOffset(0, 196) else UDim2.new(0.4, 8, 0, 0)
+		shopBody.Size = UDim2.new(1, -6, 0, if vertical then 462 else 362)
+		income.Position = UDim2.fromOffset(0, if vertical then 356 else 248)
+	end
+	setState("Connecting")
+	return {
+		button = button, status = status, marker = marker, legend = legend, buttonScale = buttonScale,
+		hideResult = hideResult, showResult = showResult, updateProfile = updateProfile,
+		notify = notify, setState = setState, animate = animate, openJournal = openJournal,
+		isJournalOpen = function() return modal.Visible end,
+		isResultOpen = function() return reveal.Visible end,
+	}
+end
+return Interface
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterGui" referent="RBX00000006">
+    <Properties>
+      <string name="Name">StarterGui</string>
+    </Properties>
+  </Item>
+</roblox>

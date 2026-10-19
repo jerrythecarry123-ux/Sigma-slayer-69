@@ -1,14 +1,15 @@
-# Cloud Anglers v0.3 — testprotokoll
+# Cloud Anglers v0.4 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
 - 19 tester av fiskets tillståndsmaskin och 18 tester av progression/sparregler passerade.
+- 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
 - 2 Python-tester för korrekt inbäddade källfiler och repeterbar platsbyggnad
   passerade.
-- Alla 16 Luau-produktionsfiler samt båda Luau-testfilerna accepterades av den
+- Alla 17 Luau-produktionsfiler samt de tre Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
-  progression, sparregler och båda Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
+  progression, sparregler, layoutberäkning och de tre Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
 - `.rbxlx`-filen har byggts med de aktuella källfilerna.
 
 Luau-verktygen byggdes från den officiella källan `luau-lang/luau`, commit
@@ -28,8 +29,8 @@ testet och anteckna enhet, resultat och eventuella Output-fel.
 
 - [ ] Öppna den levererade rbxlx-filen utan importfel.
 - [ ] Starta Play. Se ön, bryggan, avataren och gränssnittet.
-- [ ] Försök fiska direkt vid spawn: ingen fångst, instruktion om blå rutan.
-- [ ] Gå till blå rutan, fiska och upprepa minst tio gånger.
+- [ ] Försök fiska direkt vid spawn: ingen fångst, instruktion om bryggan.
+- [ ] Gå till bryggans markerade fiskeplats, fiska och upprepa minst tio gånger.
 - [ ] Träffa områdena Normal, Fine och Brilliant. Kontrollera fångsträknaren.
 - [ ] Släpp för tidigt och för sent: ingen fångst; nästa försök fungerar.
 - [ ] Vänta för länge på napp respektive släpp: återgå till redo utan låsning.
@@ -96,3 +97,39 @@ molnmiljön; lyssna på varje effekt i Studio innan den markeras godkänd.
 - [ ] Återkomst efter 5 minuter ger korrekt offlinebelopp; direkt återanslutning ger ingen dubbelbonus.
 - [ ] Samtidiga sessioner, DataStore-fel och serverstängning hanteras utan ny tom profil.
 - [ ] Studio utan publicering fungerar med tillfällig profil och tydlig information om att inget sparas.
+
+
+## v0.4 — grafisk ombyggnad och ljudmix, ännu okörda i Studio
+
+43 automatiska kontroller passerar (19 fiske, 18 progression/sparande,
+4 layout, 2 platsbyggnad). Layoutkontrollerna verifierar beräknade gränser,
+inte Roblox textmått, faktisk touch eller skärmarnas utseende.
+Världsgeometrin har dessutom inspekterats via en separat Blender-rendering av
+produktionskodens utdata. Det är ingen skärmbild från Roblox Studio.
+
+- [ ] Öppna **Cloud-Anglers-v0.4.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Se mjuka klippkanter, lagun, repbrygga, verkstad, distansöar och luftskepp.
+- [ ] Vattenfall rör sig och luftskeppet svävar långsamt utan återkommande fel.
+- [ ] Gå från spawn till fiskeplatsen utan hinder. Flötet landar på vattenytan.
+- [ ] Gräsklippkanter, blommor och moln blockerar inte spelaren eller kameran.
+- [ ] Kontrollera skyltarnas framsidor och att verkstadens text går att läsa.
+- [ ] COLLECTION visar sex separata 3D-porträtt och artens tips när ett kort väljs.
+- [ ] Upptäckta fiskar har färg och bästa kvalitet, andra har mörkare porträtt.
+- [ ] Rod workshop har läsbara uppgifter, 3D-spö och en minst 44 px tryckyta.
+- [ ] Verkstadens prompt öppnar direkt rätt flik. Köp och stäng; fiska igen.
+- [ ] Prova 320 px bred porträttvy, 568×320 landskap, iPad och dator.
+- [ ] Scrolla båda menyflikarna; även sista fiskkortet och köpraden är åtkomliga.
+- [ ] Inget menyhuvud, fångstkort, saldo eller kontrollkort skärs av av skärmens insets.
+- [ ] Porträttlägets fiskekort sitter ovanför joystick/hopp. Landskapskortet sitter mellan dem.
+- [ ] Stäng fångstkort och meny via touch; inga osynliga paneler blockerar efteråt.
+- [ ] Lyssna i hörlurar och på telefonhögtalare: napp är tydligt, utan vasst pip.
+- [ ] Kast/plask har rimlig nivå, reel-loop tonar in/ut även vid avbrott och död.
+- [ ] Mål spelar inte ovanpå fångstsignalen; mätaren har inga extra pip.
+- [ ] SFX/OFF tystar allt, även vid pågående belöningsfras. Återaktivering fungerar.
+- [ ] Två samtidiga fiskare låter lagom och avlägsna kast hörs svagare.
+- [ ] Mät faktisk FPS/minne på telefon/iPad med lägsta och högre Roblox-grafik.
+- [ ] Återanslut med v0.3-profil: befintliga mynt, arter och spön finns kvar.
+
+De sex ljudfilerna är samma som i v0.3. Denna version ändrar tonhöjd, EQ,
+komprimering, volymer och frasernas tajming. Ljudkvalitet kan först bedömas
+slutligt genom att faktiskt lyssna i Roblox.

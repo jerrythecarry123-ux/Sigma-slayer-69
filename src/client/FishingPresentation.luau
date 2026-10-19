@@ -40,6 +40,25 @@ function Presentation.new(audio: any)
 	folder.Parent = workspace
 	local actors: { [number]: Actor } = {}
 	local random = Random.new()
+	local flowing: { { part: BasePart, rest: CFrame, phase: number } } = {}
+	local worldCache: Instance? = nil
+	local skyShip: Model? = nil
+	local shipRest = CFrame.identity
+	local function cacheScenery(world: Instance)
+		table.clear(flowing)
+		worldCache = world
+		for _, child in world:GetDescendants() do
+			if child:IsA("BasePart") then
+				local rest, phase = child:GetAttribute("FlowStart"), child:GetAttribute("FlowPhase")
+				if typeof(rest) == "CFrame" and typeof(phase) == "number" then
+					table.insert(flowing, { part = child, rest = rest, phase = phase })
+				end
+			end
+		end
+		local ship = world:FindFirstChild("SkySail")
+		skyShip = if ship and ship:IsA("Model") then ship else nil
+		if skyShip then shipRest = skyShip:GetPivot() end
+	end
 
 	local function ripple(position: Vector3)
 		local ring = visualPart(folder, "Ripple", Vector3.new(0.06, 0.8, 0.8),
@@ -142,7 +161,7 @@ function Presentation.new(audio: any)
 		if not bobber then return end
 		actor.bite = true
 		ripple(bobber.Position)
-		audio.play("Chime", 1.6, bobber, 0.5)
+		audio.play("Chime", 1.1, bobber, 0.34)
 		local gui = Instance.new("BillboardGui")
 		gui.Size = UDim2.fromOffset(60, 72)
 		gui.StudsOffset = Vector3.new(0, 2, 0)
@@ -177,7 +196,7 @@ function Presentation.new(audio: any)
 			if actor.bobber then actor.bobber:Destroy() end
 			actor.bobber, actor.line = nil, nil
 			createBobber(actor)
-			if hand then audio.play("Cast", 0.9, hand, 0.32) end
+			if hand then audio.play("Cast", 0.94, hand, 0.26) end
 		end
 		if incoming.phase == "Idle" then
 			local position = if actor.bobber then actor.bobber.Position else incoming.castTarget
@@ -265,7 +284,7 @@ function Presentation.new(audio: any)
 						if not actor.landed then
 							actor.landed = true
 							ripple(target)
-							audio.play("Splash", 1.2, bobber, 0.45)
+							audio.play("Splash", 0.95, bobber, 0.32)
 						end
 					end
 					bobber.Position = arc
@@ -287,7 +306,17 @@ function Presentation.new(audio: any)
 			end
 		end
 		local world = workspace:FindFirstChild("MolnfiskarnaPrototype")
+		-- Replication can deliver the folder before its children. Cache after the fish arrives.
 		local preview = if world then world:FindFirstChild("PuffletPreview") else nil
+		if world and preview and world ~= worldCache then cacheScenery(world) end
+		for _, flow in flowing do
+			if flow.part.Parent then
+				flow.part.CFrame = flow.rest + Vector3.new(0, -((time * 7 + flow.phase * 13) % 28) + 14, 0)
+			end
+		end
+		if skyShip and skyShip.Parent then
+			skyShip:PivotTo(shipRest * CFrame.new(math.sin(time * 0.09) * 5, math.sin(time * 0.35) * 1.1, 0) * CFrame.Angles(0, 0, math.sin(time * 0.23) * 0.025))
+		end
 		if preview and preview:IsA("Model") then
 			preview:PivotTo(CFrame.new(0, 4 + math.sin(time * 1.8) * 0.4, 66) * CFrame.Angles(0, math.sin(time) * 0.3, math.sin(time * 2) * 0.08))
 			Fish.animate(preview, time)

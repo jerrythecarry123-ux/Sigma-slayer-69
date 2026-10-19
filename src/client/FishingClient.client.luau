@@ -22,9 +22,8 @@ local heldInput: InputObject? = nil
 local heldConnection: RBXScriptConnection? = nil
 local releasedBeforeAck = false
 local workshopVisible = false
-local message = "Follow the path to the glowing fishing spot."
+local message = "Find the lantern-lit dock and cast your first line."
 local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
-local highestBand = 0
 local function now(): number return workspace:GetServerTimeNow() end
 local function clearHeld()
 	heldInput = nil
@@ -93,7 +92,7 @@ ProximityPromptService.PromptHidden:Connect(function(prompt)
 	if prompt.Name == "RodWorkshopPrompt" then workshopVisible = false end
 end)
 ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
-	if prompt.Name == "RodWorkshopPrompt" and who == player then ui.openJournal() end
+	if prompt.Name == "RodWorkshopPrompt" and who == player then ui.openJournal("Workshop") end
 end)
 visual.OnClientEvent:Connect(presentation.apply)
 state.OnClientEvent:Connect(function(incoming)
@@ -118,7 +117,7 @@ state.OnClientEvent:Connect(function(incoming)
 		ui.notify("Welcome back! Your collection earned " .. packet.offline.coins .. " coins.")
 		audio.coins()
 	end
-	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false; highestBand = 0 end
+	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false end
 	if packet.phase == "Waiting" and packet.attemptId ~= previousId then ui.hideResult() end
 	audio.setReeling(packet.phase == "Reeling")
 	if ui.isJournalOpen() and packet.phase == "Waiting" then request("Cancel"); return end
@@ -132,8 +131,8 @@ RunService.RenderStepped:Connect(function()
 	if pendingSince and time - pendingSince > 3 then clearHeld(); releasedBeforeAck = false; request("Sync") end
 	local camera = workspace.CurrentCamera
 	if camera then ui.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y) end
-	ui.button.BackgroundColor3 = Color3.fromRGB(100, 224, 210)
-	ui.legend.Text = "NORMAL  /  FINE  /  BRILLIANT"
+	ui.button.BackgroundColor3 = Color3.fromRGB(37, 119, 109)
+	ui.legend.Text = "NORMAL  ·  FINE  ·  BRILLIANT"
 	if packet.phase == "Waiting" then
 		if time < (packet.readyAt or math.huge) then
 			ui.status.Text, ui.button.Text = "Watch your bobber...", "CASTING..."
@@ -146,11 +145,9 @@ RunService.RenderStepped:Connect(function()
 		ui.marker.Position = UDim2.fromScale(progress, 0)
 		local quality = Rules.qualityAt(progress)
 		ui.legend.Text = "NOW: " .. string.upper(quality or "OUTSIDE THE ZONE")
-		local rank = if quality == "Brilliant" then 3 elseif quality == "Fine" then 2 elseif quality then 1 else 0
-		if rank > highestBand then highestBand = rank; audio.play("Chime", 1 + rank * 0.3, nil, 0.08) end
 		ui.status.Text = if pendingSince then "Checking your catch..." else "Release in the zone. Aim for gold!"
 		ui.button.Text = if pendingSince then "ONE MOMENT..." else "RELEASE!"
-		ui.button.BackgroundColor3 = Color3.fromRGB(255, 211, 116)
+		ui.button.BackgroundColor3 = Color3.fromRGB(151, 105, 31)
 	elseif packet.phase == "Idle" then
 		ui.status.Text = message
 		ui.button.Text = if pendingSince then "ONE MOMENT..." elseif time < packet.nextStart then "GET READY..." else "CAST LINE" .. keyHint

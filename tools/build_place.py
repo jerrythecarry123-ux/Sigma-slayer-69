@@ -11,7 +11,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.3.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v0.4.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
@@ -27,6 +27,7 @@ SOURCES = {
     "StarterPlayer/StarterPlayerScripts/FishingClient": ("LocalScript", "src/client/FishingClient.client.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingAudio": ("ModuleScript", "src/client/FishingAudio.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
+    "StarterPlayer/StarterPlayerScripts/InterfaceLayout": ("ModuleScript", "src/client/InterfaceLayout.luau"),
     "StarterPlayer/StarterPlayerScripts/UITheme": ("ModuleScript", "src/client/UITheme.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingInterface": ("ModuleScript", "src/client/FishingInterface.luau"),
 }
