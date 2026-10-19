@@ -37,6 +37,11 @@ class PlaceTests(unittest.TestCase):
 
         walk(root)
         self.assertEqual(set(sources), set(builder.SOURCES))
+        self.assertEqual(
+            {source for _, source in builder.SOURCES.values()},
+            {path.relative_to(ROOT).as_posix() for path in (ROOT / "src").rglob("*.luau")},
+            "Every production module must be embedded in the downloadable Studio file",
+        )
         for path, (class_name, relative_source) in builder.SOURCES.items():
             self.assertEqual(sources[path], (class_name, (ROOT / relative_source).read_text(encoding="utf-8")))
 

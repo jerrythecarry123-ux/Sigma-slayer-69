@@ -1,110 +1,95 @@
-# Molnfiskarna — första fiskeprototypen
+# Cloud Anglers — v0.2
 
-En liten Roblox-prototyp med serverstyrt fiske, en molnö, en brygga och Puffis.
-Gränssnittet skapas automatiskt och har inmatning för mus, E-tangenten och touch.
-Varje spelare har egna fiskeförsök och en egen fångsträknare.
+An English-language Roblox fishing playtest with a floating island, Sundrift Pond
+and a catchable Pufflet. This is the presentation update to the first prototype.
 
-**Fångster gäller bara den aktuella sessionen.** Valuta, akvarium, uppgraderingar,
-sparande och poängtavla kommer i senare steg.
+[Download the Studio place](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/raw/refs/heads/main/artifacts/Cloud-Anglers-v0.2.rbxlx)
 
-## Öppna i Roblox Studio på Windows
+## Open and play
 
-1. Ladda ned `Molnfiskarna-Prototype.zip` och välj **Extrahera alla** i Windows.
-2. Öppna `Molnfiskarna-Prototype.rbxlx` i Roblox Studio, exempelvis via funktionen
-   för att öppna en plats från fil i File-menyn.
-3. Starta **Play**, så att din avatar visas. Använd inte enbart Run: klientkoden
-   och gränssnittet behöver en spelare.
-4. Gå till den blå rutan längst ut på bryggan.
-5. Klicka/tryck på **FISKA** eller tryck E och släpp.
-6. Efter napp: håll inne knappen eller E. Släpp när den vita markören är i
-   fångstområdet. Guld ger kvaliteten Strålande, blått Fin och grönt Normal.
-7. Resultatet och antalet fångster visas. Försök igen och förbättra kvaliteten.
+1. Download `Cloud-Anglers-v0.2.rbxlx` and open it in Roblox Studio.
+2. Start **Play**, not just Run: the interface needs a player.
+3. Follow the path to the glowing spot at the end of the dock.
+4. Click/tap **CAST LINE**, or tap E and release it.
+5. Watch the rod cast and the bobber land. When the bite cue appears, hold the
+   button or E. Release while the marker is in the colored zone.
+6. Normal, Fine and Brilliant are the three catch qualities. Gold is best.
+7. The fish jumps from the pond and appears in an animated 3D catch card.
+   Close the card with its x button or E, or wait for it to close automatically.
 
-Ön skapas av servern när Play startar. I redigeringsläget ser platsen därför
-tom ut. Om du vill spara projektet på Roblox, spara det som en separat privat
-testplats och ge din medutvecklare redigeringsbehörighet.
+The world is generated when Play starts, so the editor initially looks empty.
+Save as a separate private test place to play with your collaborator.
 
-Du behöver inga API-nycklar, externa grafikpaket, betalda plugins eller
-DataStore-inställningar för denna prototyp.
+## What changed in v0.2
 
-Om chatten visar "Det gick inte att ladda ner artefakten" finns även en offline-
-överföring för Windows. `python tools/build_windows_transfer.py` skapar ett
-självförsörjande PowerShell-block i `artifacts/Skapa-Molnfiskarna.ps1` som kan
-klistras in som text från chatten. Det packar upp samma platsfil lokalt, verifierar
-SHA-256 och sparar den med ett nytt namn på skrivbordet. Det hämtar inget från
-nätet och kör inte spelfilens Luau-kod. Användaren öppnar filen i Studio efteråt.
+- All in-game text is English, including results and server feedback.
+- A wooden dock, cloud pond, trees, lanterns, clearer signs and warmer lighting.
+- A visible fishing rod, animated arm pose, arcing cast, line and bobber.
+- Floating/bobbing motion, bite indicator, expanding ripples and catch sparks.
+- A fish with a face, fins and tail, a catch flight and animated 3D result card.
+- Cast, splash, bite, reeling, success and miss sounds; **SFX ON/OFF** control.
+- Server-approved visual events let players see one another's fishing.
+- Button press feedback, pulsing bite highlight and animated result presentation.
 
-## Testa två spelare och touch
+Animations use procedural CFrame/Motor6D motion and tweens. Sound effects use
+Roblox client content (`rbxasset://sounds/...`), so no custom animation or audio
+uploads are required. These are starter effects, not a custom soundtrack.
 
-- Använd Studios lokala server-/klienttest med två spelare. Båda ska kunna
-  fånga fisk samtidigt utan att räknarna påverkar varandra.
-- Prova olika telefon- och surfplatteformat i Studios enhetsemulator.
-- Prova även riktig telefon/iPad före godkännande av touchkänsla och prestanda.
-  Ett lokalt servertest är inte samma sak som att två Windows-datorer spelar
-  tillsammans. För gemensamt spel mellan enheter behövs en privat publicerad
-  testupplevelse och lämplig åtkomst för testkontona.
-- Följ [Studio-testlistan](docs/studio-testlista.md), inklusive avbrott och felvägar.
+Catches are session-only. Saving, currency, upgrades and aquarium progression
+are still outside this version.
 
-## Filer och ansvar
+## Source layout
 
-| Fil | Ansvar |
+| File | Responsibility |
 | --- | --- |
-| `src/shared/FishingConfig.luau` | Tider, avstånd och prototypläge |
-| `src/shared/FishingRules.luau` | Kvalitetsnivåer; samma zoner visas i UI |
-| `src/server/FishingEngine.luau` | Testbar tillståndsmaskin, begränsning av anrop, fångster |
-| `src/server/FishingService.luau` | Roblox-spelare, avstånd, RemoteEvents och serverklocka |
-| `src/server/PrototypeWorld.luau` | Enkel ö, brygga och spawn |
-| `src/server/FishingServer.server.luau` | Startar serverdelen |
-| `src/client/FishingClient.client.luau` | Gränssnitt, mätare, mus/tangent/touch |
+| `src/shared/FishingConfig.luau` | Timing, distance and prototype mode |
+| `src/shared/FishingRules.luau` | Catch quality windows |
+| `src/shared/FishModel.luau` | Original fish geometry shared by the world and UI |
+| `src/server/FishingEngine.luau` | Testable authoritative attempt and catch rules |
+| `src/server/FishingService.luau` | Player lifecycle, validity checks, private state and visual broadcasts |
+| `src/server/PrototypeWorld.luau` | Island, pond, dock and spawn |
+| `src/server/FishingServer.server.luau` | Server entry point |
+| `src/client/FishingClient.client.luau` | English UI, controls and catch card |
+| `src/client/FishingPresentation.luau` | Rod, arms, bobber, line and world effects |
+| `src/client/FishingAudio.luau` | Sound preload, mix, effects and mute control |
 
-Skripten i Git är källan för den genererade platsfilen. För bestående ändringar:
-ändra `.luau`-filerna och bygg en ny platsfil. Förändringar gjorda inne i Studio
-skrivs inte tillbaka till Git automatiskt. Bestäm en gemensam version innan ni
-båda ändrar samma skript. Rojo-synk är ännu inte konfigurerad.
+The source files are embedded by the place builder. Edits made in Studio are not
+synced back to Git automatically. Edit source and rebuild for lasting code changes;
+keep a separate saved copy of any world you edit in Studio. Rojo is not configured.
 
-För att koppla in en egen värld senare: sätt `CreatePrototypeWorld = false` i
-FishingConfig och skapa `Workspace.World.FishingSpot` som en förankrad Part.
-En egen värld och spawn måste då sparas i Studio. Python-byggaren återskapar
-bara skriptplatsen; den läser inte tillbaka egna banbyggen från Studio.
+To use your own world later, set `CreatePrototypeWorld = false` and create an
+anchored `Workspace.World.FishingSpot`. Its forward direction determines where
+casts land. Save your world in Studio: the builder does not import custom maps.
 
-## Bygga från källkod, valfritt
+## Build and checks
 
-Python 3.10+ räcker. Inga Python-paket behöver installeras.
+Python 3.10+ is sufficient to build; no extra Python packages are needed.
+The prebuilt place does not require Python.
 
 ```powershell
 python tools/build_place.py
 python tools/package_release.py
-```
-
-Resultaten finns i `artifacts`. Python behövs inte för att öppna den redan
-byggda `.rbxlx`-filen. Sluta inte redigera en sparad egen värld för att öppna en
-ny genererad version utan att först spara ditt arbete.
-
-## Automatiska kontroller
-
-Med officiella Luau-kommandoradsverktyg installerade:
-
-```powershell
-luau tests/fishing_engine.spec.luau
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Luau-testsviten kör produktionskoden för regler och tillståndsmaskin, utan
-Roblox-mockar. Byggtesterna kontrollerar skriptinnehåll, placering, instanstyper
-och att upprepade byggen ger samma fil. Detta ersätter inte Play-tester i Studio.
+With the official Luau CLI installed:
 
-## Verifiering och begränsningar
+```powershell
+luau tests/fishing_engine.spec.luau
+```
 
-Kontroller som har körts i molnmiljön redovisas i
-[testprotokollet](docs/studio-testlista.md). Roblox Studio kan inte köras här.
-Världen, UI, faktisk nätverkskörning och enhetskontroller behöver därför provas
-i Studio innan prototypen kallas speltestad.
+Build outputs are `artifacts/Cloud-Anglers-v0.2.rbxlx` and
+`artifacts/Cloud-Anglers-v0.2.zip`.
 
-Servern avgör kvalitet från tiden då släppmeddelandet tas emot. Det gör att
-nätfördröjning kan förskjuta upplevelsen av mätaren. Zonerna är breda för den
-första prototypen; testa med fördröjning före tävlings- eller ekonomifunktioner.
-Serverkontrollerna begränsar ogiltiga anrop men bevisar inte mänsklig inmatning
-eller stoppar alla rörelseexploits. Inga beständiga belöningar införs här.
+The rule tests exercise actual production logic. Packaging tests verify every
+production module is present, has the right source/class and builds repeatably.
+Studio and real devices are still required to verify the actual animations,
+audio playback, layout and multiplayer visuals. See the
+[Studio test checklist](docs/studio-testlista.md) for the unrun checks.
 
-Design och arbetssätt finns i [speldesignen](docs/molnfiskarna-gdd.md) och
-[första veckoplanen](docs/forsta-veckan.md).
+Server receipt time determines catch quality. Network delay can shift the apparent
+meter result, so test latency before competitive or persistent rewards are added.
+Visuals are cosmetic; clients cannot award fish by triggering their own effects.
+
+Design and the initial learning plan remain available in Swedish:
+[Game design](docs/molnfiskarna-gdd.md), [First week](docs/forsta-veckan.md).

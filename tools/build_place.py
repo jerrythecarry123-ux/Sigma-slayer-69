@@ -11,14 +11,18 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+PLACE_NAME = "Cloud-Anglers-v0.2.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
+    "ReplicatedStorage/FishingShared/FishModel": ("ModuleScript", "src/shared/FishModel.luau"),
     "ServerScriptService/FishingEngine": ("ModuleScript", "src/server/FishingEngine.luau"),
     "ServerScriptService/PrototypeWorld": ("ModuleScript", "src/server/PrototypeWorld.luau"),
     "ServerScriptService/FishingService": ("ModuleScript", "src/server/FishingService.luau"),
     "ServerScriptService/FishingServer": ("Script", "src/server/FishingServer.server.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingClient": ("LocalScript", "src/client/FishingClient.client.luau"),
+    "StarterPlayer/StarterPlayerScripts/FishingAudio": ("ModuleScript", "src/client/FishingAudio.luau"),
+    "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
 }
 
 
@@ -64,7 +68,7 @@ def build(output: Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/Molnfiskarna-Prototype.rbxlx")
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts" / PLACE_NAME)
     args = parser.parse_args()
     build(args.output)
     print(f"Built {args.output} ({len(SOURCES)} Luau scripts)")

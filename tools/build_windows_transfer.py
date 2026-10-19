@@ -5,11 +5,11 @@ import gzip
 import hashlib
 import textwrap
 
-from build_place import ROOT, build
+from build_place import ROOT, PLACE_NAME, build
 
 
 def create_transfer() -> str:
-    place = ROOT / "artifacts/Molnfiskarna-Prototype.rbxlx"
+    place = ROOT / "artifacts" / PLACE_NAME
     build(place)
     original = place.read_bytes()
     encoded = base64.b64encode(gzip.compress(original, mtime=0)).decode("ascii")

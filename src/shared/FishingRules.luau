@@ -14,10 +14,10 @@ function Rules.qualityAt(progress: number): string?
 		return nil
 	end
 	if progress >= Rules.BrilliantMin and progress <= Rules.BrilliantMax then
-		return "Strålande"
+		return "Brilliant"
 	end
 	if progress >= Rules.FineMin and progress <= Rules.FineMax then
-		return "Fin"
+		return "Fine"
 	end
 	return "Normal"
 end

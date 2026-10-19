@@ -75,10 +75,10 @@ function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: 
 	local attempt = if session then session.attempt else nil
 	if not attempt then return nil end
 	if not canFish then
-		return self:finish(userId, now, "Fisket avbröts. Gå tillbaka till bryggans blå ruta.")
+		return self:finish(userId, now, "Fishing stopped. Return to the glowing spot on the dock.")
 	end
 	if now > attempt.expiresAt then
-		return self:finish(userId, now, "Fisken simmade vidare. Försök igen!")
+		return self:finish(userId, now, "It swam away. Cast again!")
 	end
 	return nil
 end
@@ -102,7 +102,7 @@ function Engine.command(
 		if session.attempt or now < session.nextStart then return self:snapshot(userId) end
 		if not canFish then
 			local packet = self:snapshot(userId) :: Packet
-			packet.message = "Gå till den blå rutan längst ut på bryggan."
+			packet.message = "Walk to the glowing spot at the end of the dock."
 			return packet
 		end
 		self.sequence += 1
@@ -116,7 +116,7 @@ function Engine.command(
 	local attempt = session.attempt
 	if not attempt or type(attemptId) ~= "number" or attemptId ~= attempt.id then return nil end
 	if action == "Cancel" then
-		return self:finish(userId, now, "Fisket avbröts. Du kan försöka igen.")
+		return self:finish(userId, now, "Cast cancelled. Ready when you are.")
 	elseif action == "Hold" then
 		if attempt.phase ~= "Waiting" or now < attempt.readyAt then return self:snapshot(userId) end
 		attempt.phase = "Reeling"
@@ -128,9 +128,9 @@ function Engine.command(
 		-- No client-supplied quality, timestamp, species or reward is trusted.
 		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
 		local quality = self.rules.qualityAt(progress)
-		if not quality then return self:finish(userId, now, "Den kom undan! Släpp inne i fångstområdet.") end
+		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
 		session.catches += 1
-		local packet = self:finish(userId, now, "Du fångade " .. self.config.SpeciesName .. "!")
+		local packet = self:finish(userId, now, "You caught a " .. self.config.SpeciesName .. "!")
 		packet.result = { species = self.config.SpeciesName, quality = quality }
 		return packet
 	end

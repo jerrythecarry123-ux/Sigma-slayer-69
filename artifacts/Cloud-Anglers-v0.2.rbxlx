@@ -1,0 +1,1334 @@
+<?xml version='1.0' encoding='utf-8'?>
+<roblox version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="Workspace" referent="RBX00000001">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <float name="FallenPartsDestroyHeight">-80</float>
+    </Properties>
+  </Item>
+  <Item class="Lighting" referent="RBX00000002">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <float name="ClockTime">14</float>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="RBX00000003">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="RBX00000007">
+      <Properties>
+        <string name="Name">FishingShared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="RBX00000009">
+        <Properties>
+          <string name="Name">FishingConfig</string>
+          <ProtectedString name="Source">--!strict
+-- Shared presentation/tuning values. The server still owns every attempt.
+return table.freeze({
+	PreparationTime = 0.8,
+	BiteTimeout = 12,
+	ChargeLeadTime = 0.3,
+	ChargeDuration = 2.8,
+	StartCooldown = 0.6,
+	MaxDistance = 16,
+	RequestCapacity = 12,
+	RequestsPerSecond = 5,
+	SpeciesName = "Pufflet",
+	CreatePrototypeWorld = true,
+})
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000A">
+        <Properties>
+          <string name="Name">FishingRules</string>
+          <ProtectedString name="Source">--!strict
+-- Pure rules: usable in Roblox and the standalone Luau test runner.
+local Rules = {
+	NormalMin = 0.22,
+	NormalMax = 0.95,
+	FineMin = 0.48,
+	FineMax = 0.84,
+	BrilliantMin = 0.61,
+	BrilliantMax = 0.75,
+}
+
+function Rules.qualityAt(progress: number): string?
+	if progress ~= progress or progress &lt; Rules.NormalMin or progress &gt; Rules.NormalMax then
+		return nil
+	end
+	if progress &gt;= Rules.BrilliantMin and progress &lt;= Rules.BrilliantMax then
+		return "Brilliant"
+	end
+	if progress &gt;= Rules.FineMin and progress &lt;= Rules.FineMax then
+		return "Fine"
+	end
+	return "Normal"
+end
+
+return table.freeze(Rules)
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000B">
+        <Properties>
+          <string name="Name">FishModel</string>
+          <ProtectedString name="Source">--!strict
+-- Original geometry shared by the pond preview, catch animation and result card.
+local Fish = {}
+
+local function shape(parent: Model, name: string, size: Vector3, position: Vector3, color: Color3): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Shape = Enum.PartType.Ball
+	part.Size = size
+	part.Position = position
+	part.Color = color
+	part.Material = Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Parent = parent
+	return part
+end
+
+function Fish.create(parent: Instance, name: string?): Model
+	local model = Instance.new("Model")
+	model.Name = name or "Pufflet"
+	local body = shape(model, "Body", Vector3.new(2.8, 2, 1.9), Vector3.zero, Color3.fromRGB(255, 206, 99))
+	model.PrimaryPart = body
+	shape(model, "Belly", Vector3.new(2.1, 1.3, 1.6), Vector3.new(0, -0.35, -0.18), Color3.fromRGB(255, 238, 185))
+	for _, side in { -1, 1 } do
+		local fin = shape(model, "Fin", Vector3.new(0.9, 0.22, 1), Vector3.new(side * 1.38, -0.1, 0.15),
+			Color3.fromRGB(247, 146, 107))
+		fin.CFrame *= CFrame.Angles(0, 0, side * 0.25)
+		shape(model, "Tail", Vector3.new(1, 1.1, 0.28), Vector3.new(side * 0.36, 0, 1.28),
+			Color3.fromRGB(247, 146, 107))
+		shape(model, "EyeWhite", Vector3.new(0.58, 0.65, 0.3), Vector3.new(side * 0.65, 0.34, -0.84),
+			Color3.fromRGB(255, 255, 250))
+		shape(model, "Pupil", Vector3.new(0.27, 0.35, 0.15), Vector3.new(side * 0.65, 0.35, -1.01),
+			Color3.fromRGB(25, 44, 63))
+		shape(model, "EyeGlint", Vector3.new(0.09, 0.11, 0.07), Vector3.new(side * 0.65 - 0.05, 0.43, -1.09),
+			Color3.new(1, 1, 1))
+		shape(model, "Cheek", Vector3.new(0.4, 0.2, 0.15), Vector3.new(side * 1.02, -0.05, -0.7),
+			Color3.fromRGB(255, 159, 135))
+	end
+	shape(model, "Mouth", Vector3.new(0.3, 0.16, 0.16), Vector3.new(0, -0.18, -1.02), Color3.fromRGB(81, 59, 61))
+	model.Parent = parent
+	return model
+end
+
+return Fish
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="RBX00000004">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="ModuleScript" referent="RBX0000000C">
+      <Properties>
+        <string name="Name">FishingEngine</string>
+        <ProtectedString name="Source">--!strict
+-- Pure server state machine. Roblox services are kept in FishingService.
+type Config = {
+	read PreparationTime: number, read BiteTimeout: number, read ChargeLeadTime: number,
+	read ChargeDuration: number, read StartCooldown: number, read RequestCapacity: number,
+	read RequestsPerSecond: number, read SpeciesName: string,
+}
+type Attempt = {
+	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?,
+}
+type Session = {
+	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
+	tokenTime: number,
+}
+type Packet = { [string]: any }
+local Engine = {}
+Engine.__index = Engine
+type EngineData = {
+	config: Config,
+	rules: { read qualityAt: (number) -&gt; string? },
+	sessions: { [number]: Session },
+	sequence: number,
+}
+export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
+
+function Engine.new(config: Config, rules: { read qualityAt: (number) -&gt; string? }): FishingEngine
+	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0 }, Engine)
+end
+
+function Engine.addPlayer(self: FishingEngine, userId: number, now: number)
+	if self.sessions[userId] then return end
+	self.sessions[userId] = {
+		attempt = nil, catches = 0, nextStart = now,
+		tokens = self.config.RequestCapacity, tokenTime = now,
+	}
+end
+
+function Engine.removePlayer(self: FishingEngine, userId: number)
+	self.sessions[userId] = nil
+end
+
+function Engine.snapshot(self: FishingEngine, userId: number): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	local packet: Packet = { phase = "Idle", catches = session.catches, nextStart = session.nextStart }
+	local attempt = session.attempt
+	if attempt then
+		packet.phase = attempt.phase
+		packet.attemptId = attempt.id
+		packet.readyAt = attempt.readyAt
+		packet.expiresAt = attempt.expiresAt
+		packet.chargeAt = attempt.chargeAt
+		packet.duration = self.config.ChargeDuration
+	end
+	return packet
+end
+
+function Engine.finish(self: FishingEngine, userId: number, now: number, message: string): Packet
+	local session = self.sessions[userId]
+	session.attempt = nil
+	session.nextStart = now + self.config.StartCooldown
+	local packet = self:snapshot(userId) :: Packet
+	packet.message = message
+	return packet
+end
+
+function Engine.interrupt(self: FishingEngine, userId: number, now: number, message: string): Packet?
+	local session = self.sessions[userId]
+	if not session or not session.attempt then return nil end
+	return self:finish(userId, now, message)
+end
+
+function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: boolean): Packet?
+	local session = self.sessions[userId]
+	local attempt = if session then session.attempt else nil
+	if not attempt then return nil end
+	if not canFish then
+		return self:finish(userId, now, "Fishing stopped. Return to the glowing spot on the dock.")
+	end
+	if now &gt; attempt.expiresAt then
+		return self:finish(userId, now, "It swam away. Cast again!")
+	end
+	return nil
+end
+
+function Engine.command(
+	self: FishingEngine, userId: number, action: any, attemptId: any, now: number, canFish: boolean
+): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	-- Rate-limit all requests, including malformed and unknown actions.
+	session.tokens = math.min(self.config.RequestCapacity,
+		session.tokens + math.max(0, now - session.tokenTime) * self.config.RequestsPerSecond)
+	session.tokenTime = now
+	if session.tokens &lt; 1 then return nil end
+	session.tokens -= 1
+	if type(action) ~= "string" then return nil end
+	if action == "Sync" then return self:snapshot(userId) end
+	local aborted = self:tick(userId, now, canFish)
+	if aborted then return aborted end
+	if action == "Start" then
+		if session.attempt or now &lt; session.nextStart then return self:snapshot(userId) end
+		if not canFish then
+			local packet = self:snapshot(userId) :: Packet
+			packet.message = "Walk to the glowing spot at the end of the dock."
+			return packet
+		end
+		self.sequence += 1
+		local readyAt = now + self.config.PreparationTime
+		session.attempt = {
+			id = self.sequence, phase = "Waiting", readyAt = readyAt,
+			expiresAt = readyAt + self.config.BiteTimeout,
+		}
+		return self:snapshot(userId)
+	end
+	local attempt = session.attempt
+	if not attempt or type(attemptId) ~= "number" or attemptId ~= attempt.id then return nil end
+	if action == "Cancel" then
+		return self:finish(userId, now, "Cast cancelled. Ready when you are.")
+	elseif action == "Hold" then
+		if attempt.phase ~= "Waiting" or now &lt; attempt.readyAt then return self:snapshot(userId) end
+		attempt.phase = "Reeling"
+		local chargeAt = now + self.config.ChargeLeadTime
+		attempt.chargeAt = chargeAt
+		attempt.expiresAt = chargeAt + self.config.ChargeDuration
+		return self:snapshot(userId)
+	elseif action == "Release" and attempt.phase == "Reeling" then
+		-- No client-supplied quality, timestamp, species or reward is trusted.
+		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
+		local quality = self.rules.qualityAt(progress)
+		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
+		session.catches += 1
+		local packet = self:finish(userId, now, "You caught a " .. self.config.SpeciesName .. "!")
+		packet.result = { species = self.config.SpeciesName, quality = quality }
+		return packet
+	end
+	return nil
+end
+
+return Engine
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000D">
+      <Properties>
+        <string name="Name">PrototypeWorld</string>
+        <ProtectedString name="Source">--!strict
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Fish = require(ReplicatedStorage:WaitForChild("FishingShared"):WaitForChild("FishModel"))
+local World = {}
+
+local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
+	local object = Instance.new("Part")
+	object.Name = name
+	object.Size = size
+	object.CFrame = cf
+	object.Color = color
+	object.Anchored = true
+	object.Material = Enum.Material.SmoothPlastic
+	object.TopSurface = Enum.SurfaceType.Smooth
+	object.BottomSurface = Enum.SurfaceType.Smooth
+	object.Parent = parent
+	return object
+end
+
+local function sign(parent: BasePart, text: string, offset: Vector3, width: number, size: number)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "WorldSign"
+	gui.Size = UDim2.fromOffset(width, 64)
+	gui.StudsOffset = offset
+	gui.MaxDistance = 120
+	gui.AlwaysOnTop = true
+	gui.Parent = parent
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.Text = text
+	label.AutoLocalize = false
+	label.TextSize = size
+	label.TextColor3 = Color3.fromRGB(255, 246, 216)
+	label.TextStrokeColor3 = Color3.fromRGB(25, 49, 69)
+	label.TextStrokeTransparency = 0.2
+	label.Parent = gui
+end
+
+function World.create(): BasePart
+	assert(not workspace:FindFirstChild("MolnfiskarnaPrototype"),
+		"Prototype world already exists. Use a separate test place or disable CreatePrototypeWorld.")
+	local folder = Instance.new("Folder")
+	folder.Name = "MolnfiskarnaPrototype"
+	folder.Parent = workspace
+	Lighting.ClockTime = 15
+	Lighting.Brightness = 2
+	Lighting.Ambient = Color3.fromRGB(155, 177, 204)
+	Lighting.OutdoorAmbient = Color3.fromRGB(177, 195, 220)
+	Lighting.FogColor = Color3.fromRGB(190, 218, 245)
+	Lighting.FogStart = 130
+	Lighting.FogEnd = 420
+
+	local island = part(folder, "Island", Vector3.new(72, 7, 56), CFrame.new(0, -1.5, 0), Color3.fromRGB(121, 178, 151))
+	island.Material = Enum.Material.Grass
+	part(folder, "IslandRock", Vector3.new(66, 10, 50), CFrame.new(0, -8, 0), Color3.fromRGB(120, 147, 171))
+	part(folder, "Path", Vector3.new(12, 0.12, 40), CFrame.new(0, 2.06, 6), Color3.fromRGB(223, 210, 174))
+	part(folder, "DockBase", Vector3.new(18, 0.7, 26), CFrame.new(0, 1.5, 39), Color3.fromRGB(105, 77, 65))
+	for index = 0, 12 do
+		part(folder, "DockPlank", Vector3.new(18, 0.32, 1.88), CFrame.new(0, 1.99, 27 + index * 2),
+			if index % 2 == 0 then Color3.fromRGB(195, 148, 100) else Color3.fromRGB(180, 131, 88))
+	end
+	for _, x in { -9.5, 9.5 } do
+		for _, z in { 29, 39, 50 } do
+			part(folder, "DockPost", Vector3.new(0.7, 5, 0.7), CFrame.new(x, 2.8, z), Color3.fromRGB(120, 87, 65))
+		end
+		part(folder, "Rail", Vector3.new(0.35, 0.35, 22), CFrame.new(x, 4.7, 39), Color3.fromRGB(223, 190, 137))
+	end
+	local spot = part(folder, "FishingSpot", Vector3.new(12, 0.12, 9),
+		CFrame.new(0, 2.24, 45) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(95, 225, 230))
+	spot.CanCollide = false
+	spot.CanTouch = false
+	spot.Transparency = 0.45
+	spot.Material = Enum.Material.Neon
+	sign(spot, "SUNDRIFT POND\nCast from the glowing spot", Vector3.new(0, 6, 0), 310, 18)
+
+	local pond = part(folder, "CloudPond", Vector3.new(64, 2, 40), CFrame.new(0, -0.2, 67), Color3.fromRGB(126, 210, 227))
+	pond.Shape = Enum.PartType.Ball
+	pond.Material = Enum.Material.Glass
+	pond.Transparency = 0.22
+	pond.CanCollide = false
+	pond.CanTouch = false
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "PrototypeSpawn"
+	spawn.Size = Vector3.new(8, 1, 8)
+	spawn.Position = Vector3.new(0, 2.6, -5)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Transparency = 1
+	spawn.Parent = folder
+	local welcome = part(folder, "WelcomePost", Vector3.new(0.6, 7, 0.6), CFrame.new(0, 5, -14), Color3.fromRGB(149, 110, 82))
+	sign(welcome, "CLOUD ANGLERS\nYour next catch is above the clouds", Vector3.new(0, 5, 0), 410, 22)
+
+	for _, x in { -24, 24 } do
+		for _, z in { -15, 12 } do
+			part(folder, "TreeTrunk", Vector3.new(1.6, 9, 1.6), CFrame.new(x, 6, z), Color3.fromRGB(152, 114, 92))
+			local crown = part(folder, "TreeCrown", Vector3.new(12, 11, 12), CFrame.new(x, 13, z),
+				if z &lt; 0 then Color3.fromRGB(175, 206, 183) else Color3.fromRGB(244, 194, 163))
+			crown.Shape = Enum.PartType.Ball
+		end
+	end
+	for index = 1, 14 do
+		local angle = index * math.pi / 7
+		local cloud = part(folder, "Cloud", Vector3.new(33, 11, 28),
+			CFrame.new(math.cos(angle) * 52, -7 - index % 3, 20 + math.sin(angle) * 61), Color3.fromRGB(239, 246, 255))
+		cloud.Shape = Enum.PartType.Ball
+		cloud.CanCollide = false
+		cloud.CanTouch = false
+	end
+	for _, x in { -7, 7 } do
+		local lamp = part(folder, "Lantern", Vector3.new(1.2, 1.7, 1.2), CFrame.new(x, 5, 27), Color3.fromRGB(255, 220, 146))
+		lamp.Material = Enum.Material.Neon
+		local light = Instance.new("PointLight")
+		light.Color = lamp.Color
+		light.Brightness = 0.7
+		light.Range = 14
+		light.Parent = lamp
+	end
+	local fish = Fish.create(folder, "PuffletPreview")
+	fish:PivotTo(CFrame.new(0, 4, 66))
+	return spot
+end
+
+function World.findCustom(): BasePart
+	local folder = workspace:FindFirstChild("World")
+	local spot = if folder then folder:FindFirstChild("FishingSpot") else nil
+	assert(spot and spot:IsA("BasePart"), "Create an anchored Part at Workspace.World.FishingSpot.")
+	return spot :: BasePart
+end
+
+return World
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000E">
+      <Properties>
+        <string name="Name">FishingService</string>
+        <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Config = require(Shared:WaitForChild("FishingConfig"))
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local Engine = require(script.Parent:WaitForChild("FishingEngine"))
+local World = require(script.Parent:WaitForChild("PrototypeWorld"))
+local Service = {}
+local started = false
+
+function Service.start()
+	assert(not started, "FishingService has already started")
+	started = true
+	local spot = if Config.CreatePrototypeWorld then World.create() else World.findCustom()
+	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "FishingRemotes already exists; install one copy only.")
+	local remotes = Instance.new("Folder")
+	remotes.Name = "FishingRemotes"
+	local action = Instance.new("RemoteEvent")
+	action.Name = "FishingAction"
+	action.Parent = remotes
+	local state = Instance.new("RemoteEvent")
+	state.Name = "FishingState"
+	state.Parent = remotes
+	local visual = Instance.new("RemoteEvent")
+	visual.Name = "FishingVisual"
+	visual.Parent = remotes
+	local engine = Engine.new(Config, Rules)
+	local characterConnections: { [Player]: RBXScriptConnection } = {}
+	local function decorate(player: Player, packet: any)
+		-- A presentation target only. It never changes catch validity or rewards.
+		local lane = (player.UserId % 4 - 1.5) * 2
+		packet.castTarget = (spot.CFrame * CFrame.new(lane, -1.2, -14)).Position
+		return packet
+	end
+	local function emit(player: Player, packet: any)
+		decorate(player, packet)
+		state:FireClient(player, packet)
+		visual:FireAllClients(player.UserId, packet)
+	end
+	local function canFish(player: Player): boolean
+		local character = player.Character
+		if not character then return false end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+		return spot:IsDescendantOf(workspace) and humanoid ~= nil and humanoid.Health &gt; 0
+			and root ~= nil and root:IsA("BasePart")
+			and (root.Position - spot.Position).Magnitude &lt;= Config.MaxDistance
+	end
+	local function addPlayer(player: Player)
+		engine:addPlayer(player.UserId, workspace:GetServerTimeNow())
+		if characterConnections[player] then return end
+		characterConnections[player] = player.CharacterRemoving:Connect(function()
+			-- Invalidate the old avatar's attempt even if a new avatar spawns before a tick.
+			local packet = engine:interrupt(player.UserId, workspace:GetServerTimeNow(),
+				"Fishing stopped. Return to the dock after respawning.")
+			if packet and player.Parent == Players then emit(player, packet) end
+		end)
+	end
+	Players.PlayerAdded:Connect(addPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		local connection = characterConnections[player]
+		if connection then connection:Disconnect() end
+		characterConnections[player] = nil
+		engine:removePlayer(player.UserId)
+	end)
+	for _, player in Players:GetPlayers() do addPlayer(player) end
+
+	action.OnServerEvent:Connect(function(player, verb, attemptId)
+		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player))
+		if packet then
+			emit(player, packet)
+			if verb == "Sync" then
+				for _, other in Players:GetPlayers() do
+					local otherPacket = engine:snapshot(other.UserId)
+					if other ~= player and otherPacket and otherPacket.phase ~= "Idle" then
+						visual:FireClient(player, other.UserId, decorate(other, otherPacket))
+					end
+				end
+			end
+		end
+	end)
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(deltaTime)
+		elapsed += deltaTime
+		if elapsed &lt; 0.1 then return end
+		elapsed = 0
+		local now = workspace:GetServerTimeNow()
+		for _, player in Players:GetPlayers() do
+			local packet = engine:tick(player.UserId, now, canFish(player))
+			if packet then emit(player, packet) end
+		end
+	end)
+	-- Publish the remotes only after listeners and sessions are ready.
+	remotes.Parent = ReplicatedStorage
+	print("Cloud Anglers: fishing is ready. Progress is session-only in this prototype.")
+end
+
+return Service
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="RBX0000000F">
+      <Properties>
+        <string name="Name">FishingServer</string>
+        <ProtectedString name="Source">--!strict
+require(script.Parent:WaitForChild("FishingService")).start()
+</ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="RBX00000005">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="RBX00000008">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="RBX00000010">
+        <Properties>
+          <string name="Name">FishingClient</string>
+          <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local Fish = require(Shared:WaitForChild("FishModel"))
+local audio = require(script.Parent:WaitForChild("FishingAudio")).new()
+local presentation = require(script.Parent:WaitForChild("FishingPresentation")).new(audio)
+local remotes = ReplicatedStorage:WaitForChild("FishingRemotes")
+local action = remotes:WaitForChild("FishingAction") :: RemoteEvent
+local state = remotes:WaitForChild("FishingState") :: RemoteEvent
+local visual = remotes:WaitForChild("FishingVisual") :: RemoteEvent
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+assert(not playerGui:FindFirstChild("MolnfiskarnaFishing"), "Install one FishingClient only.")
+
+type Packet = {
+	phase: string, catches: number, nextStart: number,
+	attemptId: number?, readyAt: number?, expiresAt: number?,
+	chargeAt: number?, duration: number?, message: string?,
+	result: { species: string, quality: string }?,
+}
+local packet: Packet = { phase = "Connecting", catches = 0, nextStart = 0 }
+local pendingSince: number? = nil
+local heldInput: InputObject? = nil
+local heldConnection: RBXScriptConnection? = nil
+local releasedBeforeAck = false
+local message = "Follow the path to the glowing spot on the dock."
+local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
+local colors = {
+	panel = Color3.fromRGB(24, 39, 62), text = Color3.fromRGB(243, 248, 255),
+	muted = Color3.fromRGB(180, 200, 216), blue = Color3.fromRGB(91, 212, 228),
+	gold = Color3.fromRGB(255, 214, 119), green = Color3.fromRGB(112, 192, 156),
+}
+local gui = Instance.new("ScreenGui")
+gui.Name = "MolnfiskarnaFishing"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+local function round(parent: Instance, radius: number)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius)
+	corner.Parent = parent
+end
+local function label(parent: Instance, name: string, text: string, y: number, height: number, size: number): TextLabel
+	local object = Instance.new("TextLabel")
+	object.Name = name
+	object.Position = UDim2.fromOffset(16, y)
+	object.Size = UDim2.new(1, -32, 0, height)
+	object.BackgroundTransparency = 1
+	object.Font = Enum.Font.Gotham
+	object.TextColor3 = colors.text
+	object.TextSize = size
+	object.TextWrapped = true
+	object.AutoLocalize = false
+	object.Text = text
+	object.Parent = parent
+	return object
+end
+
+local brand = Instance.new("Frame")
+brand.Name = "Brand"
+brand.Position = UDim2.fromOffset(14, 12)
+brand.Size = UDim2.fromOffset(195, 44)
+brand.BackgroundColor3 = colors.panel
+brand.BackgroundTransparency = 0.08
+brand.BorderSizePixel = 0
+brand.Parent = gui
+round(brand, 12)
+local brandText = label(brand, "Title", "CLOUD ANGLERS", 0, 44, 16)
+brandText.Font = Enum.Font.GothamBold
+brandText.TextColor3 = colors.gold
+local mute = Instance.new("TextButton")
+mute.Name = "SoundToggle"
+mute.AnchorPoint = Vector2.new(1, 0)
+mute.Position = UDim2.new(1, -14, 0, 12)
+mute.Size = UDim2.fromOffset(84, 44)
+mute.BackgroundColor3 = colors.panel
+mute.Text = "SFX ON"
+mute.Font = Enum.Font.GothamBold
+mute.TextSize = 13
+mute.TextColor3 = colors.blue
+mute.AutoLocalize = false
+mute.Parent = gui
+round(mute, 12)
+mute.Activated:Connect(function()
+	local muted = audio.toggle()
+	mute.Text = if muted then "SFX OFF" else "SFX ON"
+	mute.TextColor3 = if muted then colors.muted else colors.blue
+end)
+
+local panel = Instance.new("Frame")
+panel.Name = "FishingPanel"
+panel.AnchorPoint = Vector2.new(0.5, 1)
+panel.Position = UDim2.new(0.5, 0, 1, -12)
+panel.Size = UDim2.new(0.62, 0, 0, 220)
+panel.BackgroundColor3 = colors.panel
+panel.BackgroundTransparency = 0.04
+panel.BorderSizePixel = 0
+panel.Parent = gui
+round(panel, 16)
+local constraint = Instance.new("UISizeConstraint")
+constraint.MinSize = Vector2.new(254, 220)
+constraint.MaxSize = Vector2.new(420, 220)
+constraint.Parent = panel
+local panelScale = Instance.new("UIScale")
+panelScale.Scale = 0.9
+panelScale.Parent = panel
+TweenService:Create(panelScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+local stroke = Instance.new("UIStroke")
+stroke.Color = colors.blue
+stroke.Transparency = 0.5
+stroke.Thickness = 1
+stroke.Parent = panel
+local title = label(panel, "Location", "SUNDRIFT POND", 10, 20, 15)
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = colors.gold
+local count = label(panel, "CatchCount", "SESSION CATCHES  0", 32, 18, 12)
+count.TextColor3 = colors.muted
+local countScale = Instance.new("UIScale")
+countScale.Parent = count
+local status = label(panel, "Status", message, 54, 38, 14)
+local meter = Instance.new("Frame")
+meter.Name = "Meter"
+meter.Position = UDim2.new(0, 20, 0, 100)
+meter.Size = UDim2.new(1, -40, 0, 18)
+meter.BackgroundColor3 = Color3.fromRGB(52, 68, 91)
+meter.BorderSizePixel = 0
+meter.ClipsDescendants = true
+meter.Parent = panel
+round(meter, 5)
+local function zone(name: string, low: number, high: number, color: Color3)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = UDim2.fromScale(low, 0)
+	frame.Size = UDim2.fromScale(high - low, 1)
+	frame.BackgroundColor3 = color
+	frame.BorderSizePixel = 0
+	frame.Parent = meter
+end
+zone("Normal", Rules.NormalMin, Rules.NormalMax, colors.green)
+zone("Fine", Rules.FineMin, Rules.FineMax, colors.blue)
+zone("Brilliant", Rules.BrilliantMin, Rules.BrilliantMax, colors.gold)
+local marker = Instance.new("Frame")
+marker.Name = "Marker"
+marker.AnchorPoint = Vector2.new(0.5, 0)
+marker.Size = UDim2.new(0, 4, 1, 0)
+marker.BackgroundColor3 = Color3.new(1, 1, 1)
+marker.BorderSizePixel = 0
+marker.ZIndex = 2
+marker.Parent = meter
+local legend = label(panel, "Legend", "NORMAL  /  FINE  /  BRILLIANT", 124, 18, 11)
+legend.TextColor3 = colors.muted
+local button = Instance.new("TextButton")
+button.Name = "ActionButton"
+button.AnchorPoint = Vector2.new(0.5, 0)
+button.Position = UDim2.new(0.5, 0, 0, 150)
+button.Size = UDim2.new(1, -40, 0, 48)
+button.BackgroundColor3 = colors.blue
+button.TextColor3 = colors.panel
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.AutoLocalize = false
+button.Text = "CONNECTING..."
+button.AutoButtonColor = false
+button.BorderSizePixel = 0
+button.Parent = panel
+round(button, 12)
+local buttonScale = Instance.new("UIScale")
+buttonScale.Parent = button
+local footnote = label(panel, "PrototypeNotice", "PLAYTEST BUILD  /  SESSION PROGRESS", 203, 12, 10)
+footnote.TextColor3 = colors.muted
+
+-- A real 3D fish in the result card, not a static placeholder image.
+local resultCard = Instance.new("Frame")
+resultCard.Name = "CatchReveal"
+resultCard.AnchorPoint = Vector2.new(0.5, 0.5)
+resultCard.Position = UDim2.fromScale(0.5, 0.45)
+resultCard.Size = UDim2.fromOffset(270, 242)
+resultCard.BackgroundColor3 = colors.panel
+resultCard.BorderSizePixel = 0
+resultCard.Visible = false
+resultCard.Parent = gui
+round(resultCard, 20)
+local resultScale = Instance.new("UIScale")
+resultScale.Parent = resultCard
+local resultStroke = Instance.new("UIStroke")
+resultStroke.Color = colors.gold
+resultStroke.Thickness = 2
+resultStroke.Parent = resultCard
+local resultTitle = label(resultCard, "Headline", "NICE CATCH!", 12, 22, 15)
+resultTitle.Font = Enum.Font.GothamBold
+resultTitle.TextColor3 = colors.gold
+local viewport = Instance.new("ViewportFrame")
+viewport.Position = UDim2.fromOffset(10, 38)
+viewport.Size = UDim2.new(1, -20, 0, 128)
+viewport.BackgroundTransparency = 1
+viewport.Ambient = Color3.fromRGB(210, 218, 229)
+viewport.LightColor = Color3.fromRGB(255, 236, 199)
+viewport.LightDirection = Vector3.new(-1, -1, -2)
+viewport.Parent = resultCard
+local camera = Instance.new("Camera")
+camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.4, -6.8), Vector3.zero)
+camera.FieldOfView = 40
+camera.Parent = viewport
+viewport.CurrentCamera = camera
+local fishWorld = Instance.new("WorldModel")
+fishWorld.Parent = viewport
+local revealFish = Fish.create(fishWorld)
+local resultName = label(resultCard, "Species", "PUFFLET", 171, 28, 24)
+resultName.Font = Enum.Font.GothamBold
+local resultQuality = label(resultCard, "Quality", "Normal", 202, 22, 16)
+local dismiss = Instance.new("TextButton")
+dismiss.Name = "Close"
+dismiss.AnchorPoint = Vector2.new(1, 0)
+dismiss.Position = UDim2.new(1, 0, 0, 0)
+dismiss.Size = UDim2.fromOffset(44, 44)
+dismiss.BackgroundTransparency = 1
+dismiss.Text = "x"
+dismiss.TextSize = 20
+dismiss.TextColor3 = colors.muted
+dismiss.AutoLocalize = false
+dismiss.Parent = resultCard
+local revealGeneration = 0
+local function hideResult()
+	revealGeneration += 1
+	resultCard.Visible = false
+	panel.Visible = true
+end
+dismiss.Activated:Connect(hideResult)
+local function showResult(result: { species: string, quality: string })
+	revealGeneration += 1
+	local generation = revealGeneration
+	audio.catch(result.quality)
+	countScale.Scale = 1.18
+	TweenService:Create(countScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	-- Let the fish visibly jump out of the pond before showing its close-up.
+	task.delay(0.65, function()
+		if generation ~= revealGeneration then return end
+		resultName.Text = string.upper(result.species)
+		resultQuality.Text = result.quality .. " catch"
+		resultQuality.TextColor3 = if result.quality == "Brilliant" then colors.gold
+			elseif result.quality == "Fine" then colors.blue else colors.green
+		panel.Visible = false
+		resultCard.Visible = true
+		resultScale.Scale = 0.65
+		TweenService:Create(resultScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		task.delay(2.2, function()
+			if generation == revealGeneration then hideResult() end
+		end)
+	end)
+end
+
+local function now(): number
+	return workspace:GetServerTimeNow()
+end
+local function clearHeld()
+	heldInput = nil
+	if heldConnection then heldConnection:Disconnect() end
+	heldConnection = nil
+	TweenService:Create(buttonScale, TweenInfo.new(0.12), { Scale = 1 }):Play()
+end
+local function request(verb: string)
+	pendingSince = now()
+	action:FireServer(verb, packet.attemptId)
+end
+local function cancel()
+	clearHeld()
+	releasedBeforeAck = false
+	if packet.attemptId then request("Cancel") end
+end
+local function release()
+	if not heldInput then return end
+	clearHeld()
+	if packet.phase == "Reeling" then request("Release")
+	else releasedBeforeAck = true end
+end
+local function press(input: InputObject)
+	if resultCard.Visible then hideResult() return end
+	if heldInput or pendingSince then return end
+	local time = now()
+	if packet.phase == "Idle" and time &gt;= packet.nextStart then
+		hideResult()
+		message = "Casting into the clouds..."
+		request("Start")
+	elseif packet.phase == "Waiting" and time &gt;= (packet.readyAt or math.huge) then
+		heldInput = input
+		releasedBeforeAck = false
+		TweenService:Create(buttonScale, TweenInfo.new(0.1), { Scale = 0.95 }):Play()
+		heldConnection = input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.Cancel then cancel()
+			elseif input.UserInputState == Enum.UserInputState.End then release() end
+		end)
+		request("Hold")
+	end
+end
+button.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then press(input) end
+end)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if not processed and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then press(input) end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	local held = heldInput
+	if not held then return end
+	if input == held
+		or (held.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)
+		or (held.KeyCode == Enum.KeyCode.E and input.KeyCode == Enum.KeyCode.E) then release() end
+end)
+UserInputService.WindowFocusReleased:Connect(cancel)
+UserInputService.TextBoxFocused:Connect(cancel)
+visual.OnClientEvent:Connect(presentation.apply)
+state.OnClientEvent:Connect(function(incoming: Packet)
+	local previousId = packet.attemptId
+	local previousCatches = packet.catches
+	local previousPhase = packet.phase
+	packet = incoming
+	pendingSince = nil
+	count.Text = "SESSION CATCHES  " .. tostring(packet.catches)
+	if packet.result and packet.catches &gt; previousCatches then
+		message = packet.result.species .. " / " .. packet.result.quality .. "! Cast again?"
+		showResult(packet.result)
+	elseif packet.message then message = packet.message end
+	if packet.phase == "Idle" or packet.attemptId ~= previousId then
+		clearHeld()
+		releasedBeforeAck = false
+	end
+	if packet.phase == "Waiting" and previousPhase ~= "Waiting" then
+		hideResult()
+		TweenService:Create(stroke, TweenInfo.new(0.2), { Transparency = 0.1 }):Play()
+	end
+	audio.setReeling(packet.phase == "Reeling")
+	if packet.phase == "Reeling" then
+		if releasedBeforeAck then
+			releasedBeforeAck = false
+			request("Release")
+		elseif not heldInput then request("Cancel") end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	local time = now()
+	if pendingSince and time - pendingSince &gt; 3 then
+		clearHeld()
+		releasedBeforeAck = false
+		request("Sync")
+	end
+	marker.Visible = packet.phase == "Reeling"
+	button.BackgroundColor3 = colors.blue
+	legend.Text = "NORMAL  /  FINE  /  BRILLIANT"
+	if resultCard.Visible then
+		revealFish:PivotTo(CFrame.Angles(0, math.sin(time * 1.5) * 0.3, math.sin(time * 2) * 0.05))
+	end
+	if packet.phase == "Waiting" then
+		if time &lt; (packet.readyAt or math.huge) then
+			status.Text = "Watch your bobber..."
+			button.Text = "CASTING..."
+			button.BackgroundColor3 = colors.muted
+		else
+			status.Text = "BITE! Hold, then release inside the zone."
+			button.Text = if pendingSince then "ONE MOMENT..." else "HOLD TO REEL" .. keyHint
+			stroke.Transparency = 0.15 + (math.sin(time * 7) + 1) * 0.18
+		end
+	elseif packet.phase == "Reeling" then
+		local progress = math.clamp((time - (packet.chargeAt or time)) / (packet.duration or 1), 0, 1)
+		marker.Position = UDim2.fromScale(progress, 0)
+		legend.Text = "NOW: " .. string.upper(Rules.qualityAt(progress) or "OUTSIDE THE ZONE")
+		status.Text = if pendingSince then "Checking your catch..." else "Release in the zone. Aim for gold!"
+		button.Text = if pendingSince then "ONE MOMENT..." else "RELEASE!"
+		button.BackgroundColor3 = colors.gold
+	elseif packet.phase == "Idle" then
+		status.Text = message
+		button.Text = if pendingSince then "ONE MOMENT..."
+			elseif time &lt; packet.nextStart then "GET READY..." else "CAST LINE" .. keyHint
+	else
+		status.Text = "Connecting to the pond..."
+		button.Text = "CONNECTING..."
+	end
+end)
+request("Sync")
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000011">
+        <Properties>
+          <string name="Name">FishingAudio</string>
+          <ProtectedString name="Source">--!strict
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local Audio = {}
+
+-- Roblox client content, not community audio IDs with experience-specific permissions.
+local clips = {
+	Cast = "rbxasset://sounds/action_jump.mp3",
+	Splash = "rbxasset://sounds/impact_water.mp3",
+	Chime = "rbxasset://sounds/electronicpingshort.wav",
+	Reel = "rbxasset://sounds/action_swim.mp3",
+	Miss = "rbxasset://sounds/action_jump_land.mp3",
+}
+
+function Audio.new()
+	local folder = Instance.new("Folder")
+	folder.Name = "CloudAnglersSounds"
+	folder.Parent = SoundService
+	local group = Instance.new("SoundGroup")
+	group.Name = "CloudAnglersMix"
+	group.Volume = 0.8
+	group.Parent = SoundService
+	local templates: { [string]: Sound } = {}
+	local preload: { Instance } = {}
+	for name, path in clips do
+		local sound = Instance.new("Sound")
+		sound.Name = name
+		sound.SoundId = path
+		sound.SoundGroup = group
+		sound.Volume = 0.35
+		sound.RollOffMinDistance = 8
+		sound.RollOffMaxDistance = 85
+		sound.Parent = folder
+		templates[name] = sound
+		table.insert(preload, sound)
+	end
+	task.spawn(function()
+		local ok, err = pcall(function() ContentProvider:PreloadAsync(preload) end)
+		if not ok then warn("Cloud Anglers: sound preload failed: " .. tostring(err)) end
+	end)
+	local reel: Sound? = nil
+	local muted = false
+	local function play(name: string, pitch: number?, parent: Instance?, volume: number?)
+		local template = templates[name]
+		if not template or muted then return end
+		local sound = template:Clone()
+		sound.PlaybackSpeed = pitch or 1
+		sound.Volume = volume or 0.35
+		sound.Parent = parent or folder
+		sound:Play()
+		Debris:AddItem(sound, 6)
+	end
+	local function setReeling(enabled: boolean)
+		if enabled and not reel then
+			local sound = templates.Reel:Clone()
+			sound.Looped = true
+			sound.PlaybackSpeed = 1.7
+			sound.Volume = 0
+			sound.Parent = folder
+			sound:Play()
+			TweenService:Create(sound, TweenInfo.new(0.15), { Volume = 0.14 }):Play()
+			reel = sound
+		elseif not enabled and reel then
+			TweenService:Create(reel, TweenInfo.new(0.12), { Volume = 0 }):Play()
+			Debris:AddItem(reel, 0.16)
+			reel = nil
+		end
+	end
+	local function catchSound(quality: string)
+		local pitch = if quality == "Brilliant" then 1.25 else 1
+		play("Chime", pitch, nil, 0.4)
+		task.delay(0.1, function() play("Chime", pitch * 1.25, nil, 0.3) end)
+		task.delay(0.2, function() play("Chime", pitch * 1.5, nil, 0.24) end)
+	end
+	return {
+		play = play,
+		setReeling = setReeling,
+		catch = catchSound,
+		toggle = function(): boolean
+			muted = not muted
+			group.Volume = if muted then 0 else 0.8
+			return muted
+		end,
+	}
+end
+
+return Audio
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX00000012">
+        <Properties>
+          <string name="Name">FishingPresentation</string>
+          <ProtectedString name="Source">--!strict
+-- Local procedural animation, driven exclusively by server-approved state.
+-- Every client renders the same casts; no animation asset uploads are required.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Config = require(Shared:WaitForChild("FishingConfig"))
+local Fish = require(Shared:WaitForChild("FishModel"))
+local Presentation = {}
+
+type Actor = {
+	player: Player, character: Model?, rig: Model?, tip: Attachment?,
+	bobber: Part?, line: Beam?, state: any, landed: boolean, bite: boolean,
+	lastCatches: number, castFrom: Vector3?, caughtFish: Model?, catchAt: number,
+	catchFrom: Vector3, shoulder: Motor6D?, leftShoulder: Motor6D?, pitch: number, poseWeight: number,
+}
+
+local function visualPart(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
+	local object = Instance.new("Part")
+	object.Name = name
+	object.Size = size
+	object.CFrame = cf
+	object.Color = color
+	object.Anchored = true
+	object.CanCollide = false
+	object.CanTouch = false
+	object.CanQuery = false
+	object.CastShadow = false
+	object.Material = Enum.Material.SmoothPlastic
+	object.Parent = parent
+	return object
+end
+
+function Presentation.new(audio: any)
+	local folder = Instance.new("Folder")
+	folder.Name = "CloudAnglersEffects"
+	folder.Parent = workspace
+	local actors: { [number]: Actor } = {}
+	local random = Random.new()
+
+	local function ripple(position: Vector3)
+		local ring = visualPart(folder, "Ripple", Vector3.new(0.06, 0.8, 0.8),
+			CFrame.new(position - Vector3.yAxis * 0.25) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(229, 251, 255))
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Transparency = 0.45
+		TweenService:Create(ring, TweenInfo.new(0.65, Enum.EasingStyle.Quad),
+			{ Size = Vector3.new(0.04, 6, 6), Transparency = 1 }):Play()
+		Debris:AddItem(ring, 0.7)
+	end
+
+	local function burst(position: Vector3, golden: boolean)
+		for _ = 1, 12 do
+			local size = random:NextNumber(0.12, 0.3)
+			local bubble = visualPart(folder, "CatchSpark", Vector3.new(size, size, size), CFrame.new(position),
+				if golden then Color3.fromRGB(255, 218, 120) else Color3.fromRGB(182, 239, 250))
+			bubble.Shape = Enum.PartType.Ball
+			bubble.Material = Enum.Material.Neon
+			TweenService:Create(bubble, TweenInfo.new(0.65, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = position + Vector3.new(random:NextNumber(-2, 2), random:NextNumber(1, 4), random:NextNumber(-2, 2)),
+				Transparency = 1,
+			}):Play()
+			Debris:AddItem(bubble, 0.7)
+		end
+	end
+
+	local function clearRig(actor: Actor)
+		if actor.shoulder and actor.shoulder.Parent then actor.shoulder.Transform = CFrame.identity end
+		if actor.leftShoulder and actor.leftShoulder.Parent then actor.leftShoulder.Transform = CFrame.identity end
+		if actor.rig then actor.rig:Destroy() end
+		if actor.bobber then actor.bobber:Destroy() end
+		if actor.caughtFish then actor.caughtFish:Destroy() end
+		actor.rig, actor.tip, actor.bobber, actor.line = nil, nil, nil, nil
+		actor.shoulder, actor.leftShoulder, actor.caughtFish = nil, nil, nil
+	end
+
+	local function getActor(player: Player): Actor
+		local existing = actors[player.UserId]
+		if existing then return existing end
+		local actor: Actor = {
+			player = player, state = { phase = "Idle", catches = 0 }, landed = false, bite = false,
+			lastCatches = 0, catchAt = 0, catchFrom = Vector3.zero, pitch = 0, poseWeight = 0,
+		}
+		actors[player.UserId] = actor
+		return actor
+	end
+
+	local function ensureRig(actor: Actor): BasePart?
+		local character = actor.player.Character
+		if character ~= actor.character then
+			clearRig(actor)
+			if actor.character then actor.state = { phase = "Idle", catches = actor.lastCatches } end
+			actor.character = character
+		end
+		if not character then return nil end
+		local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+		if not hand or not hand:IsA("BasePart") then return nil end
+		if not actor.rig then
+			local rig = Instance.new("Model")
+			rig.Name = "FishingRod_" .. actor.player.UserId
+			local origin = visualPart(rig, "Grip", Vector3.new(0.28, 0.8, 0.28), CFrame.identity, Color3.fromRGB(101, 76, 66))
+			rig.PrimaryPart = origin
+			local shaft = visualPart(rig, "Rod", Vector3.new(0.12, 3.5, 0.12), CFrame.new(0, 2, 0), Color3.fromRGB(78, 174, 188))
+			visualPart(rig, "Reel", Vector3.new(0.45, 0.45, 0.32), CFrame.new(0, 0.35, -0.25), Color3.fromRGB(243, 196, 107))
+			local tip = Instance.new("Attachment")
+			tip.Position = Vector3.new(0, 1.75, 0)
+			tip.Parent = shaft
+			rig.Parent = folder
+			actor.rig, actor.tip = rig, tip
+			local right = character:FindFirstChild("RightShoulder", true) or character:FindFirstChild("Right Shoulder", true)
+			local left = character:FindFirstChild("LeftShoulder", true) or character:FindFirstChild("Left Shoulder", true)
+			actor.shoulder = if right and right:IsA("Motor6D") then right else nil
+			actor.leftShoulder = if left and left:IsA("Motor6D") then left else nil
+		end
+		return hand
+	end
+
+	local function createBobber(actor: Actor)
+		if actor.bobber or not actor.tip or not actor.rig then return end
+		local bobber = visualPart(folder, "Bobber_" .. actor.player.UserId, Vector3.new(0.65, 0.65, 0.65),
+			CFrame.new(actor.castFrom or Vector3.zero), Color3.fromRGB(255, 129, 111))
+		bobber.Shape = Enum.PartType.Ball
+		bobber.Material = Enum.Material.Neon
+		local anchor = Instance.new("Attachment")
+		anchor.Parent = bobber
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = actor.tip
+		beam.Attachment1 = anchor
+		beam.Width0, beam.Width1 = 0.045, 0.025
+		beam.FaceCamera = true
+		beam.Segments = 12
+		beam.Color = ColorSequence.new(Color3.fromRGB(242, 248, 235))
+		beam.Transparency = NumberSequence.new(0.12)
+		beam.Parent = bobber
+		actor.bobber, actor.line = bobber, beam
+	end
+
+	local function biteCue(actor: Actor)
+		local bobber = actor.bobber
+		if not bobber then return end
+		actor.bite = true
+		ripple(bobber.Position)
+		audio.play("Chime", 1.6, bobber, 0.5)
+		local gui = Instance.new("BillboardGui")
+		gui.Size = UDim2.fromOffset(60, 72)
+		gui.StudsOffset = Vector3.new(0, 2, 0)
+		gui.AlwaysOnTop = true
+		gui.Parent = bobber
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Text = "!"
+		label.Font = Enum.Font.GothamBlack
+		label.TextSize = 52
+		label.TextColor3 = Color3.fromRGB(255, 221, 115)
+		label.TextStrokeTransparency = 0.2
+		label.Parent = gui
+		TweenService:Create(gui, TweenInfo.new(0.3, Enum.EasingStyle.Back), { StudsOffset = Vector3.new(0, 3, 0) }):Play()
+		Debris:AddItem(gui, 0.85)
+	end
+
+	local function apply(userId: number, incoming: any)
+		local player = Players:GetPlayerByUserId(userId)
+		if not player then return end
+		local actor = getActor(player)
+		local previous = actor.state
+		local changed = previous.phase ~= incoming.phase or previous.attemptId ~= incoming.attemptId
+		local freshCatch = incoming.result ~= nil and incoming.catches &gt; actor.lastCatches
+		local hand = ensureRig(actor)
+		actor.state = incoming
+		actor.lastCatches = incoming.catches
+		if changed and incoming.phase == "Waiting" then
+			actor.landed, actor.bite = false, false
+			actor.castFrom = if hand then hand.Position + Vector3.new(0, 2, 0) else incoming.castTarget
+			if actor.bobber then actor.bobber:Destroy() end
+			actor.bobber, actor.line = nil, nil
+			createBobber(actor)
+			if hand then audio.play("Cast", 0.9, hand, 0.32) end
+		end
+		if incoming.phase == "Idle" then
+			local position = if actor.bobber then actor.bobber.Position else incoming.castTarget
+			if freshCatch and position then
+				if actor.caughtFish then actor.caughtFish:Destroy() end
+				actor.caughtFish = Fish.create(folder, "CaughtPufflet")
+				actor.catchAt = workspace:GetServerTimeNow()
+				actor.catchFrom = position
+				burst(position, true)
+				ripple(position)
+			elseif changed and previous.phase == "Reeling" and position then
+				burst(position, false)
+				if player == Players.LocalPlayer then audio.play("Miss", 0.8, nil, 0.16) end
+			end
+			if actor.bobber then actor.bobber:Destroy() end
+			actor.bobber, actor.line = nil, nil
+		end
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		local actor = actors[player.UserId]
+		if actor then clearRig(actor) end
+		actors[player.UserId] = nil
+	end)
+
+	RunService.PreSimulation:Connect(function(deltaTime)
+		-- Animator writes Transform before PreSimulation. This pass supplies the fishing pose.
+		for _, actor in actors do
+			local active = actor.state.phase == "Waiting" or actor.state.phase == "Reeling"
+			local previousWeight = actor.poseWeight
+			local target = if active then 1 else 0
+			actor.poseWeight += (target - actor.poseWeight) * (1 - math.exp(-deltaTime * 14))
+			if actor.poseWeight &lt; 0.001 then actor.poseWeight = 0 end
+			if actor.poseWeight &gt; 0 then
+				if actor.shoulder then
+					actor.shoulder.Transform = CFrame.identity:Lerp(CFrame.Angles(1.05 + actor.pitch * 0.3, 0, -0.18), actor.poseWeight)
+				end
+				if actor.leftShoulder then
+					actor.leftShoulder.Transform = CFrame.identity:Lerp(CFrame.Angles(0.7, 0.1, 0.4), actor.poseWeight)
+				end
+			elseif previousWeight &gt; 0 then
+				if actor.shoulder then actor.shoulder.Transform = CFrame.identity end
+				if actor.leftShoulder then actor.leftShoulder.Transform = CFrame.identity end
+			end
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function()
+		local time = workspace:GetServerTimeNow()
+		for _, player in Players:GetPlayers() do getActor(player) end
+		for _, actor in actors do
+			local hand = ensureRig(actor)
+			local root = if actor.character then actor.character:FindFirstChild("HumanoidRootPart") else nil
+			if not hand or not root or not root:IsA("BasePart") or not actor.rig then continue end
+			local packet = actor.state
+			local active = packet.phase == "Waiting" or packet.phase == "Reeling"
+			local target = packet.castTarget or (root.Position + root.CFrame.LookVector * 14)
+			local flat = (target - root.Position) * Vector3.new(1, 0, 1)
+			local forward = if flat.Magnitude &gt; 0.1 then flat.Unit else root.CFrame.LookVector
+			local castT = if packet.readyAt then math.clamp((time - packet.readyAt + Config.PreparationTime) / 0.65, 0, 1) else 1
+			local pitch = 0.95
+			if packet.phase == "Waiting" then
+				pitch = if castT &lt; 0.35 then 0.6 + castT / 0.35 else 1.6 - (castT - 0.35) / 0.65 * 1.1
+			elseif packet.phase == "Reeling" then
+				pitch = 0.65 + math.sin(time * 18) * 0.07
+			end
+			actor.pitch = pitch
+			local direction = forward * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
+			actor.rig:PivotTo(CFrame.lookAt(hand.Position, hand.Position + direction) * CFrame.Angles(-math.pi / 2, 0, 0))
+			if active then
+				createBobber(actor)
+				local bobber = actor.bobber
+				if bobber then
+					local from = actor.castFrom or hand.Position
+					local arc = from:Lerp(target, castT) + Vector3.new(0, math.sin(castT * math.pi) * 5, 0)
+					if castT &gt;= 1 then
+						local bob = math.sin(time * (if packet.phase == "Reeling" then 22 else 3)) * 0.16
+						arc = target + Vector3.new(0, bob - (if actor.bite then 0.25 else 0), 0)
+						if not actor.landed then
+							actor.landed = true
+							ripple(target)
+							audio.play("Splash", 1.2, bobber, 0.45)
+						end
+					end
+					bobber.Position = arc
+					if not actor.bite and time &gt;= packet.readyAt then biteCue(actor) end
+					if actor.line then actor.line.CurveSize0 = if packet.phase == "Reeling" then 0 else 0.7 end
+				end
+			end
+			if actor.caughtFish then
+				local t = math.clamp((time - actor.catchAt) / 1.2, 0, 1)
+				local destination = root.Position + Vector3.new(0, 3, 0)
+				local position = actor.catchFrom:Lerp(destination, t) + Vector3.new(0, math.sin(t * math.pi) * 7, 0)
+				actor.caughtFish:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * math.pi * 4, math.sin(t * 8) * 0.25))
+				if t &gt;= 1 then
+					burst(destination, true)
+					actor.caughtFish:Destroy()
+					actor.caughtFish = nil
+				end
+			end
+		end
+		local world = workspace:FindFirstChild("MolnfiskarnaPrototype")
+		local preview = if world then world:FindFirstChild("PuffletPreview") else nil
+		if preview and preview:IsA("Model") then
+			preview:PivotTo(CFrame.new(0, 4 + math.sin(time * 1.8) * 0.4, 66) * CFrame.Angles(0, math.sin(time) * 0.3, math.sin(time * 2) * 0.08))
+		end
+	end)
+
+	return { apply = apply }
+end
+
+return Presentation
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterGui" referent="RBX00000006">
+    <Properties>
+      <string name="Name">StarterGui</string>
+    </Properties>
+  </Item>
+</roblox>

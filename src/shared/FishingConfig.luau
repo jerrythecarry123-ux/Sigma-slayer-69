@@ -9,6 +9,6 @@ return table.freeze({
 	MaxDistance = 16,
 	RequestCapacity = 12,
 	RequestsPerSecond = 5,
-	SpeciesName = "Puffis",
+	SpeciesName = "Pufflet",
 	CreatePrototypeWorld = true,
 })
