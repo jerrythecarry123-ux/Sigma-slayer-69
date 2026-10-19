@@ -1,0 +1,691 @@
+<?xml version='1.0' encoding='utf-8'?>
+<roblox version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="Workspace" referent="RBX00000001">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <float name="FallenPartsDestroyHeight">-80</float>
+    </Properties>
+  </Item>
+  <Item class="Lighting" referent="RBX00000002">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <float name="ClockTime">14</float>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="RBX00000003">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="RBX00000007">
+      <Properties>
+        <string name="Name">FishingShared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="RBX00000009">
+        <Properties>
+          <string name="Name">FishingConfig</string>
+          <ProtectedString name="Source">--!strict
+-- Shared presentation/tuning values. The server still owns every attempt.
+return table.freeze({
+	PreparationTime = 0.8,
+	BiteTimeout = 12,
+	ChargeLeadTime = 0.3,
+	ChargeDuration = 2.8,
+	StartCooldown = 0.6,
+	MaxDistance = 16,
+	RequestCapacity = 12,
+	RequestsPerSecond = 5,
+	SpeciesName = "Puffis",
+	CreatePrototypeWorld = true,
+})
+</ProtectedString>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="RBX0000000A">
+        <Properties>
+          <string name="Name">FishingRules</string>
+          <ProtectedString name="Source">--!strict
+-- Pure rules: usable in Roblox and the standalone Luau test runner.
+local Rules = {
+	NormalMin = 0.22,
+	NormalMax = 0.95,
+	FineMin = 0.48,
+	FineMax = 0.84,
+	BrilliantMin = 0.61,
+	BrilliantMax = 0.75,
+}
+
+function Rules.qualityAt(progress: number): string?
+	if progress ~= progress or progress &lt; Rules.NormalMin or progress &gt; Rules.NormalMax then
+		return nil
+	end
+	if progress &gt;= Rules.BrilliantMin and progress &lt;= Rules.BrilliantMax then
+		return "Strålande"
+	end
+	if progress &gt;= Rules.FineMin and progress &lt;= Rules.FineMax then
+		return "Fin"
+	end
+	return "Normal"
+end
+
+return table.freeze(Rules)
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="RBX00000004">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="ModuleScript" referent="RBX0000000B">
+      <Properties>
+        <string name="Name">FishingEngine</string>
+        <ProtectedString name="Source">--!strict
+-- Pure server state machine. Roblox services are kept in FishingService.
+type Config = {
+	read PreparationTime: number, read BiteTimeout: number, read ChargeLeadTime: number,
+	read ChargeDuration: number, read StartCooldown: number, read RequestCapacity: number,
+	read RequestsPerSecond: number, read SpeciesName: string,
+}
+type Attempt = {
+	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?,
+}
+type Session = {
+	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
+	tokenTime: number,
+}
+type Packet = { [string]: any }
+local Engine = {}
+Engine.__index = Engine
+type EngineData = {
+	config: Config,
+	rules: { read qualityAt: (number) -&gt; string? },
+	sessions: { [number]: Session },
+	sequence: number,
+}
+export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
+
+function Engine.new(config: Config, rules: { read qualityAt: (number) -&gt; string? }): FishingEngine
+	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0 }, Engine)
+end
+
+function Engine.addPlayer(self: FishingEngine, userId: number, now: number)
+	if self.sessions[userId] then return end
+	self.sessions[userId] = {
+		attempt = nil, catches = 0, nextStart = now,
+		tokens = self.config.RequestCapacity, tokenTime = now,
+	}
+end
+
+function Engine.removePlayer(self: FishingEngine, userId: number)
+	self.sessions[userId] = nil
+end
+
+function Engine.snapshot(self: FishingEngine, userId: number): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	local packet: Packet = { phase = "Idle", catches = session.catches, nextStart = session.nextStart }
+	local attempt = session.attempt
+	if attempt then
+		packet.phase = attempt.phase
+		packet.attemptId = attempt.id
+		packet.readyAt = attempt.readyAt
+		packet.expiresAt = attempt.expiresAt
+		packet.chargeAt = attempt.chargeAt
+		packet.duration = self.config.ChargeDuration
+	end
+	return packet
+end
+
+function Engine.finish(self: FishingEngine, userId: number, now: number, message: string): Packet
+	local session = self.sessions[userId]
+	session.attempt = nil
+	session.nextStart = now + self.config.StartCooldown
+	local packet = self:snapshot(userId) :: Packet
+	packet.message = message
+	return packet
+end
+
+function Engine.interrupt(self: FishingEngine, userId: number, now: number, message: string): Packet?
+	local session = self.sessions[userId]
+	if not session or not session.attempt then return nil end
+	return self:finish(userId, now, message)
+end
+
+function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: boolean): Packet?
+	local session = self.sessions[userId]
+	local attempt = if session then session.attempt else nil
+	if not attempt then return nil end
+	if not canFish then
+		return self:finish(userId, now, "Fisket avbröts. Gå tillbaka till bryggans blå ruta.")
+	end
+	if now &gt; attempt.expiresAt then
+		return self:finish(userId, now, "Fisken simmade vidare. Försök igen!")
+	end
+	return nil
+end
+
+function Engine.command(
+	self: FishingEngine, userId: number, action: any, attemptId: any, now: number, canFish: boolean
+): Packet?
+	local session = self.sessions[userId]
+	if not session then return nil end
+	-- Rate-limit all requests, including malformed and unknown actions.
+	session.tokens = math.min(self.config.RequestCapacity,
+		session.tokens + math.max(0, now - session.tokenTime) * self.config.RequestsPerSecond)
+	session.tokenTime = now
+	if session.tokens &lt; 1 then return nil end
+	session.tokens -= 1
+	if type(action) ~= "string" then return nil end
+	if action == "Sync" then return self:snapshot(userId) end
+	local aborted = self:tick(userId, now, canFish)
+	if aborted then return aborted end
+	if action == "Start" then
+		if session.attempt or now &lt; session.nextStart then return self:snapshot(userId) end
+		if not canFish then
+			local packet = self:snapshot(userId) :: Packet
+			packet.message = "Gå till den blå rutan längst ut på bryggan."
+			return packet
+		end
+		self.sequence += 1
+		local readyAt = now + self.config.PreparationTime
+		session.attempt = {
+			id = self.sequence, phase = "Waiting", readyAt = readyAt,
+			expiresAt = readyAt + self.config.BiteTimeout,
+		}
+		return self:snapshot(userId)
+	end
+	local attempt = session.attempt
+	if not attempt or type(attemptId) ~= "number" or attemptId ~= attempt.id then return nil end
+	if action == "Cancel" then
+		return self:finish(userId, now, "Fisket avbröts. Du kan försöka igen.")
+	elseif action == "Hold" then
+		if attempt.phase ~= "Waiting" or now &lt; attempt.readyAt then return self:snapshot(userId) end
+		attempt.phase = "Reeling"
+		local chargeAt = now + self.config.ChargeLeadTime
+		attempt.chargeAt = chargeAt
+		attempt.expiresAt = chargeAt + self.config.ChargeDuration
+		return self:snapshot(userId)
+	elseif action == "Release" and attempt.phase == "Reeling" then
+		-- No client-supplied quality, timestamp, species or reward is trusted.
+		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
+		local quality = self.rules.qualityAt(progress)
+		if not quality then return self:finish(userId, now, "Den kom undan! Släpp inne i fångstområdet.") end
+		session.catches += 1
+		local packet = self:finish(userId, now, "Du fångade " .. self.config.SpeciesName .. "!")
+		packet.result = { species = self.config.SpeciesName, quality = quality }
+		return packet
+	end
+	return nil
+end
+
+return Engine
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000C">
+      <Properties>
+        <string name="Name">PrototypeWorld</string>
+        <ProtectedString name="Source">--!strict
+-- Creates an isolated disposable test world; never deletes existing user objects.
+local World = {}
+
+local function part(parent: Instance, name: string, size: Vector3, position: Vector3, color: Color3): Part
+	local object = Instance.new("Part")
+	object.Name = name
+	object.Size = size
+	object.Position = position
+	object.Color = color
+	object.Anchored = true
+	object.Material = Enum.Material.SmoothPlastic
+	object.TopSurface = Enum.SurfaceType.Smooth
+	object.BottomSurface = Enum.SurfaceType.Smooth
+	object.Parent = parent
+	return object
+end
+
+function World.create(): BasePart
+	assert(not workspace:FindFirstChild("MolnfiskarnaPrototype"),
+		"MolnfiskarnaPrototype finns redan. Använd en tom testplats eller stäng av CreatePrototypeWorld.")
+	local folder = Instance.new("Folder")
+	folder.Name = "MolnfiskarnaPrototype"
+	folder.Parent = workspace
+	part(folder, "Island", Vector3.new(72, 4, 56), Vector3.zero, Color3.fromRGB(160, 210, 198))
+	part(folder, "Dock", Vector3.new(18, 1, 26), Vector3.new(0, 1.5, 39), Color3.fromRGB(192, 149, 105))
+	local spot = part(folder, "FishingSpot", Vector3.new(12, 0.12, 10), Vector3.new(0, 2.06, 44),
+		Color3.fromRGB(87, 221, 243))
+	spot.CanCollide = false
+	spot.CanTouch = false
+	spot.Transparency = 0.25
+	spot.Material = Enum.Material.Neon
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "PrototypeSpawn"
+	spawn.Size = Vector3.new(8, 1, 8)
+	spawn.Position = Vector3.new(0, 2.5, 8)
+	spawn.Anchored = true
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Color = Color3.fromRGB(251, 215, 123)
+	spawn.Parent = folder
+
+	for index = 1, 8 do
+		local angle = index * math.pi / 4
+		local cloud = part(folder, "Cloud", Vector3.new(30, 12, 25),
+			Vector3.new(math.cos(angle) * 45, -6, math.sin(angle) * 38), Color3.fromRGB(235, 244, 255))
+		cloud.Shape = Enum.PartType.Ball
+		cloud.CanCollide = false
+		cloud.CanTouch = false
+	end
+	-- A visible prototype fish hovering beyond the dock. Decorative, not a reward source.
+	local fish = part(folder, "PuffisPreview", Vector3.new(5, 3, 3), Vector3.new(0, 5, 57),
+		Color3.fromRGB(255, 211, 116))
+	fish.Shape = Enum.PartType.Ball
+	fish.CanCollide = false
+	local sign = Instance.new("BillboardGui")
+	sign.Size = UDim2.fromOffset(260, 60)
+	sign.StudsOffset = Vector3.new(0, 5, 0)
+	sign.AlwaysOnTop = true
+	sign.Parent = spot
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = "MOLNFISKE\nStå i den blå rutan"
+	text.Font = Enum.Font.GothamBold
+	text.TextSize = 21
+	text.TextColor3 = Color3.fromRGB(22, 45, 70)
+	text.TextStrokeColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeTransparency = 0.3
+	text.Parent = sign
+	return spot
+end
+
+function World.findCustom(): BasePart
+	local folder = workspace:FindFirstChild("World")
+	local spot = if folder then folder:FindFirstChild("FishingSpot") else nil
+	assert(spot and spot:IsA("BasePart"), "Skapa Workspace.World.FishingSpot som en förankrad Part.")
+	return spot :: BasePart
+end
+
+return World
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="RBX0000000D">
+      <Properties>
+        <string name="Name">FishingService</string>
+        <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Config = require(Shared:WaitForChild("FishingConfig"))
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local Engine = require(script.Parent:WaitForChild("FishingEngine"))
+local World = require(script.Parent:WaitForChild("PrototypeWorld"))
+local Service = {}
+local started = false
+
+function Service.start()
+	assert(not started, "FishingService has already started")
+	started = true
+	local spot = if Config.CreatePrototypeWorld then World.create() else World.findCustom()
+	assert(not ReplicatedStorage:FindFirstChild("FishingRemotes"), "FishingRemotes finns redan; installera bara en kopia.")
+	local remotes = Instance.new("Folder")
+	remotes.Name = "FishingRemotes"
+	local action = Instance.new("RemoteEvent")
+	action.Name = "FishingAction"
+	action.Parent = remotes
+	local state = Instance.new("RemoteEvent")
+	state.Name = "FishingState"
+	state.Parent = remotes
+	local engine = Engine.new(Config, Rules)
+	local characterConnections: { [Player]: RBXScriptConnection } = {}
+	local function canFish(player: Player): boolean
+		local character = player.Character
+		if not character then return false end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+		return spot:IsDescendantOf(workspace) and humanoid ~= nil and humanoid.Health &gt; 0
+			and root ~= nil and root:IsA("BasePart")
+			and (root.Position - spot.Position).Magnitude &lt;= Config.MaxDistance
+	end
+	local function addPlayer(player: Player)
+		engine:addPlayer(player.UserId, workspace:GetServerTimeNow())
+		if characterConnections[player] then return end
+		characterConnections[player] = player.CharacterRemoving:Connect(function()
+			-- Invalidate the old avatar's attempt even if a new avatar spawns before a tick.
+			local packet = engine:interrupt(player.UserId, workspace:GetServerTimeNow(),
+				"Fisket avbröts. Gå tillbaka till bryggan efter att du har återvänt.")
+			if packet and player.Parent == Players then state:FireClient(player, packet) end
+		end)
+	end
+	Players.PlayerAdded:Connect(addPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		local connection = characterConnections[player]
+		if connection then connection:Disconnect() end
+		characterConnections[player] = nil
+		engine:removePlayer(player.UserId)
+	end)
+	for _, player in Players:GetPlayers() do addPlayer(player) end
+
+	action.OnServerEvent:Connect(function(player, verb, attemptId)
+		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player))
+		if packet then state:FireClient(player, packet) end
+	end)
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(deltaTime)
+		elapsed += deltaTime
+		if elapsed &lt; 0.1 then return end
+		elapsed = 0
+		local now = workspace:GetServerTimeNow()
+		for _, player in Players:GetPlayers() do
+			local packet = engine:tick(player.UserId, now, canFish(player))
+			if packet then state:FireClient(player, packet) end
+		end
+	end)
+	-- Publish the remotes only after listeners and sessions are ready.
+	remotes.Parent = ReplicatedStorage
+	print("Molnfiskarna: fiskeprototypen är startad. Framsteg sparas inte ännu.")
+end
+
+return Service
+</ProtectedString>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="RBX0000000E">
+      <Properties>
+        <string name="Name">FishingServer</string>
+        <ProtectedString name="Source">--!strict
+require(script.Parent:WaitForChild("FishingService")).start()
+</ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="RBX00000005">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="RBX00000008">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="RBX0000000F">
+        <Properties>
+          <string name="Name">FishingClient</string>
+          <ProtectedString name="Source">--!strict
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Shared = ReplicatedStorage:WaitForChild("FishingShared")
+local Rules = require(Shared:WaitForChild("FishingRules"))
+local remotes = ReplicatedStorage:WaitForChild("FishingRemotes")
+local action = remotes:WaitForChild("FishingAction") :: RemoteEvent
+local state = remotes:WaitForChild("FishingState") :: RemoteEvent
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+assert(not playerGui:FindFirstChild("MolnfiskarnaFishing"), "Installera bara en FishingClient.")
+
+type Packet = {
+	phase: string, catches: number, nextStart: number,
+	attemptId: number?, readyAt: number?, expiresAt: number?,
+	chargeAt: number?, duration: number?, message: string?,
+	result: { species: string, quality: string }?,
+}
+local packet: Packet = { phase = "Connecting", catches = 0, nextStart = 0 }
+local pendingSince: number? = nil
+local heldInput: InputObject? = nil
+local heldConnection: RBXScriptConnection? = nil
+local releasedBeforeAck = false
+local message = "Gå till den blå rutan längst ut på bryggan."
+local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
+
+local colors = {
+	panel = Color3.fromRGB(24, 39, 62), text = Color3.fromRGB(243, 248, 255),
+	muted = Color3.fromRGB(180, 200, 216), blue = Color3.fromRGB(91, 212, 228),
+	gold = Color3.fromRGB(255, 214, 119), green = Color3.fromRGB(112, 192, 156),
+}
+local gui = Instance.new("ScreenGui")
+gui.Name = "MolnfiskarnaFishing"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+local panel = Instance.new("Frame")
+panel.Name = "FishingPanel"
+panel.AnchorPoint = Vector2.new(0.5, 1)
+panel.Position = UDim2.new(0.5, 0, 1, -12)
+panel.Size = UDim2.new(0.66, 0, 0, 236)
+panel.BackgroundColor3 = colors.panel
+panel.BorderSizePixel = 0
+panel.Parent = gui
+local constraint = Instance.new("UISizeConstraint")
+constraint.MinSize = Vector2.new(260, 236)
+constraint.MaxSize = Vector2.new(440, 236)
+constraint.Parent = panel
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = panel
+local stroke = Instance.new("UIStroke")
+stroke.Color = colors.blue
+stroke.Transparency = 0.5
+stroke.Thickness = 1
+stroke.Parent = panel
+
+local function label(name: string, text: string, y: number, height: number, size: number): TextLabel
+	local object = Instance.new("TextLabel")
+	object.Name = name
+	object.Position = UDim2.fromOffset(16, y)
+	object.Size = UDim2.new(1, -32, 0, height)
+	object.BackgroundTransparency = 1
+	object.Font = Enum.Font.Gotham
+	object.TextColor3 = colors.text
+	object.TextSize = size
+	object.TextWrapped = true
+	object.Text = text
+	object.Parent = panel
+	return object
+end
+local title = label("Title", "MOLNFISKARNA", 10, 24, 19)
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = colors.gold
+local count = label("CatchCount", "Fångster denna session: 0", 37, 18, 13)
+count.TextColor3 = colors.muted
+local status = label("Status", message, 59, 42, 15)
+
+local meter = Instance.new("Frame")
+meter.Name = "Meter"
+meter.Position = UDim2.new(0, 20, 0, 109)
+meter.Size = UDim2.new(1, -40, 0, 18)
+meter.BackgroundColor3 = Color3.fromRGB(52, 68, 91)
+meter.BorderSizePixel = 0
+meter.ClipsDescendants = true
+meter.Parent = panel
+local function zone(name: string, low: number, high: number, color: Color3)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = UDim2.fromScale(low, 0)
+	frame.Size = UDim2.fromScale(high - low, 1)
+	frame.BackgroundColor3 = color
+	frame.BorderSizePixel = 0
+	frame.Parent = meter
+end
+zone("Normal", Rules.NormalMin, Rules.NormalMax, colors.green)
+zone("Fin", Rules.FineMin, Rules.FineMax, colors.blue)
+zone("Stralande", Rules.BrilliantMin, Rules.BrilliantMax, colors.gold)
+local marker = Instance.new("Frame")
+marker.Name = "Marker"
+marker.AnchorPoint = Vector2.new(0.5, 0)
+marker.Size = UDim2.new(0, 4, 1, 0)
+marker.BackgroundColor3 = Color3.new(1, 1, 1)
+marker.BorderSizePixel = 0
+marker.ZIndex = 2
+marker.Parent = meter
+local legend = label("Legend", "Fångstområde · Fin · Strålande", 132, 18, 12)
+legend.TextColor3 = colors.muted
+
+local button = Instance.new("TextButton")
+button.Name = "ActionButton"
+button.Position = UDim2.new(0, 20, 0, 156)
+button.Size = UDim2.new(1, -40, 0, 50)
+button.BackgroundColor3 = colors.blue
+button.TextColor3 = colors.panel
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.Text = "Ansluter…"
+button.AutoButtonColor = false
+button.BorderSizePixel = 0
+button.Parent = panel
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 12)
+buttonCorner.Parent = button
+local footnote = label("PrototypeNotice", "PROTOTYP · Framsteg sparas inte", 213, 16, 11)
+footnote.TextColor3 = colors.muted
+
+local function now(): number
+	return workspace:GetServerTimeNow()
+end
+
+local function clearHeld()
+	heldInput = nil
+	if heldConnection then heldConnection:Disconnect() end
+	heldConnection = nil
+end
+
+local function request(verb: string)
+	pendingSince = now()
+	action:FireServer(verb, packet.attemptId)
+end
+
+local function cancel()
+	clearHeld()
+	releasedBeforeAck = false
+	if packet.attemptId then request("Cancel") end
+end
+
+local function release()
+	if not heldInput then return end
+	clearHeld()
+	if packet.phase == "Reeling" then
+		request("Release")
+	else
+		-- The finger may lift before the server's Hold acknowledgement arrives.
+		releasedBeforeAck = true
+	end
+end
+
+local function press(input: InputObject)
+	if heldInput or pendingSince then return end
+	local time = now()
+	if packet.phase == "Idle" and time &gt;= packet.nextStart then
+		message = "Kastar ut…"
+		request("Start")
+	elseif packet.phase == "Waiting" and time &gt;= (packet.readyAt or math.huge) then
+		heldInput = input
+		releasedBeforeAck = false
+		heldConnection = input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.Cancel then cancel()
+			elseif input.UserInputState == Enum.UserInputState.End then release() end
+		end)
+		request("Hold")
+	end
+end
+
+button.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		press(input)
+	end
+end)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if not processed and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then
+		press(input)
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	local held = heldInput
+	if not held then return end
+	if input == held
+		or (held.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)
+		or (held.KeyCode == Enum.KeyCode.E and input.KeyCode == Enum.KeyCode.E) then
+		release()
+	end
+end)
+UserInputService.WindowFocusReleased:Connect(cancel)
+UserInputService.TextBoxFocused:Connect(cancel)
+
+state.OnClientEvent:Connect(function(incoming: Packet)
+	local previousId = packet.attemptId
+	packet = incoming
+	pendingSince = nil
+	count.Text = "Fångster denna session: " .. tostring(packet.catches)
+	if packet.result then
+		message = packet.result.species .. " · " .. packet.result.quality .. "!\nSnyggt! Försök igen."
+	elseif packet.message then
+		message = packet.message
+	end
+	if packet.phase == "Idle" or packet.attemptId ~= previousId then
+		clearHeld()
+		releasedBeforeAck = false
+	end
+	if packet.phase == "Reeling" then
+		if releasedBeforeAck then
+			releasedBeforeAck = false
+			request("Release")
+		elseif not heldInput then
+			-- Recover safely after a local interruption or a late Sync response.
+			request("Cancel")
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	local time = now()
+	if pendingSince and time - pendingSince &gt; 3 then
+		-- A throttled/lost local action must never leave a disabled UI forever.
+		clearHeld()
+		releasedBeforeAck = false
+		request("Sync")
+	end
+	marker.Visible = packet.phase == "Reeling"
+	button.BackgroundColor3 = colors.blue
+	legend.Text = "Fångstområde · Fin · Strålande"
+	if packet.phase == "Waiting" then
+		if time &lt; (packet.readyAt or math.huge) then
+			status.Text = "Flötet landar i molnen…"
+			button.Text = "Vänta på napp…"
+			button.BackgroundColor3 = colors.muted
+		else
+			status.Text = "Napp! Håll inne och släpp i fångstområdet."
+			button.Text = if pendingSince then "Ett ögonblick…" else "HÅLL INNE" .. keyHint
+		end
+	elseif packet.phase == "Reeling" then
+		local progress = math.clamp((time - (packet.chargeAt or time)) / (packet.duration or 1), 0, 1)
+		marker.Position = UDim2.fromScale(progress, 0)
+		legend.Text = "Nu: " .. (Rules.qualityAt(progress) or "Utanför fångstområdet")
+		status.Text = if pendingSince then "Kontrollerar fångsten…" else "Släpp i området. Guld ger Strålande!"
+		button.Text = if pendingSince then "Ett ögonblick…" else "SLÄPP!"
+		button.BackgroundColor3 = colors.gold
+	elseif packet.phase == "Idle" then
+		status.Text = message
+		button.Text = if pendingSince then "Ett ögonblick…"
+			elseif time &lt; packet.nextStart then "Gör dig redo…" else "FISKA" .. keyHint
+	else
+		status.Text = "Ansluter till fisket…"
+		button.Text = "Ansluter…"
+	end
+end)
+
+-- Subscribe first, then ask for state; avoids a PlayerAdded/UI startup race.
+request("Sync")
+</ProtectedString>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterGui" referent="RBX00000006">
+    <Properties>
+      <string name="Name">StarterGui</string>
+    </Properties>
+  </Item>
+</roblox>
