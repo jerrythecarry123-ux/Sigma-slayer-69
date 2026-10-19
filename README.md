@@ -1,6 +1,6 @@
-# Cloud Anglers — v0.5
+# Cloud Anglers — v0.6
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.5.rbxlx)
+[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.6.rbxlx)
 
 Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
 press **Play**. The five-island map is generated when Play starts.
@@ -14,7 +14,30 @@ Breeze Rod unlocks two rare fish; Nimbus Rod unlocks Aurorafin. Your best grade
 per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop** or visit the
 workshop to upgrade.
 
-## New in v0.5 — the world
+## New in v0.6 — island life
+
+Brighter green meadows, turquoise water, mint/peach buildings and teal/coral roofs
+replace the muted palette. Clear daytime lighting keeps tree and building shade
+while making paths and landmarks easier to see.
+
+- Seven original animated residents repair equipment, serve lemonade, fish,
+  tend flowers, wave, walk or watch the horizon. They are decorative inhabitants.
+- Six gulls glide and flap above the islands, six butterflies circle gardens and
+  two small fish schools move through the lagoons.
+- Layered flower beds, blooming hedges, saplings, ferns, mushrooms and fallen
+  petals fill selected spaces without covering the main walking routes.
+- Striped café parasols, produce crates, picnics, towels, shells and a bobbing
+  painted skiff give the harbor and beaches small everyday scenes.
+- Houses gain painted trim, shutters, broad windows and striped canopies; the
+  café has a bakery hatch and the workshop displays rods and a golden fish emblem.
+- Tree crowns sway gently. Residents and foliage animate locally at 20 Hz only
+  near the camera, with streamed arrivals/removals handled independently.
+
+Hidden cliff geometry was simplified to make room for visible details. Source
+parts increase by 195 from v0.5; the 941 colliders and their geometry are unchanged.
+UI, sounds, fishing, rewards and save data keep their previous behavior.
+
+## The world
 
 An original sky archipelago roughly **800 × 550 studs**, with five connected,
 walkable regions and five working fishing piers. Four wide bridges include level
@@ -22,17 +45,17 @@ coast landings and continuous, protected walking surfaces.
 
 | Region | Places to explore |
 | --- | --- |
-| Sundrift Harbor | Enterable rod workshop/café/cottage, koi fountain, market stalls, flower planters and a climbable lighthouse |
-| Petalwind Grove | Branching blossom trees, picnic clearings and an animated canvas windmill |
-| Evergreen Reach | Layered pines, a timber cottage, rock formations and the rising summit bridge |
-| Tideglass Cove | Curved palms, a shaded crystal grotto and a quiet lagoon |
-| Starfall Lookout | Old stone observatory, telescope, ruins and a high fishing pier |
+| Sundrift Harbor | Enterable workshop/café/cottage, busy garden square, residents, market, parasols, painted skiff and climbable lighthouse |
+| Petalwind Grove | Swaying blossom trees, fallen petals, gardener, tea picnic and animated canvas windmill |
+| Evergreen Reach | Layered pines, ferns, mushrooms, timber cottage and rising summit bridge |
+| Tideglass Cove | Curved palms, beach picnic, lookout resident, shaded crystal grotto and quiet lagoon |
+| Starfall Lookout | Old stone observatory, telescope, ruins, sky picnic and high fishing pier |
 
 - Irregular coast polygons and layered cliffs replace the small platform.
 - Native Roblox Terrain water provides waves/reflections in all five lagoons;
   waterfalls and a drifting airship add movement without more sound effects.
 - Current **Realistic** lighting and quality-prioritized rendering are saved in
-  the place. Lower ambient fill, afternoon sunlight and shadow-casting roofs,
+  the place. Bright daytime light, cool ambient fill and shadow-casting roofs,
   canopies and cliffs create shade. Small plants avoid unnecessary shadow work.
 - Instance streaming loads neighborhoods as needed. Small trees/buildings/bridge
   sections are atomic; entire islands are not forced to load as one object.
@@ -40,7 +63,7 @@ coast landings and continuous, protected walking surfaces.
   height. All existing collections, coins, rods, goals and offline income persist
   with the same v0.3 save namespace. The v0.4 UI and six-clip audio mix are retained.
 
-The generator produces **9,655 anchored source parts**, including **941 colliders**
+The generator produces **9,850 anchored source parts**, including **941 colliders**
 (invisible safety floors/rails included). Native water is separate terrain data.
 These are measured source counts, not a mobile frame-rate guarantee.
 
@@ -50,9 +73,12 @@ no imported models, custom audio IDs or external mesh uploads are needed.
 ## What was checked
 
 64 automated tests pass: 19 fishing, 12 locations, 18 progression/saving, 4 UI layout,
-8 world layout and 3 place export. All 23 production modules plus 5 Luau test suites
+8 world layout and 3 place export. All 26 production modules plus 5 Luau test suites
 compile. Independent rays through the actual captured colliders check 3,639 route
 samples for continuous support and six-stud headroom over a 2.6-stud corridor.
+An additional production-code smoke check exercises 1,006 resident animation steps,
+late-arriving attributes, stable joints, camera distance limits and streaming
+cleanup/rebind using geometry and event doubles. This is not a Roblox runtime test.
 
 Offline Blender views were used to inspect geometry. They do not emulate Roblox
 materials, native-water rendering, streaming, physics or device performance.
@@ -105,7 +131,7 @@ luau tests/fishing_locations.spec.luau
 luau tests/world_layout.spec.luau
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.5.rbxlx` and `artifacts/Cloud-Anglers-v0.5.zip`.
+Outputs: `artifacts/Cloud-Anglers-v0.6.rbxlx` and `artifacts/Cloud-Anglers-v0.6.zip`.
 
 Shared modules contain tuning, quality rules, species data and fish geometry.
 Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
@@ -114,6 +140,8 @@ and 3D effects. All production modules are checked for inclusion in the place.
 
 Optional geometry inspection (Luau and Blender required) is described in
 `tools/preview_world.py`; `tools/check_world.py` checks actual generated colliders.
+`python tools/check_residents.py --luau /path/to/luau` checks resident construction
+and client animation with geometry/event doubles.
 They capture production geometry for offline art review and route checks;
 it does not emulate Roblox lighting, sound, physics, UI or runtime behavior.
 

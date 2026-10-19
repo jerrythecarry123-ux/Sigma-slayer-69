@@ -5,17 +5,19 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 
 local Architecture = {}
 local C = {
-	Timber = Color3.fromRGB(102, 67, 48),
-	Wood = Color3.fromRGB(167, 116, 73),
-	Plank = Color3.fromRGB(192, 145, 94),
-	Dark = Color3.fromRGB(47, 66, 69),
-	Cream = Color3.fromRGB(242, 225, 182),
-	Stone = Color3.fromRGB(169, 174, 160),
-	Moss = Color3.fromRGB(102, 130, 84),
-	Glass = Color3.fromRGB(151, 204, 199),
-	Gold = Color3.fromRGB(227, 176, 82),
-	Rope = Color3.fromRGB(209, 191, 145),
-	Roof = Color3.fromRGB(80, 126, 133),
+	Timber = Color3.fromRGB(151, 103, 64),
+	Wood = Color3.fromRGB(202, 151, 99),
+	Plank = Color3.fromRGB(230, 185, 126),
+	Dark = Color3.fromRGB(39, 84, 100),
+	Cream = Color3.fromRGB(255, 247, 220),
+	Stone = Color3.fromRGB(207, 212, 193),
+	Moss = Color3.fromRGB(75, 170, 104),
+	Glass = Color3.fromRGB(136, 225, 230),
+	Gold = Color3.fromRGB(255, 198, 79),
+	Rope = Color3.fromRGB(233, 214, 163),
+	Roof = Color3.fromRGB(53, 178, 188),
+	Coral = Color3.fromRGB(245, 133, 114),
+	Sky = Color3.fromRGB(104, 184, 225),
 }
 local WOOD = Enum.Material.Wood
 local PLANKS = Enum.Material.WoodPlanks
@@ -123,7 +125,12 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	local h = 9.2
 	local half, front = w / 2, -d / 2
 	local roofColor = buildingKind == "Workshop" and C.Roof
-		or (buildingKind == "Cafe" and Color3.fromRGB(165, 96, 77) or Color3.fromRGB(107, 124, 101))
+		or (buildingKind == "Cafe" and C.Coral or C.Sky)
+	-- Painted plaster, honey-colored wood and clear shop colors stay legible in
+	-- daylight. Each shop reads as a place to visit from both harbor approaches.
+	tint = buildingKind == "Workshop" and Color3.fromRGB(227, 250, 228)
+		or (buildingKind == "Cafe" and Color3.fromRGB(255, 228, 204)
+		or tint:Lerp(Color3.fromRGB(255, 249, 219), 0.72))
 	-- Stone footings, an open doorway and a real timber floor make the porch explorable.
 	p(model, "RaisedTimberFloor", Vector3.new(w, 0.4, d), cf * CFrame.new(0, 0, 0), C.Plank, PLANKS, true)
 	p(model, "RearWall", Vector3.new(w, h, 0.5), cf * CFrame.new(0, h / 2, d / 2), tint, Enum.Material.Plaster, true)
@@ -136,12 +143,20 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 			p(model, "ExposedCornerTimber", Vector3.new(0.34, h + 0.1, 0.65), cf * CFrame.new(side * (half - 0.1), h / 2, z), C.Timber)
 		end
 		p(model, "FoundationStones", Vector3.new(1.5, 0.9, d + 0.5), cf * CFrame.new(side * (half - 0.7), -0.45, 0), C.Stone, STONE)
-		p(model, "LowerWallTimber", Vector3.new(0.28, 0.3, d), cf * CFrame.new(side * (half + 0.15), 0.8, 0), C.Timber)
+		p(model, "LowerWallTimber", Vector3.new(0.28, 0.3, d), cf * CFrame.new(side * (half + 0.15), 0.8, 0), C.Cream)
+		p(model, "PaintedSideWainscot", Vector3.new(0.09, 2.05, d - 0.8), cf * CFrame.new(side * (half + 0.29), 1.85, 0), roofColor, PLANKS)
 		window(model, cf * CFrame.new(side * w * 0.3, 4.8, front - 0.31), math.min(3.2, w * 0.16), 3.3, true)
 		flowerBox(model, cf * CFrame.new(side * w * 0.3, 2.65, front - 0.72), math.min(3.7, w * 0.18),
-			buildingKind == "Cafe" and Color3.fromRGB(245, 208, 108) or Color3.fromRGB(224, 150, 141))
-		window(model, cf * CFrame.new(side * (half + 0.31), 4.8, d * 0.12) * CFrame.Angles(0, -side * math.pi / 2, 0), 3.2, 3.3, false)
+			buildingKind == "Cafe" and C.Gold or C.Coral)
+		window(model, cf * CFrame.new(side * (half + 0.31), 4.8, d * 0.12) * CFrame.Angles(0, -side * math.pi / 2, 0),
+			math.min(5.5, d * 0.25), 3.3, buildingKind == "Workshop" or buildingKind == "Cafe")
 	end
+	-- The spawn path first sees these back walls. A broad shuttered window and
+	-- layered paint replace the former blank rectangle without closing a route.
+	local rear = d / 2 + 0.32
+	p(model, "PaintedRearWainscot", Vector3.new(w - 0.7, 2.05, 0.09), cf * CFrame.new(0, 1.85, rear), roofColor, PLANKS)
+	p(model, "RearWainscotCap", Vector3.new(w - 0.6, 0.18, 0.23), cf * CFrame.new(0, 2.95, rear + 0.04), C.Cream)
+	window(model, cf * CFrame.new(0, 5.45, rear) * CFrame.Angles(0, math.pi, 0), w * 0.37, 3.25, true)
 	p(model, "DoorLintel", Vector3.new(4.2, 0.3, 0.7), cf * CFrame.new(0, 7.15, front - 0.12), C.Timber)
 	p(model, "DoorwayHeadWall", Vector3.new(3.8, h - 7.25, 0.5), cf * CFrame.new(0, (h + 7.25) / 2, front), tint, Enum.Material.Plaster, true)
 	-- Layered slate tiles follow the real roof slope, catching light on every row.
@@ -199,15 +214,20 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		localBeam(model, cf, "PorchKneeBrace", Vector3.new(side * half, 5.6, front - 4.5), Vector3.new(side * (half - 1.4), 7, front - 4.5), 0.23, C.Cream)
 		localBeam(model, cf, "PorchKneeBrace", Vector3.new(side * half, 5.6, front - 4.5), Vector3.new(side * half, 7, front - 3.1), 0.23, C.Cream)
 	end
-	p(model, "PorchCanopy", Vector3.new(w + 2, 0.27, 5.4), cf * CFrame.new(0, 7.5, front - 2.6) * CFrame.Angles(math.rad(7), 0, 0), roofColor, PLANKS)
-	p(model, "PorchFascia", Vector3.new(w + 2, 0.35, 0.26), cf * CFrame.new(0, 7.1, front - 5.2), C.Cream)
+	local canopyCf = cf * CFrame.new(0, 7.5, front - 2.6) * CFrame.Angles(math.rad(7), 0, 0)
+	p(model, "PorchCanopy", Vector3.new(w + 2, 0.27, 5.4), canopyCf, C.Cream, Enum.Material.Fabric)
+	for stripe = 0, 2 do
+		p(model, "PaintedCanvasStripe", Vector3.new((w + 2) / 6, 0.03, 5.39),
+			canopyCf * CFrame.new(-(w + 2) / 2 + (stripe * 2 + 0.5) * (w + 2) / 6, 0.15, 0), roofColor, Enum.Material.Fabric)
+	end
+	p(model, "PorchFascia", Vector3.new(w + 2, 0.35, 0.26), cf * CFrame.new(0, 7.1, front - 5.2), roofColor)
 	local label = buildingKind == "Workshop" and "THE ROD WORKSHOP" or (buildingKind == "Cafe" and "THE TIDE TABLE" or "HARBOR COTTAGE")
-	local subtitle = buildingKind == "Workshop" and "A better rod. A bigger adventure." or (buildingKind == "Cafe" and "The harbor's quiet corner" or "A little home above the clouds")
-	local sign = p(model, "PaintedShopSign", Vector3.new(math.min(11, w - 3), 1.55, 0.22), cf * CFrame.new(0, 6.45, front - 5.28), C.Dark)
+	local subtitle = buildingKind == "Workshop" and "A better rod. A bigger adventure." or (buildingKind == "Cafe" and "Fresh bakes. Good company." or "A little home above the clouds")
+	local sign = p(model, "PaintedShopSign", Vector3.new(math.min(11, w - 3), 1.55, 0.22), cf * CFrame.new(0, 6.45, front - 5.28), roofColor)
 	Kit.sign(sign, label, subtitle, C.Cream)
 	Kit.lantern(model, cf:PointToWorldSpace(Vector3.new(half - 0.8, 5.4, front - 4.5)), 0.7, false)
 	-- A quiet interior, visible through the open door, rewards looking around.
-	p(model, "WovenInteriorRug", Vector3.new(w * 0.53, 0.035, d * 0.55), cf * CFrame.new(0, 0.23, 0), Color3.fromRGB(121, 157, 150), Enum.Material.Fabric)
+	p(model, "WovenInteriorRug", Vector3.new(w * 0.53, 0.035, d * 0.55), cf * CFrame.new(0, 0.23, 0), roofColor:Lerp(C.Cream, 0.22), Enum.Material.Fabric)
 	p(model, "RearDisplayShelf", Vector3.new(w - 3, 0.22, 1.2), cf * CFrame.new(0, 4.6, d / 2 - 0.8), C.Timber)
 	p(model, "BackCounter", Vector3.new(w - 4, 2.8, 1.7), cf * CFrame.new(0, 1.6, d / 2 - 1.25), tint:Lerp(C.Timber, 0.3), PLANKS, true)
 	p(model, "CounterTop", Vector3.new(w - 3.5, 0.2, 2.1), cf * CFrame.new(0, 3.1, d / 2 - 1.25), C.Plank)
@@ -215,6 +235,48 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		local x = i * (w - 4) / 3
 		localBall(model, cf, "GlazedStoragePot", Vector3.new(0.85, 0.95, 0.85), Vector3.new(x, 5.15, d / 2 - 0.8),
 			i == 0 and C.Gold or C.Roof, Enum.Material.CeramicTiles)
+	end
+	local rearCf = cf * CFrame.new(0, 0, rear) * CFrame.Angles(0, math.pi, 0)
+	if buildingKind == "Cafe" then
+		-- A small take-away hatch faces the arrival path. Cups and fresh bakes
+		-- tell a story at walking distance rather than relying on floating text.
+		p(model, "CafeServingCounter", Vector3.new(10.7, 2.65, 1.35), rearCf * CFrame.new(0, 1.7, -1.05), C.Coral, PLANKS)
+		p(model, "CreamCounterMoulding", Vector3.new(10.9, 0.18, 1.45), rearCf * CFrame.new(0, 2.65, -1.05), C.Cream)
+		p(model, "CafeHatchCountertop", Vector3.new(11.3, 0.2, 1.8), rearCf * CFrame.new(0, 3.15, -1.15), C.Plank)
+		local hatchCanopy = rearCf * CFrame.new(0, 7.65, -1.25) * CFrame.Angles(math.rad(8), 0, 0)
+		p(model, "CafeHatchCanvas", Vector3.new(12, 0.12, 3), hatchCanopy, C.Cream, Enum.Material.Fabric)
+		for stripe = 0, 2 do
+			p(model, "CafeHatchStripe", Vector3.new(2, 0.025, 2.99), hatchCanopy * CFrame.new(-5 + stripe * 4, 0.075, 0), C.Coral, Enum.Material.Fabric)
+		end
+		for _, side in { -1, 1 } do
+			localBeam(model, rearCf, "HatchCanopyBracket", Vector3.new(side * 5.4, 6.3, -0.2), Vector3.new(side * 5.4, 7.35, -2.45), 0.12, C.Gold, METAL)
+			local cupCf = rearCf * CFrame.new(side * 2.8, 3.53, -1.15)
+			Kit.disk(model, "CafeCup", 0.57, 0.57, 0.57, cupCf.Position, side == -1 and C.Roof or C.Cream, { material = Enum.Material.SmoothPlastic })
+			Kit.disk(model, "FreshCoffee", 0.45, 0.45, 0.025, (cupCf * CFrame.new(0, 0.29, 0)).Position, C.Timber, { material = Enum.Material.SmoothPlastic })
+		end
+		Kit.disk(model, "BakeryServingPlate", 2.1, 1.2, 0.065, (rearCf * CFrame.new(0, 3.3, -1.15)).Position, C.Cream, { material = Enum.Material.SmoothPlastic })
+		for i = -1, 1 do
+			localBall(model, rearCf, "GoldenBakedRoll", Vector3.new(0.62, 0.35, 0.78), Vector3.new(i * 0.57, 3.49, -1.15), C.Gold, Enum.Material.SmoothPlastic)
+		end
+	elseif buildingKind == "Workshop" then
+		-- The fish silhouette and full-size rods read from the spawn route even
+		-- when the shop's front porch is on the far side of the building.
+		local emblemCf = rearCf * CFrame.new(-w * 0.34, 5.2, -0.17)
+		p(model, "WorkshopFishPlaque", Vector3.new(3.9, 2.65, 0.25), emblemCf, C.Roof)
+		localBall(model, emblemCf, "WorkshopGoldenFish", Vector3.new(2.1, 1.12, 0.18), Vector3.new(-0.15, 0, -0.2), C.Gold, Enum.Material.SmoothPlastic)
+		for _, side in { -1, 1 } do
+			p(model, "FishTailEmblem", Vector3.new(0.9, 0.38, 0.16), emblemCf * CFrame.new(1.04, side * 0.21, -0.2) * CFrame.Angles(0, 0, side * math.rad(32)), C.Gold, Enum.Material.SmoothPlastic)
+		end
+		localBall(model, emblemCf, "FishEmblemEye", Vector3.new(0.19, 0.19, 0.08), Vector3.new(-0.68, 0.14, -0.32), C.Dark, Enum.Material.SmoothPlastic)
+		for _, y in { 1.8, 5.6 } do
+			p(model, "OutdoorRodRack", Vector3.new(3.3, 0.24, 0.5), rearCf * CFrame.new(w * 0.34, y, -0.4), C.Cream)
+		end
+		for i = -1, 1 do
+			local x = w * 0.34 + i * 0.82
+			localBeam(model, rearCf, "DisplayFishingRod", Vector3.new(x, 0.7, -0.71), Vector3.new(x + 0.16, 6.5, -0.71), 0.11, i == 0 and C.Gold or C.Roof)
+			local reel = Kit.disk(model, "DisplayRodReel", 0.48, 0.48, 0.17, (rearCf * CFrame.new(x, 1.65, -0.9)).Position, C.Gold, { material = METAL })
+			reel.CFrame = rearCf * CFrame.new(x, 1.65, -0.9) * CFrame.Angles(0, math.pi / 2, 0)
+		end
 	end
 	if buildingKind == "Workshop" then
 		local trigger = p(model, "WorkshopJournalStand", Vector3.new(2.3, 2.5, 1.1), cf * CFrame.new(half - 3, 1.4, front - 2.6), C.Roof, PLANKS, true)
@@ -238,7 +300,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		end
 	end
 	local chimneyCf = cf * CFrame.new(half * 0.52, h + 3.1, d * 0.23)
-	p(model, "ChimneyStack", Vector3.new(1.4, 4, 1.5), chimneyCf, Color3.fromRGB(144, 109, 87), Enum.Material.Brick)
+	p(model, "ChimneyStack", Vector3.new(1.4, 4, 1.5), chimneyCf, C.Coral:Lerp(C.Cream, 0.16), Enum.Material.Brick)
 	p(model, "ChimneyCap", Vector3.new(1.8, 0.28, 1.9), chimneyCf * CFrame.new(0, 2, 0), C.Stone, STONE)
 	p(model, "ChimneyOpening", Vector3.new(0.9, 0.03, 1), chimneyCf * CFrame.new(0, 2.15, 0), C.Dark, STONE)
 	return model
@@ -437,7 +499,7 @@ function Architecture.props(parent, cf, kind)
 			localBeam(model, cf, "AwningBrace", Vector3.new(side * 3.75, 5.2, 1.25), Vector3.new(side * 2.65, 6.9, 1.25), 0.18, C.Timber)
 		end
 		for i = 0, 7 do
-			local color = i % 2 == 0 and C.Cream or Color3.fromRGB(103, 163, 155)
+			local color = i % 2 == 0 and C.Cream or C.Roof
 			local awningCf = cf * CFrame.new(-3.5 + i, 6.7, -0.2) * CFrame.Angles(math.rad(9), 0, 0)
 			p(model, "StripedCanvasAwning", Vector3.new(0.97, 0.14, 5.2), awningCf, color, Enum.Material.Fabric)
 			p(model, "ScallopedAwningValance", Vector3.new(0.97, 0.5, 0.12), cf * CFrame.new(-3.5 + i, 6.06, -2.77), color, Enum.Material.Fabric)

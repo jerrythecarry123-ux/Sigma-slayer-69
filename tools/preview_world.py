@@ -39,9 +39,15 @@ for _,p in workspace:GetDescendants() do
  end
 end
 assert(spot:IsA("BasePart") and spot.Anchored,"missing primary fishing spot")
+local ambient={}
+for _,node in workspace:GetDescendants() do
+ if node:IsA("Model") and node:GetAttribute("AmbientKind") then
+  table.insert(ambient,{kind=node:GetAttribute("AmbientKind"),name=node.Name,origin=vec(node:GetPivot().p)})
+ end
+end
 local layout=modules.WorldLayout
 for _,bridge in layout.Bridges do bridge.Points=layout.bridgePoints(bridge) end
-print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,
+print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
  layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn}}))
 '''
 
@@ -54,6 +60,8 @@ def capture(luau: str) -> dict:
                          ('WorldNature', 'src/server/WorldNature.luau'),
                          ('WorldArchitecture', 'src/server/WorldArchitecture.luau'),
                          ('WorldLayout', 'src/server/WorldLayout.luau'),
+                         ('WorldLandscaping', 'src/server/WorldLandscaping.luau'),
+                         ('WorldResidents', 'src/server/WorldResidents.luau'),
                          ('PrototypeWorld', 'src/server/PrototypeWorld.luau')]:
         program += '\nmodules.' + name + ' = (function()\n' + (ROOT / source).read_text() + '\nend)()\n'
         program += f'local token_{name}=Instance.new("ModuleScript"); token_{name}.Name="{name}"; token_{name}.Parent=shared\n'

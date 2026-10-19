@@ -5,6 +5,8 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fish = require(ReplicatedStorage:WaitForChild("FishingShared"):WaitForChild("FishModel"))
 
+local ResidentPresentation = require(script.Parent:WaitForChild("ResidentPresentation"))
+
 local Scenery = {}
 local started = false
 local WORLD_NAME = "MolnfiskarnaPrototype"
@@ -21,10 +23,13 @@ end
 function Scenery.start()
 	if started then return end
 	started = true
+	ResidentPresentation.start()
 	local world: Instance? = nil
 	local flows: { [Instance]: Flow } = {}
 	local drifters: { [Instance]: Motion } = {}
 	local previews: { [Instance]: Motion } = {}
+	local boats: { [Instance]: Motion } = {}
+	local swaying: { [Instance]: Motion } = {}
 	local spinners: { [Instance]: Motion } = {}
 	local glints: { [Instance]: Glint } = {}
 	local surrenderedGlints: { [Instance]: boolean } = {}
@@ -33,6 +38,7 @@ function Scenery.start()
 
 	local function forget(instance: Instance)
 		flows[instance], drifters[instance], previews[instance], spinners[instance] = nil, nil, nil, nil
+		boats[instance],swaying[instance]=nil,nil
 		local glint = glints[instance]
 		if glint and glint.part.Parent and math.abs(glint.part.Transparency - glint.last) < 0.0001 then
 			glint.part.Transparency = glint.original
@@ -87,8 +93,25 @@ function Scenery.start()
 				local origin = instance:GetAttribute("DisplayOrigin")
 				if typeof(origin) == "CFrame" then previews[instance] = { model = instance, origin = origin, speed = 0 } end
 			end
+			local boatOrigin=instance:GetAttribute("DriftOrigin")
+			if instance:GetAttribute("SceneryMotion")=="Boat" and typeof(boatOrigin)=="CFrame" then
+				local previous=boats[instance]
+				if not instance.PrimaryPart and (not previous or previous.origin~=boatOrigin) then instance.WorldPivot=boatOrigin end
+				boats[instance]={model=instance,origin=boatOrigin,speed=0}
+			else boats[instance]=nil end
+			local swayOrigin=instance:GetAttribute("SwayOrigin")
+			if typeof(swayOrigin)=="CFrame" then
+				local amplitude=instance:GetAttribute("SwayAmplitude")
+				local previous=swaying[instance]
+				-- WorldPivot is NotReplicated. Establish the author-defined local pivot
+				-- before the first sway; a pine canopy's bounds center is far above its base.
+				if not instance.PrimaryPart and (not previous or previous.origin~=swayOrigin) then instance.WorldPivot=swayOrigin end
+				swaying[instance]={model=instance,origin=swayOrigin,speed=if finite(amplitude) then math.clamp(amplitude,0,.08) else .025}
+			else swaying[instance]=nil end
 			local rate, origin = instance:GetAttribute("SpinRate"), instance:GetAttribute("SpinOrigin")
 			if finite(rate) and typeof(origin) == "CFrame" then
+				local previous=spinners[instance]
+				if not instance.PrimaryPart and (not previous or previous.origin~=origin) then instance.WorldPivot=origin end
 				spinners[instance] = { model = instance, origin = origin, speed = math.clamp(rate, -3, 3) }
 			else
 				spinners[instance] = nil
@@ -158,6 +181,23 @@ function Scenery.start()
 		if accumulator < STEP then return end
 		accumulator %= STEP
 		local time = workspace:GetServerTimeNow()
+		local camera=workspace.CurrentCamera
+		local cameraPosition=if camera then camera.CFrame.Position else Vector3.zero
+		local function near(origin: CFrame,radius: number): boolean
+			local delta=origin.Position-cameraPosition
+			return delta:Dot(delta)<radius*radius
+		end
+		for _, boat in boats do
+			if near(boat.origin,200) then
+				boat.model:PivotTo(boat.origin*CFrame.new(0,math.sin(time*1.4)*.12,0)*CFrame.Angles(math.sin(time*.9)*.01,0,math.sin(time*1.1)*.018))
+			end
+		end
+		for _, canopy in swaying do
+			if near(canopy.origin,110) then
+				local phase=canopy.origin.Position.X*.13+canopy.origin.Position.Z*.07
+				canopy.model:PivotTo(canopy.origin*CFrame.Angles(math.sin(time*.9+phase)*canopy.speed*.45,0,math.sin(time*1.2+phase)*canopy.speed))
+			end
+		end
 		for _, flow in flows do
 			flow.part.CFrame = flow.origin + Vector3.new(0, flow.distance / 2 - ((time * flow.speed + flow.phase * 13) % flow.distance), 0)
 		end

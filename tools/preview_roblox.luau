@@ -22,7 +22,7 @@ function V:Dot(b) return self.X*b.X+self.Y*b.Y+self.Z*b.Z end
 Vector3.zero, Vector3.yAxis = Vector3.new(), Vector3.new(0,1,0)
 Vector3.one = Vector3.new(1,1,1)
 Vector3.xAxis, Vector3.zAxis = Vector3.new(1,0,0), Vector3.new(0,0,1)
-local Vector2 = {new=function(x,y) return {X=x,Y=y} end}
+local Vector2 = {new=function(x,y) return setmetatable({X=x,Y=y},{__index=function(t,k) if k=="Magnitude" then return math.sqrt(t.X*t.X+t.Y*t.Y) end end}) end}
 local CF = {}
 local identity = {{1,0,0},{0,1,0},{0,0,1}}
 local function matmul(a,b)

@@ -43,7 +43,7 @@ parts=list(scene_data['parts'])
 # Native Terrain water is approximated by ellipses only in this offline renderer.
 for water in scene_data.get('layout',{}).get('Waters',[]):
     center=list(water['Center']);center[1]-=.08
-    parts.append(dict(name='NativeTerrainWater',color=[.20,.63,.66],alpha=.96,material='Water',shape='Cylinder',position=center,size=[.16,water['Radius'][0]*2,water['Radius'][1]*2],rotation=[[0,-1,0],[1,0,0],[0,0,1]],shadow=False))
+    parts.append(dict(name='NativeTerrainWater',color=scene_data.get('waterColor',[.20,.63,.66]),alpha=.96,material='Water',shape='Cylinder',position=center,size=[.16,water['Radius'][0]*2,water['Radius'][1]*2],rotation=[[0,-1,0],[1,0,0],[0,0,1]],shadow=False))
 for part in parts:
     if part['alpha']<=0: continue
     key = (*part['color'], part['alpha'], part['material'])
@@ -79,12 +79,12 @@ for part in parts:
     obj.material_slots[0].material = materials[key]
 world = bpy.context.scene.world
 world.use_nodes = True
-world.node_tree.nodes['Background'].inputs[0].default_value = (*linear((.68,.82,.88)),1)
-world.node_tree.nodes['Background'].inputs[1].default_value = 0.7
+world.node_tree.nodes['Background'].inputs[0].default_value = (*linear((.74,.86,.98)),1)
+world.node_tree.nodes['Background'].inputs[1].default_value = 0.95
 bpy.ops.object.light_add(type='SUN')
 sun = bpy.context.object
-sun.rotation_euler = (0.4, -0.4, -0.6)
-sun.data.energy = 2.3
+sun.rotation_euler = (0.24, -0.3, -0.6)
+sun.data.energy = 2.8
 sun.data.angle = 0.15
 bpy.ops.object.camera_add()
 camera = bpy.context.object
@@ -93,6 +93,9 @@ views={
  'overview':((680,600,-760),(0,10,-30),40),
  'harbor':((158,108,-160),(0,19,36),32),
  'approach':((0,24,-85),(0,17,45),24),
+ 'town':((31,23,-40),(-8,16,5),28),
+ 'pier':((36,23,99),(3,15,129),32),
+ 'residents':((35,17,8),(45,15,-6),48),
  'grove':((-151,83,-105),(-246,38,25),38),
  'forest':((165,78,92),(268,34,-12),36),
  'cove':((-150,66,-110),(-264,11,-218),36),

@@ -1,4 +1,4 @@
-# Cloud Anglers v0.5 — testprotokoll
+# Cloud Anglers v0.6 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
@@ -7,7 +7,7 @@
 - 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
 - 3 Python-tester för korrekt inbäddade källfiler, sparade ljus/streaming-inställningar och repeterbar platsbyggnad
   passerade.
-- Alla 23 Luau-produktionsfiler samt de fem Luau-testfilerna accepterades av den
+- Alla 26 Luau-produktionsfiler samt de fem Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
   progression, sparregler, fiskeplatser, världsdata, layoutberäkning och de fem Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
@@ -177,3 +177,33 @@ atomiskt. Hela öar är inte atomiska eller beständigt tvångsladdade.
 Realistic/PrioritizeLightingQuality och streaming sparas av byggverktyget eftersom
 vissa av dessa inställningar inte får ändras av vanliga serverskript. Alla angivna
 värden kontrollerades mot aktuell Roblox API-dump; faktisk Studio-import återstår.
+
+## v0.6 — färg, planteringar och liv, ännu okörda kontroller i Studio
+
+De 64 befintliga testerna och kompilering av 31 Luau-filer passerar.
+Generatorn skapar 9 850 förankrade delar, varav samma 941 kolliderbara som i v0.5.
+3 639 provpunkter mot den faktiska kollisionsgeometrin passerar fortfarande.
+En separat kontroll kör produktionskodens invånare och klientanimation med
+geometri-/händelsedubblar: 379 delar i 21 aktörer, 1 006 ändliga animationssteg,
+stabila leder, begränsad gångrutt, sena attribut, kamerabaserat avståndsstopp och
+utströmning/återbindning passerar. Detta verifierar inte Roblox-motorn.
+
+- [ ] Öppna **Cloud-Anglers-v0.6.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Se ljusare gräs, turkost vatten, mint-/persikofärgade hus och korall-/turkosa tak.
+- [ ] Kontrollera tydliga skuggor under trädkronor, tak och invånare på flera grafiknivåer.
+- [ ] Se caféets serveringslucka, verkstadens spöställ och fasadernas fönster/markiser.
+- [ ] Gå från spawn genom torget till bryggan; planteringar täcker inte stigar eller entréer.
+- [ ] Se sju invånare med olika poser/aktiviteter. Deras ansikten, hattar och rekvisita sitter rätt.
+- [ ] Hamnens vandrare följer en jämn slinga ovan mark utan ryckiga vändningar.
+- [ ] Fiskarens lina når vattenytan utan att blockera spelarens fiskeplats.
+- [ ] Se måsar glidflyga/flaxa, fjärilar fladdra och två fiskstim röra sig i lagunerna.
+- [ ] Kronor svajar kring rätt punkt; tallarnas barr flyttas inte ned mot marken vid första uppdatering.
+- [ ] Den målade båten guppar försiktigt och stannar förtöjd vid bryggan.
+- [ ] Besök blomsterlund, skog, strand och utsiktsplats: se nya rabatter, ormbunkar och picknickdetaljer.
+- [ ] Gå långt från aktörer och återvänd: närliggande rörelser återupptas utan dubbla animationer.
+- [ ] Strömma ut/in en ö, återställ avataren och prova två klienter; inga återkommande Output-fel.
+- [ ] Mät FPS, minne och laddpauser på riktig telefon/iPad, särskilt på hamntorget.
+- [ ] Bekräfta att gränssnitt, ljudmix, mynt och tidigare sparad profil fungerar som före världsuppdateringen.
+
+Offline-renderingar används bara för granskning av geometri och placering.
+Faktisk ljussättning, material, streaming och prestanda ska bedömas i Roblox.

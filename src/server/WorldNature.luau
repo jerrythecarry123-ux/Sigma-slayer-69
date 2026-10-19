@@ -13,11 +13,15 @@ local tinyLeaves = { material = Enum.Material.Grass, shadow = false }
 -- Overlapping domes with a low faceted leaf skirt soften the branched silhouette.
 local function leafCrown(parent: Instance, center: Vector3, width: number, height: number, depth: number, tint: Color3, yaw: number)
 	local frame = CFrame.new(center) * CFrame.Angles(0, yaw, 0)
-	Kit.ball(parent, "CanopyHeart", Vector3.new(width * .95, height, depth * .95), center, tint, leaves)
+	local canopy=Kit.model(parent,"BreezyBroadleafCanopy")
+	canopy.WorldPivot=CFrame.new(center)
+	canopy:SetAttribute("SwayOrigin",CFrame.new(center))
+	canopy:SetAttribute("SwayAmplitude",.027)
+	Kit.ball(canopy, "CanopyHeart", Vector3.new(width * .95, height, depth * .95), center, tint, leaves)
 	for i = 0, 3 do
 		local rotation = CFrame.Angles(0, i * math.pi / 2, 0)
 		local shoulder = frame * rotation * CFrame.new(0, -height * .19, -depth * .2)
-		Kit.wedge(parent, "LeafShoulder", Vector3.new(width * .64, height * .55, depth * .55), shoulder,
+		Kit.wedge(canopy, "LeafShoulder", Vector3.new(width * .64, height * .55, depth * .55), shoulder,
 			tint:Lerp(if i % 2 == 0 then C.Lime else C.Pine, 0.07), leaves)
 	end
 end
@@ -84,6 +88,10 @@ local function pine(parent: Instance, pos: Vector3, scale: number, random: Rando
 	Kit.beam(parent,"PineTrunk",pos,pos+Vector3.yAxis*22.8*scale,1.15*scale,C.Bark,trunkWood)
 	roots(parent,pos,scale*.7,random)
 	local yaw=random:NextNumber(0,math.pi)
+	local needles=Kit.model(parent,"BreezyNeedleCanopy")
+	needles.WorldPivot=CFrame.new(pos)
+	needles:SetAttribute("SwayOrigin",CFrame.new(pos))
+	needles:SetAttribute("SwayAmplitude",.009)
 	-- Closed, overlapping hexagonal needle skirts form a clean conifer silhouette.
 	for tier=0,5 do
 		local radius=(7.1-tier*.98)*scale
@@ -95,9 +103,9 @@ local function pine(parent: Instance, pos: Vector3, scale: number, random: Rando
 			local b=yaw+(face+1)*math.pi/3
 			local left=base+Vector3.new(math.cos(a)*radius,0,math.sin(a)*radius)
 			local right=base+Vector3.new(math.cos(b)*radius,0,math.sin(b)*radius)
-			canopyTriangle(parent,tip,left,right,tint:Lerp(C.PineLight,face%2*.035))
+			canopyTriangle(needles,tip,left,right,tint:Lerp(C.PineLight,face%2*.035))
 		end
-		Kit.disk(parent,"NeedleSkirtUnderside",radius*1.7,radius*1.7,.12*scale,base,tint,leaves)
+		Kit.disk(needles,"NeedleSkirtUnderside",radius*1.7,radius*1.7,.12*scale,base,tint,leaves)
 	end
 end
 
@@ -115,6 +123,10 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 			nextPos + direction * 0.1 * scale, (1.22 - t * 0.43) * scale, C.Bark, wood)
 		previous = nextPos
 	end
+	local fronds=Kit.model(parent,"BreezyPalmCanopy")
+	fronds.WorldPivot=CFrame.new(previous)
+	fronds:SetAttribute("SwayOrigin",CFrame.new(previous))
+	fronds:SetAttribute("SwayAmplitude",.022)
 	for frond = 1, 8 do
 		local angle = frond * math.pi / 4 + random:NextNumber(-0.1, 0.1)
 		local direction = Vector3.new(math.cos(angle), 0, math.sin(angle))
@@ -123,14 +135,14 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 		for section = 1, 3 do
 			local finish = previous + direction * section * 3.5 * scale
 				+ Vector3.yAxis * (if section == 1 then 2.5 elseif section == 2 then 1.1 else -2.5) * scale
-			Kit.wedge(parent, "PalmLeaf", Vector3.new((3.2 - section * 0.65) * scale, 0.26 * scale, (finish - start).Magnitude + 0.2 * scale),
+			Kit.wedge(fronds, "PalmLeaf", Vector3.new((3.2 - section * 0.65) * scale, 0.26 * scale, (finish - start).Magnitude + 0.2 * scale),
 				CFrame.lookAt((start + finish) / 2, finish), tint, leaves)
 			start = finish
 		end
 	end
 	for nut = 1, 3 do
 		local angle = nut * math.pi * 2 / 3
-		Kit.ball(parent, "Coconut", Vector3.one * 0.83 * scale,
+		Kit.ball(fronds, "Coconut", Vector3.one * 0.83 * scale,
 			previous + Vector3.new(math.cos(angle) * 0.65, -0.6, math.sin(angle) * 0.65) * scale, C.Bark, wood)
 	end
 end

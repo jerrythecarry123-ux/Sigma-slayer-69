@@ -8,6 +8,8 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Nature = require(script.Parent:WaitForChild("WorldNature"))
 local Architecture = require(script.Parent:WaitForChild("WorldArchitecture"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
+local Landscaping = require(script.Parent:WaitForChild("WorldLandscaping"))
+local Residents = require(script.Parent:WaitForChild("WorldResidents"))
 local C = Kit.palette
 local World = {}
 local function v(p: {number}): Vector3 return Vector3.new(p[1], p[2], p[3]) end
@@ -41,7 +43,7 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 		-- Triangle center is half the floor thickness below the declared walking surface.
 		triangle(model, "WalkableMeadow", center - Vector3.yAxis * 0.35, v(edge[i]) - Vector3.yAxis * 0.35,
 			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true)
-		local tiers = if data.Basin then { {1,-.75},{.94,-10},{.12,-40} } else { {1,-.75},{1.01,-6},{.86,-24},{.12,-57} }
+		local tiers = if data.Basin then { {1,-.75},{1,-10},{0,-40} } else { {1,-.75},{1,-6},{.86,-24},{0,-57} }
 		for tier = 1, #tiers - 1 do
 			local top, bottom = tiers[tier], tiers[tier+1]
 			local function ring(k: number, t: {number}): Vector3
@@ -50,8 +52,16 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 			end
 			local a,b,c,d = ring(i,top),ring(j,top),ring(i,bottom),ring(j,bottom)
 			local tint = if tier == 1 then C.Limestone else (if (i+tier)%3 == 0 then C.DeepStone else C.Cliff)
-			triangle(model, "StratifiedCliff", a,b,c,tint,Enum.Material.Slate,false)
-			triangle(model, "StratifiedCliff", b,d,c,tint,Enum.Material.Slate,false)
+			if top[1]==bottom[1] then
+				-- A straight collar needs one panel, rather than four hidden wedge faces.
+				Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
+					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Slate})
+			elseif bottom[1]==0 then
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
+			else
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
+				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Slate,false)
+			end
 		end
 	end
 	return model
@@ -106,7 +116,7 @@ local function water(parent: Instance, data: any)
 	workspace.Terrain:WriteVoxels(region,4,materials,occupancy)
 	-- Lower basin, exposed stone collar, reeds and a small cascade over the rim.
 	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true}
-	local model = island(parent,basin,Color3.fromRGB(115,164,141),Enum.Material.Sand)
+	local model = island(parent,basin,Color3.fromRGB(146,205,155),Enum.Material.Sand)
 	for i = 1, 12 do
 		local a=i*math.pi/6
 		local p=center+Vector3.new(math.cos(a)*(data.Radius[1]+2),-.8,math.sin(a)*(data.Radius[2]+2))
@@ -246,24 +256,24 @@ function World.create(): BasePart
 	spawn.Name,spawn.Size,spawn.CFrame="HarborSpawn",Vector3.new(14,.3,14),CFrame.new(v(Layout.Spawn)+Vector3.yAxis*.2)*CFrame.Angles(0,math.pi,0)
 	spawn.Anchored,spawn.Neutral,spawn.Duration,spawn.Transparency,spawn.CastShadow=true,true,0,1,false
 	spawn.Parent=workspace
-	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=15.2,2.5,true
-	Lighting.ShadowSoftness=.32
-	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(65,83,100),Color3.fromRGB(111,130,142)
-	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.7,.8
+	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.1,2.8,true
+	Lighting.ShadowSoftness=.45
+	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(104,132,163),Color3.fromRGB(165,187,204)
+	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.8,.9
 	local atmosphere=Instance.new("Atmosphere")
-	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.21,.15,1,.1
-	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(216,232,233),Color3.fromRGB(143,167,188),Lighting
+	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.145,.05,.6,.08
+	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(205,235,255),Color3.fromRGB(155,197,228),Lighting
 	local sky=Instance.new("Sky")
 	sky.Name,sky.SunAngularSize,sky.MoonAngularSize,sky.StarCount,sky.Parent="SundriftSky",9,9,800,Lighting
 	local clouds=Instance.new("Clouds")
 	clouds.Name,clouds.Cover,clouds.Density,clouds.Color,clouds.Parent="HighClouds",.28,.38,C.Cloud,workspace.Terrain
 	local color=Instance.new("ColorCorrectionEffect")
-	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",.05,.07,Color3.fromRGB(255,246,229),Lighting
+	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",.14,.025,Color3.fromRGB(255,253,248),Lighting
 	local bloom=Instance.new("BloomEffect")
-	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.08,1.9,24,Lighting
+	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.12,1.7,24,Lighting
 	local rays=Instance.new("SunRaysEffect")
 	rays.Intensity,rays.Spread,rays.Parent=.025,.85,Lighting
-	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.45,.25
+	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.32,.28
 	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.14,7
 	for _,data in Layout.Islands do
 		local tint=if data.Kind=="Cove" then C.Sand elseif data.Kind=="Summit" then C.Moss else C.Grass
@@ -329,7 +339,7 @@ function World.create(): BasePart
 		{"blossom",-280,28,1,11,9,24},{"blossom",-213,28,33,9,8,20},{"forest",239,24,23,12,10,25},
 		{"forest",293,24,19,11,7,22},{"summit",223,60,-266,12,9,24},{"cove",-253,4,-185,9,8,18},
 	}
-	for i,g in gardens do Nature.garden(regions[g[1]],Vector3.new(g[2],g[3],g[4]),Vector2.new(g[5],g[6]),g[7],i*53,if g[1]=="summit" then "Lavender" else "Grass") end
+	for i,g in gardens do Nature.garden(regions[g[1]],Vector3.new(g[2],g[3],g[4]),Vector2.new(g[5],g[6]),math.ceil(g[7]*.45),i*53,if g[1]=="summit" then "Lavender" else "Grass") end
 	for i,pos in {Vector3.new(-95,12,34),Vector3.new(87,12,-58),Vector3.new(-289,28,38),Vector3.new(321,24,-29),Vector3.new(-182,4,-211),Vector3.new(210,60,-254)} do
 		Nature.rock(root,pos,Vector3.new(11+i%3*2,8+i%2*4,9),i*19,true)
 	end
@@ -350,7 +360,9 @@ function World.create(): BasePart
 		local a=i*math.pi/7
 		Nature.cloud(root,Vector3.new(math.cos(a)*490,-72,math.sin(a)*390-40),Vector3.new(88,22,55),i*13)
 	end
-	local largeModels={}
+	Landscaping.populate(root,regions)
+	local population=Residents.populate(root)
+	local largeModels: {[Instance]: boolean}={[population]=true}
 	for _,region in regions do largeModels[region]=true end
 	for _,model in root:GetDescendants() do
 		if model:IsA("Model") and not largeModels[model] and model.Name~="SuspendedLagoon" then

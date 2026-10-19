@@ -8,19 +8,19 @@ export type Options = {
 }
 
 Kit.palette = table.freeze({
-	Grass = Color3.fromRGB(134, 177, 119), Moss = Color3.fromRGB(83, 131, 98),
-	Leaf = Color3.fromRGB(103, 155, 105), Lime = Color3.fromRGB(178, 193, 112),
-	Pine = Color3.fromRGB(54, 110, 100), PineLight = Color3.fromRGB(96, 153, 123),
-	Blossom = Color3.fromRGB(237, 175, 162), BlossomLight = Color3.fromRGB(255, 219, 192),
-	Stone = Color3.fromRGB(142, 159, 156), DeepStone = Color3.fromRGB(88, 116, 126),
-	Cliff = Color3.fromRGB(119, 141, 143), Limestone = Color3.fromRGB(187, 188, 162),
-	Sand = Color3.fromRGB(229, 213, 172), Wood = Color3.fromRGB(138, 96, 66),
-	Bark = Color3.fromRGB(106, 81, 59), BarkLight = Color3.fromRGB(161, 119, 77),
-	Plank = Color3.fromRGB(194, 151, 103), Cream = Color3.fromRGB(251, 236, 200),
-	Teal = Color3.fromRGB(52, 122, 120), Water = Color3.fromRGB(91, 190, 188),
-	Cloud = Color3.fromRGB(242, 244, 235), Coral = Color3.fromRGB(227, 157, 131),
-	Brass = Color3.fromRGB(185, 146, 82), Iron = Color3.fromRGB(65, 83, 84),
-	Lavender = Color3.fromRGB(164, 149, 191), Gold = Color3.fromRGB(243, 190, 85),
+	Grass = Color3.fromRGB(116, 203, 108), Moss = Color3.fromRGB(62, 160, 104),
+	Leaf = Color3.fromRGB(72, 171, 102), Lime = Color3.fromRGB(182, 222, 106),
+	Pine = Color3.fromRGB(47, 145, 119), PineLight = Color3.fromRGB(106, 193, 128),
+	Blossom = Color3.fromRGB(255, 164, 193), BlossomLight = Color3.fromRGB(255, 222, 226),
+	Stone = Color3.fromRGB(163, 188, 195), DeepStone = Color3.fromRGB(105, 151, 177),
+	Cliff = Color3.fromRGB(139, 181, 199), Limestone = Color3.fromRGB(233, 221, 181),
+	Sand = Color3.fromRGB(246, 222, 166), Wood = Color3.fromRGB(180, 128, 79),
+	Bark = Color3.fromRGB(130, 90, 54), BarkLight = Color3.fromRGB(196, 145, 88),
+	Plank = Color3.fromRGB(225, 180, 117), Cream = Color3.fromRGB(255, 246, 217),
+	Teal = Color3.fromRGB(40, 158, 155), Water = Color3.fromRGB(66, 204, 227),
+	Cloud = Color3.fromRGB(250, 252, 255), Coral = Color3.fromRGB(255, 151, 118),
+	Brass = Color3.fromRGB(231, 179, 79), Iron = Color3.fromRGB(81, 117, 138),
+	Lavender = Color3.fromRGB(184, 151, 235), Gold = Color3.fromRGB(255, 207, 83),
 })
 
 local function finish(p: BasePart, parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, options: Options?)
