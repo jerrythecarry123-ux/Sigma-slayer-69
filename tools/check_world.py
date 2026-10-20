@@ -179,7 +179,9 @@ def validate(scene):
                 assert math.dist([x, arrival[1], z], spot) <= fishing_range, destination+' arrival footprint extends outside fishing range'
                 arrival_samples += 1
 
-    shade_names={'LeafShoulder','EvergreenBough','PalmLeaf','StratifiedCliff','RoofUnderlay'}
+    shade_names={'LeafShoulder','EvergreenBough','PalmLeaf','StratifiedCliff','RoofUnderlay',
+                 'BrickLeafShelf','BrickNeedleShelf','BrickPalmFrond','StoneBrickBase','StoneBrickCrown',
+                 'LowerPondCliffBrick','UpperPondCliffBrick'}
     for p in parts:
         if p['name'] in shade_names:
             assert p['shadow'],p['path']+' loses required shade'

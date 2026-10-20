@@ -1,6 +1,6 @@
-# Cloud Anglers — v0.7
+# Cloud Anglers — v0.8
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.7.rbxlx)
+[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.8.rbxlx)
 
 Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
 press **Play**. The five-island map is generated when Play starts.
@@ -16,13 +16,33 @@ yellow-canopy dockside stand to upgrade. Approach a blue **ISLAND HOP** stand,
 choose a destination and arrive beside its fishing marker. Travel is free from
 the first visit; no unlocks or tickets are required.
 
-## New in v0.7 — shorter trips, cleaner colors
+## New in v0.8 — the supplied Duck Pond reference
 
-Fresh medium-green ground, deeper foliage, blue water, cream houses and small
-yellow accents replace the mint/peach/cyan palette. Smoother leaves, walls and
-roofs and a near-neutral lighting grade reduce the noisy, washed-out look.
-The requested Duck Pond reference could not be retrieved from this runner;
-this is an original pond-style palette, not a verified reproduction of that game.
+The supplied in-game screenshot now guides the art direction: strong green ground,
+blue-gray block cliffs, pale yellow paths, bright cyan water and a clear daylight sky.
+This is an original world built in that classic brick style.
+
+- Broad ground plates, paths, buildings, decks, trees and cliffs use native
+  `SurfaceType.Studs` on Plastic. Individual studs do not add parts or joints.
+  Five inset rectangular meadow plates supplement the triangular coast geometry.
+- Square trunks, flat leaf shelves, stepped rocks, brick flower beds and block-toy
+  residents replace the round, organic forms. Tree crowns and residents still move.
+- Each pond gains a stepped far-shore wall with green rims and two cyan waterfalls.
+  The ten new falls use the existing local animation system and add no sounds.
+- Pier edges gain tackle boxes with hinges, lures, float buckets, spare rods,
+  cleats, bumpers and readable nameplates. Each region has its own keepsake.
+  Five trail-side bench nooks add flowerpots, pier signs, books, shells and compasses.
+- Waterfall foam shimmers gently and a few green sprouts grow on the cliff ledges.
+- **Soft** lighting, low haze and subdued reflections keep the saturated colors
+  readable. Native surface appearance and final lighting still need Studio review.
+- Geometry falls from 9,948 to **7,851 source parts**, about 21% fewer, including
+  the new shore scenery. This is an instance count, not a measured FPS improvement.
+
+## Short trips retained from v0.7
+
+This release also fixes v0.7's startup wiring: its generated world is a Folder,
+which the former Model-only guard skipped. FishingService now actually creates
+and connects all five travel stands during normal game startup.
 
 - Spawn moves onto the broad main pier, close to the first casting marker.
 - Default walking speed rises from 16 to 22 studs/second on every input device.
@@ -36,7 +56,7 @@ this is an original pond-style palette, not a verified reproduction of that game
 Calculated from authored routes and default movement speed, before loading or
 player input time; these are not measured Roblox play-session timings:
 
-| Journey | v0.6 | v0.7 |
+| Journey | v0.6 | v0.7–v0.8 |
 | --- | --- | --- |
 | Spawn center → first fishing marker | 187 studs / 11.7 s | 22 studs / 1.0 s |
 | First marker → nearby upgrade approach | Town trip | About 2.8 s |
@@ -48,7 +68,7 @@ player input time; these are not measured Roblox play-session timings:
   tend flowers, wave, walk or watch the horizon. They are decorative inhabitants.
 - Six gulls glide and flap above the islands, six butterflies circle gardens and
   two small fish schools move through the lagoons.
-- Layered flower beds, blooming hedges, saplings, ferns, mushrooms and fallen
+- Brick flower beds, blooming hedges, saplings, ferns, mushrooms and fallen
   petals fill selected spaces without covering the main walking routes.
 - Striped café parasols, produce crates, picnics, towels, shells and a bobbing
   painted skiff give the harbor and beaches small everyday scenes.
@@ -71,10 +91,10 @@ coast landings and continuous, protected walking surfaces.
 | Tideglass Cove | Curved palms, beach picnic, lookout resident, shaded crystal grotto and quiet lagoon |
 | Starfall Lookout | Old stone observatory, telescope, ruins, sky picnic and high fishing pier |
 
-- Irregular coast polygons and layered cliffs replace the small platform.
+- Irregular coast polygons, gray brick collars and far-shore terraces frame the five ponds.
 - Native Roblox Terrain water provides waves/reflections in all five lagoons;
   waterfalls and a drifting airship add movement without more sound effects.
-- Current **Realistic** lighting and quality-prioritized rendering are saved in
+- Current **Soft** lighting and quality-prioritized rendering are saved in
   the place. Bright daytime light, cool ambient fill and shadow-casting roofs,
   canopies and cliffs create shade. Small plants avoid unnecessary shadow work.
 - Instance streaming loads neighborhoods as needed. Small trees/buildings/bridge
@@ -83,8 +103,9 @@ coast landings and continuous, protected walking surfaces.
   height. All existing collections, coins, rods, goals and offline income persist
   with the same v0.3 save namespace. The v0.4 UI and six-clip audio mix are retained.
 
-The generator produces **9,948 anchored source parts**, including **946 colliders**
+The generator produces **7,851 anchored source parts**, including **1,116 colliders**
 (invisible safety floors/rails included). Native water is separate terrain data.
+The original 946 colliders retain identical geometry; far-shore terraces add 170.
 Only the five tiny arrival supports are persistent; entire islands are not.
 These are measured source counts, not a mobile frame-rate guarantee.
 
@@ -94,7 +115,7 @@ no imported models, custom audio IDs or external mesh uploads are needed.
 ## What was checked
 
 80 automated tests pass: 19 fishing, 12 locations, 18 progression/saving, 4 UI layout,
-9 world layout, 15 travel authorization and 3 place export. All 29 production files
+9 world layout, 15 travel authorization and 3 place export. All 32 production files
 plus 6 Luau test suites compile. Independent rays through the actual captured colliders check 3,681 route
 samples for continuous support and six-stud headroom over a 2.6-stud corridor.
 225 more rays check the full spawn footprint and 125 check travel arrival footprints.
@@ -103,6 +124,9 @@ stream failures, duplicate requests and character death/replacement/departure du
 An additional production-code smoke check exercises 1,006 resident animation steps,
 late-arriving attributes, stable joints, camera distance limits and streaming
 cleanup/rebind using geometry and event doubles. This is not a Roblox runtime test.
+A separate check executes production FishingService startup, including the real
+Folder world and all five prompt handlers. It also verifies custom-map startup
+and detects an in-memory restoration of the former Model-only guard.
 
 Offline Blender views were used to inspect geometry. They do not emulate Roblox
 materials, native-water rendering, streaming, physics or device performance.
@@ -156,7 +180,7 @@ luau tests/world_layout.spec.luau
 luau tests/island_travel.spec.luau
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.7.rbxlx` and `artifacts/Cloud-Anglers-v0.7.zip`.
+Outputs: `artifacts/Cloud-Anglers-v0.8.rbxlx` and `artifacts/Cloud-Anglers-v0.8.zip`.
 
 Shared modules contain tuning, quality rules, species data and fish geometry.
 Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
@@ -169,6 +193,8 @@ Optional geometry inspection (Luau and Blender required) is described in
 and client animation with geometry/event doubles.
 `python tools/check_travel.py --luau /path/to/luau` checks the production travel
 adapter with geometry/event doubles, including yields and character replacement.
+`python tools/check_startup.py --luau /path/to/luau` checks the complete server
+startup wiring with the same production sources and geometry/event doubles.
 They capture production geometry for offline art review and route checks;
 it does not emulate Roblox lighting, sound, physics, UI or runtime behavior.
 

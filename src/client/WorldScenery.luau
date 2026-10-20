@@ -127,6 +127,7 @@ function Scenery.start()
 			-- plank and leaf in a large map. Attributes already present are also accepted.
 			candidate = string.find(instance.Name, "FlowStreak", 1, true) ~= nil
 				or string.find(instance.Name, "WaterfallStreak", 1, true) ~= nil
+				or instance.Name == "PondWaterfallFoam"
 				or string.find(instance.Name, "WaterGlint", 1, true) ~= nil
 				or instance:GetAttribute("FlowStart") ~= nil or instance:GetAttribute("GlintPhase") ~= nil
 		end

@@ -191,7 +191,9 @@ function Service.start()
 	for _, player in Players:GetPlayers() do addPlayer(player) end
 	if Config.CreatePrototypeWorld then
 		local world=workspace:FindFirstChild("MolnfiskarnaPrototype")
-		if world and world:IsA("Model") then
+		-- The generated world is a Folder; requiring a Model here silently
+		-- skipped the travel service and its stands during real startup.
+		if world then
 			IslandTravel.start(world,function(player)
 				if closing or not connections[player] then return false end
 				local packet=engine:interrupt(player.UserId,workspace:GetServerTimeNow(),"Ready for your next pond.")

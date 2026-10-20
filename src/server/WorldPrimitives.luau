@@ -4,25 +4,25 @@ local Kit = {}
 
 export type Options = {
 	material: Enum.Material?, collidable: boolean?, shadow: boolean?,
-	transparency: number?, reflectance: number?,
+	transparency: number?, reflectance: number?, studded: boolean?,
 }
 
 Kit.palette = table.freeze({
-	-- Green land, blue water and a little warm paint carry the map.
-	-- Large surfaces stay out of the former cyan / mint / peach color range.
-	Grass = Color3.fromRGB(99, 181, 80), Moss = Color3.fromRGB(53, 126, 59),
-	Leaf = Color3.fromRGB(58, 145, 64), Lime = Color3.fromRGB(133, 191, 68),
-	Pine = Color3.fromRGB(45, 114, 66), PineLight = Color3.fromRGB(80, 153, 72),
-	Blossom = Color3.fromRGB(226, 156, 171), BlossomLight = Color3.fromRGB(245, 200, 201),
-	Stone = Color3.fromRGB(154, 157, 145), DeepStone = Color3.fromRGB(113, 124, 116),
-	Cliff = Color3.fromRGB(148, 155, 137), Limestone = Color3.fromRGB(215, 207, 173),
-	Sand = Color3.fromRGB(229, 211, 157), Wood = Color3.fromRGB(166, 119, 75),
-	Bark = Color3.fromRGB(117, 86, 55), BarkLight = Color3.fromRGB(168, 125, 76),
-	Plank = Color3.fromRGB(210, 174, 120), Cream = Color3.fromRGB(250, 244, 224),
-	Teal = Color3.fromRGB(51, 112, 167), Water = Color3.fromRGB(79, 160, 216),
-	Cloud = Color3.fromRGB(248, 250, 252), Coral = Color3.fromRGB(211, 100, 74),
-	Brass = Color3.fromRGB(221, 174, 58), Iron = Color3.fromRGB(64, 75, 82),
-	Lavender = Color3.fromRGB(131, 148, 174), Gold = Color3.fromRGB(244, 195, 55),
+	-- Read from the supplied Duck Pond screenshot: saturated green bricks,
+	-- blue-gray walls, pale yellow paving and bright cyan ponds.
+	Grass = Color3.fromRGB(20, 200, 55), Moss = Color3.fromRGB(0, 145, 42),
+	Leaf = Color3.fromRGB(14, 163, 45), Lime = Color3.fromRGB(81, 214, 40),
+	Pine = Color3.fromRGB(17, 149, 53), PineLight = Color3.fromRGB(54, 191, 59),
+	Blossom = Color3.fromRGB(230, 119, 171), BlossomLight = Color3.fromRGB(255, 173, 202),
+	Stone = Color3.fromRGB(109, 142, 157), DeepStone = Color3.fromRGB(76, 111, 127),
+	Cliff = Color3.fromRGB(99, 132, 147), Limestone = Color3.fromRGB(247, 241, 180),
+	Sand = Color3.fromRGB(250, 244, 181), Wood = Color3.fromRGB(151, 112, 67),
+	Bark = Color3.fromRGB(118, 83, 45), BarkLight = Color3.fromRGB(156, 112, 62),
+	Plank = Color3.fromRGB(234, 221, 155), Cream = Color3.fromRGB(255, 250, 202),
+	Teal = Color3.fromRGB(37, 158, 238), Water = Color3.fromRGB(66, 207, 255),
+	Cloud = Color3.fromRGB(249, 253, 255), Coral = Color3.fromRGB(255, 124, 55),
+	Brass = Color3.fromRGB(255, 210, 36), Iron = Color3.fromRGB(65, 93, 107),
+	Lavender = Color3.fromRGB(116, 141, 201), Gold = Color3.fromRGB(255, 221, 0),
 })
 
 local function finish(p: BasePart, parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, options: Options?)
@@ -36,6 +36,14 @@ local function finish(p: BasePart, parent: Instance, name: string, size: Vector3
 	p.CastShadow = opts.shadow ~= false
 	p.Transparency, p.Reflectance = opts.transparency or 0, opts.reflectance or 0
 	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	if opts.studded then
+		-- Native surface details repeat without adding individual stud Parts,
+		-- textures to upload, touch events or physical joints.
+		p.Material = Enum.Material.Plastic
+		p.TopSurface,p.BottomSurface=Enum.SurfaceType.Studs,Enum.SurfaceType.Studs
+		p.LeftSurface,p.RightSurface=Enum.SurfaceType.Studs,Enum.SurfaceType.Studs
+		p.FrontSurface,p.BackSurface=Enum.SurfaceType.Studs,Enum.SurfaceType.Studs
+	end
 	p.Parent = parent
 end
 

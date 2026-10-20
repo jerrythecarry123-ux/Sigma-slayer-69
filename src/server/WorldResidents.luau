@@ -1,17 +1,17 @@
 --!strict
--- Original, deliberately lightweight townsfolk. Their movement is cosmetic and
+-- Original, lightweight block-toy townsfolk. Their movement is cosmetic and
 -- runs locally; no Humanoids, pathfinding, avatar requests or server simulation.
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Residents = {}
 
 local COLORS = {
-	Ink = Color3.fromRGB(48, 62, 80), White = Color3.fromRGB(250, 244, 224),
-	Peach = Color3.fromRGB(246, 190, 145), Tan = Color3.fromRGB(178, 111, 76),
-	Brown = Color3.fromRGB(111, 74, 61), Pink = Color3.fromRGB(246, 137, 142),
-	Gold = Color3.fromRGB(236, 189, 61), Teal = Color3.fromRGB(60, 133, 94),
-	Blue = Color3.fromRGB(71, 124, 181), Coral = Color3.fromRGB(209, 101, 76),
-	Lilac = Color3.fromRGB(95, 119, 164), Green = Color3.fromRGB(74, 144, 76),
-	Hair = Color3.fromRGB(85, 59, 51), Blonde = Color3.fromRGB(223, 179, 87),
+	Ink = Color3.fromRGB(34, 47, 66), White = Color3.fromRGB(255, 250, 234),
+	Peach = Color3.fromRGB(255, 202, 154), Tan = Color3.fromRGB(197, 128, 78),
+	Brown = Color3.fromRGB(117, 74, 45), Pink = Color3.fromRGB(255, 150, 145),
+	Gold = Color3.fromRGB(255, 215, 42), Teal = Color3.fromRGB(0, 163, 147),
+	Blue = Color3.fromRGB(31, 139, 235), Coral = Color3.fromRGB(245, 93, 58),
+	Lilac = Color3.fromRGB(105, 145, 222), Green = Color3.fromRGB(35, 185, 75),
+	Hair = Color3.fromRGB(75, 47, 34), Blonde = Color3.fromRGB(245, 197, 68),
 }
 
 local BODY_SHADOWS = {
@@ -25,7 +25,11 @@ local function ball(parent: Instance, name: string, size: Vector3, position: Vec
 end
 
 local function block(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
-	return Kit.part(parent, name, size, cf, color, { shadow = false })
+	return Kit.part(parent, name, size, cf, color, { shadow = BODY_SHADOWS[name] == true })
+end
+
+local function brick(parent: Instance, name: string, size: Vector3, position: Vector3, color: Color3): Part
+	return block(parent, name, size, CFrame.new(position), color)
 end
 
 local function pivot(parent: Model, name: string, position: Vector3): Model
@@ -41,11 +45,11 @@ local function limb(actor: Model, name: string, x: number, shirt: Color3, skin: 
 	local position = Vector3.new(x, if leg then 1.6 else 3.16, 0)
 	local joint = pivot(actor, name, position)
 	if leg then
-		ball(joint, "TrouserLeg", Vector3.new(0.57, 1.18, 0.61), position + Vector3.new(0, -0.52, 0), shirt)
-		ball(joint, "RoundedBoot", Vector3.new(0.65, 0.48, 0.94), position + Vector3.new(0, -1.34, -0.13), COLORS.Ink)
+		brick(joint, "TrouserLeg", Vector3.new(0.57, 1.18, 0.61), position + Vector3.new(0, -0.52, 0), shirt)
+		brick(joint, "RoundedBoot", Vector3.new(0.65, 0.48, 0.94), position + Vector3.new(0, -1.34, -0.13), COLORS.Ink)
 	else
-		ball(joint, "RolledSleeve", Vector3.new(0.61, 0.91, 0.66), position + Vector3.new(0, -0.34, 0), shirt)
-		ball(joint, "MittenHand", Vector3.new(0.48, 0.57, 0.48), position + Vector3.new(0, -1.0, 0), skin)
+		brick(joint, "RolledSleeve", Vector3.new(0.61, 0.91, 0.66), position + Vector3.new(0, -0.34, 0), shirt)
+		brick(joint, "MittenHand", Vector3.new(0.48, 0.57, 0.48), position + Vector3.new(0, -1.0, 0), skin)
 	end
 	return joint
 end
@@ -53,29 +57,29 @@ end
 local function face(actor: Model, skin: Color3, hair: Color3, hat: string, accent: Color3): Model
 	local head = pivot(actor, "HeadPose", Vector3.new(0, 3.8, 0))
 	local at = Vector3.new(0, 3.8, 0)
-	ball(head, "CheerfulFace", Vector3.new(2.04, 2.08, 1.72), at + Vector3.new(0, 0.36, 0), skin)
-	ball(head, "SoftHair", Vector3.new(2.09, 1.0, 1.58), at + Vector3.new(0, 1.0, 0.19), hair)
+	brick(head, "CheerfulFace", Vector3.new(2.04, 2.08, 1.72), at + Vector3.new(0, 0.36, 0), skin)
+	brick(head, "SoftHair", Vector3.new(2.09, 1.0, 1.58), at + Vector3.new(0, 1.0, 0.19), hair)
 	for _, side in { -1, 1 } do
-		ball(head, "Eye", Vector3.new(0.17, 0.24, 0.1), at + Vector3.new(side * 0.35, 0.51, -0.81), COLORS.Ink)
-		ball(head, "EyeSpark", Vector3.new(0.055, 0.065, 0.035), at + Vector3.new(side * 0.35 - 0.025, 0.56, -0.865), COLORS.White)
-		ball(head, "Blush", Vector3.new(0.27, 0.13, 0.055), at + Vector3.new(side * 0.61, 0.27, -0.71), COLORS.Pink)
-		block(head, "Eyebrow", Vector3.new(0.27, 0.07, 0.075), CFrame.new(at + Vector3.new(side * 0.35, 0.80, -0.72))
+		ball(head, "Eye", Vector3.new(0.17, 0.24, 0.1), at + Vector3.new(side * 0.35, 0.51, -0.91), COLORS.Ink)
+		ball(head, "EyeSpark", Vector3.new(0.055, 0.065, 0.035), at + Vector3.new(side * 0.35 - 0.025, 0.56, -0.965), COLORS.White)
+		ball(head, "Blush", Vector3.new(0.27, 0.13, 0.055), at + Vector3.new(side * 0.61, 0.27, -0.895), COLORS.Pink)
+		block(head, "Eyebrow", Vector3.new(0.27, 0.07, 0.075), CFrame.new(at + Vector3.new(side * 0.35, 0.80, -0.91))
 			* CFrame.Angles(0, 0, side * -0.12), hair)
-		block(head, "SmileCorner", Vector3.new(0.08, 0.12, 0.06), CFrame.new(at + Vector3.new(side * 0.13, 0.09, -0.84))
+		block(head, "SmileCorner", Vector3.new(0.08, 0.12, 0.06), CFrame.new(at + Vector3.new(side * 0.13, 0.09, -0.91))
 			* CFrame.Angles(0, 0, side * -0.45), COLORS.Brown)
 	end
-	ball(head, "Smile", Vector3.new(0.24, 0.08, 0.065), at + Vector3.new(0, 0.035, -0.865), COLORS.Brown)
+	ball(head, "Smile", Vector3.new(0.24, 0.08, 0.065), at + Vector3.new(0, 0.035, -0.92), COLORS.Brown)
 	if hat == "Straw" then
-		Kit.disk(head, "WovenSunBrim", 3.0, 2.7, 0.14, at + Vector3.new(0, 1.29, 0.04), COLORS.Gold, { shadow = false })
-		ball(head, "SunHatCrown", Vector3.new(1.9, 0.94, 1.65), at + Vector3.new(0, 1.54, 0.08), COLORS.Gold)
-		ball(head, "HatRibbon", Vector3.new(1.94, 0.18, 1.70), at + Vector3.new(0, 1.37, 0.08), accent)
+		brick(head, "WovenSunBrim", Vector3.new(3.0, 0.14, 2.7), at + Vector3.new(0, 1.29, 0.04), COLORS.Gold)
+		brick(head, "SunHatCrown", Vector3.new(1.9, 0.94, 1.65), at + Vector3.new(0, 1.54, 0.08), COLORS.Gold)
+		brick(head, "HatRibbon", Vector3.new(1.94, 0.18, 1.70), at + Vector3.new(0, 1.37, 0.08), accent)
 	elseif hat == "Beanie" then
-		ball(head, "KnittedCap", Vector3.new(2.1, 0.95, 1.82), at + Vector3.new(0, 1.24, 0.04), accent)
+		brick(head, "KnittedCap", Vector3.new(2.1, 0.95, 1.82), at + Vector3.new(0, 1.24, 0.04), accent)
 		ball(head, "CapPompom", Vector3.new(0.49, 0.47, 0.47), at + Vector3.new(0, 1.83, 0.08), COLORS.White)
 	else
-		ball(head, "CanvasCap", Vector3.new(2.1, 0.8, 1.8), at + Vector3.new(0, 1.29, 0.08), accent)
-		ball(head, "CapVisor", Vector3.new(1.71, 0.14, 1.11), at + Vector3.new(0, 1.12, -0.81), accent)
-		ball(head, "CapBadge", Vector3.new(0.28, 0.25, 0.08), at + Vector3.new(0, 1.45, -0.80), COLORS.White)
+		brick(head, "CanvasCap", Vector3.new(2.1, 0.8, 1.8), at + Vector3.new(0, 1.29, 0.08), accent)
+		brick(head, "CapVisor", Vector3.new(1.71, 0.14, 1.11), at + Vector3.new(0, 1.12, -0.81), accent)
+		brick(head, "CapBadge", Vector3.new(0.28, 0.25, 0.08), at + Vector3.new(0, 1.45, -0.87), COLORS.White)
 	end
 	return head
 end
@@ -86,7 +90,7 @@ local function resident(parent: Model, data: any): Model
 	local root = Kit.part(actor, "ResidentRoot", Vector3.new(0.12, 0.12, 0.12), CFrame.identity, COLORS.Ink,
 		{ transparency = 1, shadow = false })
 	actor.PrimaryPart = root
-	ball(actor, "LinenShirt", Vector3.new(1.75, 1.88, 1.13), Vector3.new(0, 2.57, 0), data.shirt)
+	brick(actor, "LinenShirt", Vector3.new(1.75, 1.88, 1.13), Vector3.new(0, 2.57, 0), data.shirt)
 	block(actor, "ApronBib", Vector3.new(1.02, 1.09, 0.16), CFrame.new(0, 2.30, -0.56), data.apron)
 	for _, x in { -0.38, 0.38 } do
 		block(actor, "ApronStrap", Vector3.new(0.15, 0.81, 0.12), CFrame.new(x, 3.02, -0.51), data.apron)
@@ -116,7 +120,7 @@ local function resident(parent: Model, data: any): Model
 		ball(right, "WateringCan", Vector3.new(0.88, 0.76, 0.72), Vector3.new(1.0, 1.99, -0.2), COLORS.Teal)
 		Kit.beam(right, "WateringSpout", Vector3.new(1.0, 2.03, -0.2), Vector3.new(1.0, 2.15, -1.06), 0.19, COLORS.Teal, { shadow = false })
 	elseif data.style == "Lookout" then
-		ball(actor, "CanvasBackpack", Vector3.new(1.27, 1.48, 0.71), Vector3.new(0, 2.67, 0.70), COLORS.Gold)
+		brick(actor, "CanvasBackpack", Vector3.new(1.27, 1.48, 0.71), Vector3.new(0, 2.67, 0.70), COLORS.Gold)
 		block(actor, "BackpackPocket", Vector3.new(0.86, 0.61, 0.18), CFrame.new(0, 2.4, 1.05), data.accent)
 	end
 	actor:SetAttribute("AmbientKind", "Resident")

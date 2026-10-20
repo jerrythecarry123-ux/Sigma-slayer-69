@@ -7,7 +7,7 @@ local Rules = require(Shared:WaitForChild("IslandTravelRules"))
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local Travel = {}
-local startedWorld: Model? = nil
+local startedWorld: Instance? = nil
 local BLUE = Color3.fromRGB(64, 145, 211)
 local YELLOW = Color3.fromRGB(255, 211, 65)
 local CREAM = Color3.fromRGB(255, 250, 226)
@@ -17,7 +17,7 @@ local function spotBasis(dock: any): CFrame
 	return CFrame.new(table.unpack(dock.Spot)) * CFrame.Angles(0, dock.Yaw, 0)
 end
 
-function Travel.create(world: Model): Folder
+function Travel.create(world: Instance): Folder
 	local existing = world:FindFirstChild("IslandTravelStations")
 	if existing and existing:IsA("Folder") then return existing end
 	local stations = Instance.new("Folder")
@@ -79,7 +79,7 @@ local function livingCharacter(player: Player): (Model?, BasePart?)
 	return nil, nil
 end
 
-function Travel.start(world: Model, beforeTravel: ((Player) -> boolean)?)
+function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 	if startedWorld == world then return end
 	assert(startedWorld == nil, "Install one island travel server only")
 	startedWorld = world

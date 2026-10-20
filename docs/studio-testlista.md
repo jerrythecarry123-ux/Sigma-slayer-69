@@ -1,4 +1,4 @@
-# Cloud Anglers v0.7 — testprotokoll
+# Cloud Anglers v0.8 — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
@@ -8,7 +8,7 @@
 - 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
 - 3 Python-tester för korrekt inbäddade källfiler, sparade ljus/streaming-inställningar och repeterbar platsbyggnad
   passerade.
-- Alla 29 Luau-produktionsfiler samt de sex Luau-testfilerna accepterades av den
+- Alla 32 Luau-produktionsfiler samt de sex Luau-testfilerna accepterades av den
   officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
   progression, sparregler, fiskeplatser, reseregler, världsdata, layoutberäkning och de sex Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
@@ -238,3 +238,44 @@ Detta är inte ett kört Roblox-test av streaming, fysik eller grafisk kvalitet.
 - [ ] Efter död/respawn och resa går fiske, rörelse och menyöppning att använda igen.
 - [ ] Kontrollera tidigare sparade mynt/spön/arter och att inga nya ljud tillkommit.
 - [ ] Mät faktisk FPS/minne och resornas laddtid på telefon och iPad.
+
+## v0.8 — blockstil efter bildreferensen, ännu okörda kontroller i Studio
+
+Färg-/materialriktningen utgår nu från användarens faktiska Duck Pond-skärmbild.
+Mark och vegetation är starkt gröna, gångytor blekgula och klippor gråblå.
+Roblox inbyggda Studs-ytor används på Plastic; inga individuella knoppdelar,
+texturuppladdningar eller externa modellresurser behövs.
+
+Generatorn skapar 7 851 förankrade delar, cirka 21 % färre än v0.7. De ursprungliga
+946 kolliderbara formerna har identiska storlekar och transformeringar. Dammarnas
+nya bortre terrasser tillför 170 kolliderbara delar. Väg-, spawn- och resornas
+ankomstkontroller passerar fortfarande. Alla 38 Luau-filer kompilerar.
+
+Uppstarten körs dessutom med oförändrade produktionskällor och geometri-/händelsedubblar.
+Kontrollen bekräftar att FishingService verkligen startar de fem resestånden för
+världens Folder, samt att egen karta fungerar utan genererade snabbresor. Den gamla
+Model-kontrollen från v0.7 återställs i minnet och måste misslyckas i samma kontroll.
+
+- [ ] Öppna **Cloud-Anglers-v0.8.rbxlx**, starta Play och kontrollera Output.
+- [ ] Jämför kartan med referensbilden: starkt grönt, cyanblått vatten, gråblå väggar och blekgula gångar.
+- [ ] Se inbyggda knoppar på breda markplattor, bryggor, träd, hus och klippväggar.
+- [ ] Granska särskilt gångarnas triangulära ytor: deras lokala vänster-/högersidor pekar uppåt.
+- [ ] Inset-plattorna ligger under stigar och golv; inga gröna knoppar/flimrande ytor täcker gångarna.
+- [ ] Markera Lighting: **Soft**, PrioritizeLightingQuality och GlobalShadows är sparade.
+- [ ] Färgerna är tydliga på låg/medel/hög grafiknivå, utan disig färgton eller för starka reflexer.
+- [ ] Se fyrkantiga träd och blockstenar. Trädkronorna svajar kring rätt fästen.
+- [ ] Invånarnas ansikten, händer, hattar och gångrörelser fungerar med de nya blockformerna.
+- [ ] Alla fem dammar har grå terrassväggar med gröna kanter och två cyanblå vattenfall var.
+- [ ] Vattenfallsränderna rör sig inom sina gardiner, utan nya ljud eller återkommande fel.
+- [ ] Skummet vid vattenfallen glittrar svagt; små grässpröt sitter ovanpå klippornas hyllor.
+- [ ] Se fiskelådor, drag, flöteshinkar, reservspön och förtöjningsdetaljer längs bryggkanterna.
+- [ ] Namnplaketter går att läsa från bryggan. Varje ö har en egen liten detaljscen.
+- [ ] Fem sittplatser längs stigarna har blomkrukor, tydliga skyltar och små regionala detaljer.
+- [ ] Detaljerna skär inte in i spawn, invånare, huvudstigar eller fiskelinor.
+- [ ] Fiska på alla fem bryggor. De nya klippväggarna står bakom dammarna och blockerar inte kasten.
+- [ ] Start vid bryggan, gånghastighet 22, närverkstad och gratis snabbresor fungerar som i v0.7.
+- [ ] Prova två klienter samt strömma ut/in öarna. Väggar och animationer återkommer korrekt.
+- [ ] Kontrollera faktisk FPS/minne på telefon/iPad. Färre källdelar verifierar inte prestanda.
+
+Offline-renderingar används för form och placering. De visar inte Roblox inbyggda
+Studs-ytor eller den sparade Soft-ljussättningen; dessa kontroller måste köras i Studio.

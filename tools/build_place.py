@@ -11,7 +11,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.7.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v0.8.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
@@ -24,6 +24,9 @@ SOURCES = {
     "ServerScriptService/WorldArchitecture": ("ModuleScript", "src/server/WorldArchitecture.luau"),
     "ServerScriptService/WorldLandscaping": ("ModuleScript", "src/server/WorldLandscaping.luau"),
     "ServerScriptService/WorldResidents": ("ModuleScript", "src/server/WorldResidents.luau"),
+    "ServerScriptService/WorldPondBackdrops": ("ModuleScript", "src/server/WorldPondBackdrops.luau"),
+    "ServerScriptService/WorldDockDetails": ("ModuleScript", "src/server/WorldDockDetails.luau"),
+    "ServerScriptService/WorldTrailDetails": ("ModuleScript", "src/server/WorldTrailDetails.luau"),
     "ServerScriptService/WorldLayout": ("ModuleScript", "src/server/WorldLayout.luau"),
     "ServerScriptService/IslandTravel": ("ModuleScript", "src/server/IslandTravel.luau"),
     "ServerScriptService/PrototypeWorld": ("ModuleScript", "src/server/PrototypeWorld.luau"),
@@ -86,16 +89,16 @@ def build(output: Path) -> None:
     lighting = item("Lighting", "Lighting")
     # Current Roblox lighting replaces the legacy Technology selection. These
     # two properties require Studio/plugin capability, so serialize them here.
-    property_value(lighting, "token", "LightingStyle", "0")  # Realistic
+    property_value(lighting, "token", "LightingStyle", "1")  # Soft: clear classic-brick lighting
     property_value(lighting, "bool", "PrioritizeLightingQuality", "true")
     property_value(lighting, "bool", "GlobalShadows", "true")
-    property_value(lighting, "float", "ShadowSoftness", "0.35")
-    property_value(lighting, "float", "Brightness", "2.4")
-    property_value(lighting, "string", "TimeOfDay", "13:48:00")
-    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.65")
-    property_value(lighting, "float", "EnvironmentSpecularScale", "0.6")
-    color_value(lighting, "Ambient", (95, 113, 126))
-    color_value(lighting, "OutdoorAmbient", (143, 157, 165))
+    property_value(lighting, "float", "ShadowSoftness", "0.12")
+    property_value(lighting, "float", "Brightness", "3")
+    property_value(lighting, "string", "TimeOfDay", "13:42:00")
+    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.25")
+    property_value(lighting, "float", "EnvironmentSpecularScale", "0.05")
+    color_value(lighting, "Ambient", (120, 145, 159))
+    color_value(lighting, "OutdoorAmbient", (178, 195, 207))
 
     for service in ("ReplicatedStorage", "ServerScriptService", "StarterPlayer", "StarterGui"):
         item(service, service)

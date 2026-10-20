@@ -10,12 +10,15 @@ local Architecture = require(script.Parent:WaitForChild("WorldArchitecture"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local Landscaping = require(script.Parent:WaitForChild("WorldLandscaping"))
 local Residents = require(script.Parent:WaitForChild("WorldResidents"))
+local PondBackdrops = require(script.Parent:WaitForChild("WorldPondBackdrops"))
+local DockDetails = require(script.Parent:WaitForChild("WorldDockDetails"))
+local TrailDetails = require(script.Parent:WaitForChild("WorldTrailDetails"))
 local C = Kit.palette
 local World = {}
 local function v(p: {number}): Vector3 return Vector3.new(p[1], p[2], p[3]) end
 
 -- Two thin solid wedges form an exact triangle, including irregular coastlines.
-local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, color: Color3, material: Enum.Material, solid: boolean, shadow: boolean?)
+local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, color: Color3, material: Enum.Material, solid: boolean, shadow: boolean?, studded: boolean?)
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	if abd > acd and abd > bcd then c, a = a, c
@@ -26,7 +29,7 @@ local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, 
 	local back = bc.Unit
 	local up = bc:Cross(right).Unit
 	local height = math.abs(ab:Dot(up))
-	local options = {material = material, collidable = solid, shadow = shadow ~= false}
+	local options = {material = material, collidable = solid, shadow = shadow ~= false,studded=studded==true}
 	local thickness = if solid then 0.7 else 0.45
 	local l1, l2 = math.abs(ab:Dot(back)), math.abs(ac:Dot(back))
 	if l1 > 0.01 then Kit.wedge(parent, name, Vector3.new(thickness, height, l1), CFrame.fromMatrix((a+b)/2, right, up, back), color, options) end
@@ -42,8 +45,9 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 		local j = i % n + 1
 		-- Triangle center is half the floor thickness below the declared walking surface.
 		triangle(model, "WalkableMeadow", center - Vector3.yAxis * 0.35, v(edge[i]) - Vector3.yAxis * 0.35,
-			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true)
-		local tiers = if data.Basin then { {1,-.75},{1,-10},{0,-40} } else { {1,-.75},{1,-6},{.86,-24},{0,-57} }
+			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true,true,true)
+		local bottomY=if data.Basin then -18 else -34
+		local tiers = { {1,-.75},{1,-2},{1,bottomY},{0,bottomY} }
 		for tier = 1, #tiers - 1 do
 			local top, bottom = tiers[tier], tiers[tier+1]
 			local function ring(k: number, t: {number}): Vector3
@@ -51,18 +55,25 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 				return center + offset + Vector3.yAxis * t[2]
 			end
 			local a,b,c,d = ring(i,top),ring(j,top),ring(i,bottom),ring(j,bottom)
-			local tint = if tier == 1 then C.Limestone else (if (i+tier)%3 == 0 then C.DeepStone else C.Cliff)
+			local tint = if tier == 1 then color else (if (i+tier)%3 == 0 then C.Stone else C.Cliff)
 			if top[1]==bottom[1] then
 				-- A straight collar needs one panel, rather than four hidden wedge faces.
 				Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
-					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Slate})
+					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Plastic,studded=true})
 			elseif bottom[1]==0 then
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Plastic,false)
 			else
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
-				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Slate,false)
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Plastic,false,true,true)
+				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Plastic,false,true,true)
 			end
 		end
+	end
+	if not data.Basin then
+		-- One inset block guarantees a broad native-studded surface without
+		-- relying on how triangular wedge faces render legacy surface details.
+		-- Its top stays below the paths; the original floor owns collision.
+		Kit.part(model,"InsetStuddedMeadow",Vector3.new(data.Radius[1]*1.25,.06,data.Radius[2]*1.25),
+			CFrame.new(center-Vector3.yAxis*.01),color,{material=Enum.Material.Plastic,studded=true,shadow=false})
 	end
 	return model
 end
@@ -78,8 +89,8 @@ local function path(parent: Instance, points: {{number}}, width: number, materia
 		left[i],right[i]=point+normal*width/2,point-normal*width/2
 	end
 	for i=1,#points-1 do
-		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.Ground,false,false)
-		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.Ground,false,false)
+		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.Plastic,false,false,true)
+		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.Plastic,false,false,true)
 	end
 end
 local function waypost(parent: Instance, pos: Vector3, title: string, subtitle: string, yaw: number?)
@@ -116,7 +127,7 @@ local function water(parent: Instance, data: any)
 	workspace.Terrain:WriteVoxels(region,4,materials,occupancy)
 	-- Lower basin, exposed stone collar, reeds and a small cascade over the rim.
 	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true}
-	local model = island(parent,basin,C.Sand:Lerp(C.Stone,.15),Enum.Material.Sand)
+	local model = island(parent,basin,C.Sand,Enum.Material.Plastic)
 	for i = 1, 12 do
 		local a=i*math.pi/6
 		local p=center+Vector3.new(math.cos(a)*(data.Radius[1]+2),-.8,math.sin(a)*(data.Radius[2]+2))
@@ -141,7 +152,7 @@ local function water(parent: Instance, data: any)
 	Nature.cloud(model,fallPos-Vector3.yAxis*55,Vector3.new(21,8,14),83)
 end
 local function plaza(parent: Instance)
-	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.Cobblestone})
+	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.Plastic,studded=true})
 	-- Small koi fountain: clear routes pass either side, not through its bowl.
 	local f=Kit.model(parent,"CloudKoiFountain")
 	Kit.disk(f,"FountainBase",11,11,.4,Vector3.new(-17,12.4,-14),C.Stone,{material=Enum.Material.Marble,collidable=true})
@@ -209,7 +220,7 @@ local function hill(parent: Instance, pos: Vector3, width: number, depth: number
 	for i=1,10 do
 		local a,b=i*math.pi/5,(i+1)*math.pi/5
 		triangle(parent,"GrassyKnoll",peak,pos+Vector3.new(math.cos(a)*width/2,.04,math.sin(a)*depth/2),
-			pos+Vector3.new(math.cos(b)*width/2,.04,math.sin(b)*depth/2),C.Grass,Enum.Material.Grass,true)
+			pos+Vector3.new(math.cos(b)*width/2,.04,math.sin(b)*depth/2),C.Grass,Enum.Material.Plastic,true,true,true)
 	end
 end
 local function townDetails(parent: Instance)
@@ -284,28 +295,28 @@ function World.create(): BasePart
 	spawn.Name,spawn.Size,spawn.CFrame="HarborSpawn",Vector3.new(14,.3,14),CFrame.new(v(Layout.Spawn)+Vector3.yAxis*.2)*CFrame.Angles(0,math.pi,0)
 	spawn.Anchored,spawn.Neutral,spawn.Duration,spawn.Transparency,spawn.CastShadow=true,true,0,1,false
 	spawn.Parent=workspace
-	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.8,2.4,true
-	Lighting.ShadowSoftness=.35
-	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(95,113,126),Color3.fromRGB(143,157,165)
-	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.65,.6
+	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.7,3,true
+	Lighting.ShadowSoftness=.12
+	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(120,145,159),Color3.fromRGB(178,195,207)
+	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.25,.05
 	local atmosphere=Instance.new("Atmosphere")
-	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.1,.05,.3,.03
-	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(219,237,255),Color3.fromRGB(180,206,230),Lighting
+	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.06,0,0,0
+	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(180,220,255),Color3.fromRGB(146,194,243),Lighting
 	local sky=Instance.new("Sky")
 	sky.Name,sky.SunAngularSize,sky.MoonAngularSize,sky.StarCount,sky.Parent="SundriftSky",9,9,800,Lighting
 	local clouds=Instance.new("Clouds")
-	clouds.Name,clouds.Cover,clouds.Density,clouds.Color,clouds.Parent="HighClouds",.28,.38,C.Cloud,workspace.Terrain
+	clouds.Name,clouds.Cover,clouds.Density,clouds.Color,clouds.Parent="HighClouds",.12,.2,C.Cloud,workspace.Terrain
 	local color=Instance.new("ColorCorrectionEffect")
-	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",-.035,.05,Color3.fromRGB(255,255,255),Lighting
+	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",.05,.04,Color3.fromRGB(255,255,255),Lighting
 	local bloom=Instance.new("BloomEffect")
-	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.04,2.2,24,Lighting
+	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.035,2.2,24,Lighting
 	local rays=Instance.new("SunRaysEffect")
-	rays.Intensity,rays.Spread,rays.Parent=.025,.85,Lighting
-	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.15,.2
-	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.14,7
+	rays.Intensity,rays.Spread,rays.Parent=.01,.85,Lighting
+	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.03,.18
+	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.08,4
 	for _,data in Layout.Islands do
 		local tint=if data.Kind=="Cove" then C.Sand elseif data.Kind=="Summit" then C.Moss else C.Grass
-		regions[data.Id]=island(root,data,tint,if data.Kind=="Cove" then Enum.Material.Sand else Enum.Material.Grass)
+		regions[data.Id]=island(root,data,tint,Enum.Material.Plastic)
 	end
 	for i,data in Layout.Paths do path(regions[data.Island],data.Points,data.Width,nil,nil,i*.012) end
 	-- The fountain has a broad walkable ring; the main trail goes around its center.
@@ -390,7 +401,10 @@ function World.create(): BasePart
 		Nature.cloud(root,Vector3.new(math.cos(a)*490,-72,math.sin(a)*390-40),Vector3.new(88,22,55),i*13)
 	end
 	Landscaping.populate(root,regions)
+	DockDetails.populate(root)
+	TrailDetails.populate(root,regions)
 	local population=Residents.populate(root)
+	PondBackdrops.populate(root)
 	local largeModels: {[Instance]: boolean}={[population]=true}
 	for _,region in regions do largeModels[region]=true end
 	for _,model in root:GetDescendants() do

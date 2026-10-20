@@ -36,7 +36,8 @@ for _,p in workspace:GetDescendants() do
   local parentNames={}; local cursor=p; while cursor and cursor~=workspace do table.insert(parentNames,1,cursor.Name); cursor=cursor.Parent end
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
    color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,
-   collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/")})
+   collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/"),
+   studs={top=p.TopSurface==Enum.SurfaceType.Studs,bottom=p.BottomSurface==Enum.SurfaceType.Studs,left=p.LeftSurface==Enum.SurfaceType.Studs,right=p.RightSurface==Enum.SurfaceType.Studs,front=p.FrontSurface==Enum.SurfaceType.Studs,back=p.BackSurface==Enum.SurfaceType.Studs}})
  end
 end
 assert(spot:IsA("BasePart") and spot.Anchored,"missing primary fishing spot")
@@ -73,6 +74,9 @@ def capture(luau: str) -> dict:
                          ('IslandTravel', 'src/server/IslandTravel.luau'),
                          ('WorldLandscaping', 'src/server/WorldLandscaping.luau'),
                          ('WorldResidents', 'src/server/WorldResidents.luau'),
+                         ('WorldPondBackdrops', 'src/server/WorldPondBackdrops.luau'),
+                         ('WorldDockDetails', 'src/server/WorldDockDetails.luau'),
+                         ('WorldTrailDetails', 'src/server/WorldTrailDetails.luau'),
                          ('PrototypeWorld', 'src/server/PrototypeWorld.luau')]:
         program += '\nmodules.' + name + ' = (function()\n' + (ROOT / source).read_text() + '\nend)()\n'
         program += f'local token_{name}=Instance.new("ModuleScript"); token_{name}.Name="{name}"; token_{name}.Parent=shared\n'
