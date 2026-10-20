@@ -22,7 +22,7 @@ local function signal()
 end
 local captureIndex=mt.__index
 mt.__index=function(self,key)
- if key=="Triggered" or key=="OnServerEvent" or key=="PlayerRemoving" then
+ if key=="Triggered" or key=="OnServerEvent" or key=="PlayerRemoving" or key=="Heartbeat" then
   if not self.props[key] then self.props[key]=signal() end
   return self.props[key]
  end
@@ -69,8 +69,22 @@ function methods:RequestStreamAroundAsync(position,timeout)
  coroutine.yield()
 end
 players=Instance.new("Players")
+players.GetPlayers=function() return players:GetChildren() end
+local runService=Instance.new("RunService")
+local clock=100
+local os={clock=function() return clock end}
+local nativeTypeof=typeof
+local typeof=function(value) return if getmetatable(value)==CF then "CFrame" else nativeTypeof(value) end
+local function heartbeat(dt)
+ clock+=dt
+ runService.Heartbeat:Fire(dt)
+end
 local priorService=game.GetService
-game.GetService=function(self,name) if name=="Players" then return players end; return priorService(self,name) end
+game.GetService=function(self,name)
+ if name=="Players" then return players end
+ if name=="RunService" then return runService end
+ return priorService(self,name)
+end
 local world=Instance.new("Model"); world.Name="TravelWorld"; world.Parent=workspace
 local callbackCount=0
 local function beforeTravel(player)
@@ -116,13 +130,14 @@ for _,node in world:GetDescendants() do
   if node.CanCollide then assert(node.Parent==supports and node.Transparency==1,"unexpected travel obstruction") end
  end
 end
-assert(partCount<=85,"travel part budget exceeded")
+assert(partCount<=350,"travel part budget exceeded")
 for _,dock in modules.WorldLayout.Docks do
  local station=stations:FindFirstChild(dock.Id)
  assert(station and station.ModelStreamingMode=="Atomic","missing complete station")
  local prompt=station:FindFirstChild("IslandTravelPrompt",true)
  local castRoot=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)*CFrame.new(0,3.3,0)
- local arriveRoot=castRoot*CFrame.new(0,0,5.4)
+ local arriveRoot=station:GetAttribute("TravelArrivalCFrame")
+ assert(typeof(arriveRoot)=="CFrame" and typeof(station:GetAttribute("PortalEntryCFrame"))=="CFrame","missing server-owned portal positions")
  assert((castRoot.Position-station.PrimaryPart.Position).Magnitude>prompt.MaxActivationDistance,"prompt blocks casting")
  assert((arriveRoot.Position-station.PrimaryPart.Position).Magnitude>prompt.MaxActivationDistance,"prompt blocks arrival casting")
  local floor=supports:FindFirstChild(dock.Id.."ArrivalFloor")
@@ -138,6 +153,100 @@ local function check(name,callback)
  local ok,reason=pcall(callback)
  assert(ok,name..": "..tostring(reason)); checks+=1
 end
+local function eventCount(player)
+ return if clientEvents[player] then #clientEvents[player] else 0
+end
+check("walking into every portal opens its correct destination menu",function()
+ for _,station in stations:GetChildren() do
+  local p,_,r=makePlayer(station)
+  r.CFrame=station:GetAttribute("PortalEntryCFrame")
+  heartbeat(.11)
+  assert(status(p)=="Open" and clientEvents[p][1].message==station.Name,"wrong portal opened")
+  local count=eventCount(p)
+  for _=1,8 do heartbeat(.11) end
+  assert(eventCount(p)==count,"standing in a portal repeatedly reopened its menu")
+ end
+end)
+check("ordinary fishing positions and arrivals never auto-open a portal",function()
+ for _,dock in modules.WorldLayout.Docks do
+  local station=stations:FindFirstChild(dock.Id)
+  local p,_,r=makePlayer(station)
+  local basis=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)
+  for _,z in {0,3,6,9,12,18} do
+   r.CFrame=basis*CFrame.new(0,3.3,z); heartbeat(.11)
+   assert(eventCount(p)==0,"ordinary pier route opened a portal")
+  end
+  for _,lane in {-.8,0,.8} do
+   r.CFrame=station:GetAttribute("TravelArrivalCFrame")*CFrame.new(lane,0,0); heartbeat(.11)
+   assert(eventCount(p)==0,"arrival immediately reopened the destination menu")
+  end
+ end
+end)
+check("leaving and re-entering a portal deliberately reopens its menu",function()
+ local p,_,r=makePlayer(harbor)
+ local entry=harbor:GetAttribute("PortalEntryCFrame")
+ r.CFrame=entry; heartbeat(.51)
+ assert(eventCount(p)==1)
+ r.CFrame=entry*CFrame.new(0,0,4); heartbeat(.51)
+ assert(eventCount(p)==1)
+ r.CFrame=entry; heartbeat(.51)
+ assert(eventCount(p)==2 and status(p)=="Open")
+end)
+check("dead or anchored characters cannot walk into a portal",function()
+ local p,_,r,h=makePlayer(harbor)
+ r.CFrame=harbor:GetAttribute("PortalEntryCFrame"); h.Health=0; heartbeat(.51)
+ assert(eventCount(p)==0)
+ h.Health=100; r.Anchored=true; heartbeat(.51)
+ assert(eventCount(p)==0)
+ r.Anchored=false; heartbeat(.51)
+ assert(eventCount(p)==1)
+end)
+check("replacement character resets an occupied portal entry",function()
+ local p,_,r=makePlayer(harbor)
+ local entry=harbor:GetAttribute("PortalEntryCFrame")
+ r.CFrame=entry; heartbeat(.51); assert(eventCount(p)==1)
+ local replacement,character,newRoot=makePlayer(harbor)
+ replacement.Parent=nil; p.Character=character; newRoot.CFrame=entry
+ heartbeat(.51)
+ assert(eventCount(p)==2 and status(p)=="Open")
+end)
+check("player removal clears entry and authorization state",function()
+ local p,_,r=makePlayer(harbor)
+ r.CFrame=harbor:GetAttribute("PortalEntryCFrame"); heartbeat(.51)
+ assert(eventCount(p)==1)
+ players.PlayerRemoving:Fire(p); p.Parent=nil
+ -- A reused player identifier must not inherit the departed player's menu.
+ local replacement,_,newRoot=makePlayer(harbor); replacement.UserId=p.UserId
+ remote.OnServerEvent:Fire(replacement,"summit")
+ assert(not replacement.streamRequest and eventCount(replacement)==0)
+ newRoot.CFrame=harbor:GetAttribute("PortalEntryCFrame"); heartbeat(.51)
+ assert(status(replacement)=="Open")
+end)
+check("walk-in menu authorizes the same checked streaming travel as a prompt",function()
+ local p,_,r=makePlayer(harbor)
+ r.CFrame=harbor:GetAttribute("PortalEntryCFrame"); heartbeat(.51)
+ remote.OnServerEvent:Fire(p,"forest")
+ assert(status(p)=="Loading" and #pending==1 and p:GetAttribute("IslandTravelBusy")==true)
+ finishPending()
+ assert(status(p)=="Arrived" and p:GetAttribute("IslandTravelBusy")==false)
+ local count=eventCount(p)
+ heartbeat(2)
+ assert(eventCount(p)==count,"completed arrival reopened a portal")
+end)
+check("entering a destination during cooldown opens once when travel is ready",function()
+ local p,_,r=makePlayer(harbor)
+ r.CFrame=harbor:GetAttribute("PortalEntryCFrame"); heartbeat(.51)
+ remote.OnServerEvent:Fire(p,"forest"); finishPending()
+ assert(status(p)=="Arrived")
+ local count=eventCount(p)
+ r.CFrame=stations:FindFirstChild("forest"):GetAttribute("PortalEntryCFrame")
+ heartbeat(.11)
+ assert(eventCount(p)==count,"cooldown was bypassed by entering the destination portal")
+ for _=1,15 do heartbeat(.11) end
+ assert(eventCount(p)==count+1 and status(p)=="Open","occupied portal failed to recover after cooldown")
+ heartbeat(2)
+ assert(eventCount(p)==count+1,"cooldown retry repeatedly reopened an occupied portal")
+end)
 check("unopened remote cannot move or start loading",function()
  local p,_,r=makePlayer(harbor)
  local original=r.Position
@@ -186,7 +295,8 @@ check("every destination lands within immediate fishing range",function()
   finishPending()
   assert(status(p)=="Arrived" and p:GetAttribute("IslandTravelBusy")==false)
   local basis=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)
-  local expected=(basis*CFrame.new((p.UserId%3-1)*.8,3.3,5.4)).Position
+  local target=stations:FindFirstChild(dock.Id):GetAttribute("TravelArrivalCFrame")
+  local expected=(target*CFrame.new((p.UserId%3-1)*.8,0,0)).Position
   assert((r.Position-expected).Magnitude<.0001,"model pivot offset corrupted root landing")
   assert((r.Position-basis.Position).Magnitude<16,"arrival outside casting range")
   assert(r.AssemblyLinearVelocity.Magnitude==0 and r.AssemblyAngularVelocity.Magnitude==0,"velocity survived travel")

@@ -53,7 +53,9 @@ local travel={}
 for _,dock in layout.Docks do
  local frame=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)
  local source=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("IslandTravelStations"):FindFirstChild(dock.Id)
- table.insert(travel,{id=dock.Id,arrival=vec((frame*CFrame.new(0,3.3,5.4)).Position),kiosk=vec(source.PrimaryPart.Position)})
+ local arrival,entry=source:GetAttribute("TravelArrivalCFrame"),source:GetAttribute("PortalEntryCFrame")
+ table.insert(travel,{id=dock.Id,arrival=vec(arrival.Position),kiosk=vec(source.PrimaryPart.Position),
+  entry=vec(entry.Position),entryRotation=entry.r,approach=vec((frame*CFrame.new(0,-.1,8)).Position)})
 end
 local support=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("TravelArrivalSupports")
 print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},

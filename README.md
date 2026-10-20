@@ -1,6 +1,6 @@
-# Cloud Anglers — v0.8
+# Cloud Anglers — v0.9
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.8.rbxlx)
+[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.9.rbxlx)
 
 Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
 press **Play**. The five-island map is generated when Play starts.
@@ -11,56 +11,36 @@ Start beside the main pier's fishing area. **CAST LINE** with the button or E; a
 bite, hold and release in the colored zone. Gold gives Brilliant quality.
 Catch six species, fill the field journal and earn coins for three rod upgrades.
 Breeze Rod unlocks two rare fish; Nimbus Rod unlocks Aurorafin. Your best grade
-per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop** or visit the
-yellow-canopy dockside stand to upgrade. Approach a blue **ISLAND HOP** stand,
-choose a destination and arrive beside its fishing marker. Travel is free from
-the first visit; no unlocks or tickets are required.
+per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop**
+or visit the yellow-canopy dockside stand to upgrade.
 
-## New in v0.8 — the supplied Duck Pond reference
+Walk sideways onto a **POND PORTAL** bay beside a fishing pier, step into its frame
+and pick any other island. You can also use its E/touch/gamepad prompt.
+Travel is free, with no unlocks or tickets. Arrive facing the pier within fishing
+range; return to the water or explore the island.
 
-The supplied in-game screenshot now guides the art direction: strong green ground,
-blue-gray block cliffs, pale yellow paths, bright cyan water and a clear daylight sky.
-This is an original world built in that classic brick style.
+## New in v0.9 — quieter light and physical portals
 
-- Broad ground plates, paths, buildings, decks, trees and cliffs use native
-  `SurfaceType.Studs` on Plastic. Individual studs do not add parts or joints.
-  Five inset rectangular meadow plates supplement the triangular coast geometry.
-- Square trunks, flat leaf shelves, stepped rocks, brick flower beds and block-toy
-  residents replace the round, organic forms. Tree crowns and residents still move.
-- Each pond gains a stepped far-shore wall with green rims and two cyan waterfalls.
-  The ten new falls use the existing local animation system and add no sounds.
-- Pier edges gain tackle boxes with hinges, lures, float buckets, spare rods,
-  cleats, bumpers and readable nameplates. Each region has its own keepsake.
-  Five trail-side bench nooks add flowerpots, pier signs, books, shells and compasses.
-- Waterfall foam shimmers gently and a few green sprouts grow on the cliff ledges.
-- **Soft** lighting, low haze and subdued reflections keep the saturated colors
-  readable. Native surface appearance and final lighting still need Studio review.
-- Geometry falls from 9,948 to **7,851 source parts**, about 21% fewer, including
-  the new shore scenery. This is an instance count, not a measured FPS improvement.
+- Afternoon lighting uses Brightness 1.9, exposure −0.2, lower ambient fill and
+  **Realistic** shadow rendering. Bloom and sun rays are disabled. Broad grass,
+  paving, cliffs and waterfalls have quieter colors; waterfalls no longer use Neon.
+- Five stone-framed portals replace the small travel stands. Each has a transparent
+  veil, a slow rune orbit, a selector pedestal and an adjoining deck. Pier railings
+  have real openings; the ordinary route to fishing stays outside the entry trigger.
+- Step into a gate to choose a pond. Movement pauses during selection and travel.
+  A dark 0.16-second cover hides relocation, followed by a 0.2-second reveal and
+  destination name. No white flash, camera shake or new sound is used.
+- The server requests destination streaming, checks the same living character
+  again, and lands it on one of five persistent support floors beside fishing.
+  Closing before departure cancels the send; death, rejection and timeout restore
+  controls. An early return into a gate waits for the short server cooldown.
+- Brick scenery, moving residents, short first-cast route, walking speed 22,
+  collections, rod upgrades, offline income and the existing audio mix remain.
 
-## Short trips retained from v0.7
-
-This release also fixes v0.7's startup wiring: its generated world is a Folder,
-which the former Model-only guard skipped. FishingService now actually creates
-and connects all five travel stands during normal game startup.
-
-- Spawn moves onto the broad main pier, close to the first casting marker.
-- Default walking speed rises from 16 to 22 studs/second on every input device.
-- A working rod-upgrade stand joins the fishing loop; the town workshop remains.
-- All five piers get free destination stands with a touch-friendly English menu.
-  Destination streaming is requested before travel. Tiny persistent support
-  floors and server checks protect arrivals and stop stale character requests.
-- Fishing is cancelled before travel; menus do not consume E at casting markers.
-  Collection data, coins, rods, goals, offline income and audio are retained.
-
-Calculated from authored routes and default movement speed, before loading or
-player input time; these are not measured Roblox play-session timings:
-
-| Journey | v0.6 | v0.7–v0.8 |
-| --- | --- | --- |
-| Spawn center → first fishing marker | 187 studs / 11.7 s | 22 studs / 1.0 s |
-| First marker → nearby upgrade approach | Town trip | About 2.8 s |
-| One fishing pier → another | Walk between islands | Free direct travel after streaming |
+The classic brick details introduced in v0.8 remain: native Studs on Plastic,
+block trees, stepped pond walls, ten animated waterfalls, tackle boxes, lures,
+float buckets, cleats and five decorated trail-side bench nooks. Native studs
+add no individual parts or external assets.
 
 ## Island life retained from v0.6
 
@@ -94,8 +74,8 @@ coast landings and continuous, protected walking surfaces.
 - Irregular coast polygons, gray brick collars and far-shore terraces frame the five ponds.
 - Native Roblox Terrain water provides waves/reflections in all five lagoons;
   waterfalls and a drifting airship add movement without more sound effects.
-- Current **Soft** lighting and quality-prioritized rendering are saved in
-  the place. Bright daytime light, cool ambient fill and shadow-casting roofs,
+- Current **Realistic** lighting and quality-prioritized rendering are saved in
+  the place. Lower afternoon light, reduced ambient fill and shadow-casting roofs,
   canopies and cliffs create shade. Small plants avoid unnecessary shadow work.
 - Instance streaming loads neighborhoods as needed. Small trees/buildings/bridge
   sections are atomic; entire islands are not forced to load as one object.
@@ -103,10 +83,10 @@ coast landings and continuous, protected walking surfaces.
   height. All existing collections, coins, rods, goals and offline income persist
   with the same v0.3 save namespace. The v0.4 UI and six-clip audio mix are retained.
 
-The generator produces **7,851 anchored source parts**, including **1,116 colliders**
+The generator produces **7,971 anchored source parts**, including **1,121 colliders**
 (invisible safety floors/rails included). Native water is separate terrain data.
-The original 946 colliders retain identical geometry; far-shore terraces add 170.
-Only the five tiny arrival supports are persistent; entire islands are not.
+Pier railings open onto the portal decks; bridges retain both railings.
+Only the five arrival support floors are persistent; entire islands are not.
 These are measured source counts, not a mobile frame-rate guarantee.
 
 All visual assets are original procedural geometry or Roblox built-in materials;
@@ -118,9 +98,12 @@ no imported models, custom audio IDs or external mesh uploads are needed.
 9 world layout, 15 travel authorization and 3 place export. All 32 production files
 plus 6 Luau test suites compile. Independent rays through the actual captured colliders check 3,681 route
 samples for continuous support and six-stud headroom over a 2.6-stud corridor.
-225 more rays check the full spawn footprint and 125 check travel arrival footprints.
-Twelve production travel-adapter scenarios cover authorization, all five destinations,
-stream failures, duplicate requests and character death/replacement/departure during loading.
+225 more rays check the full spawn footprint, 125 check arrival footprints and
+429 check portal approaches through the railing openings.
+Twenty production travel-adapter scenarios cover walk-in entry, authorization, all five destinations,
+stream failures, duplicate requests, cooldown retry and character death/replacement/departure during loading.
+A separate unchanged-production client check covers dark transitions, control recovery,
+cancelled requests, timeouts and respawn with UI/event/tween doubles.
 An additional production-code smoke check exercises 1,006 resident animation steps,
 late-arriving attributes, stable joints, camera distance limits and streaming
 cleanup/rebind using geometry and event doubles. This is not a Roblox runtime test.
@@ -180,7 +163,7 @@ luau tests/world_layout.spec.luau
 luau tests/island_travel.spec.luau
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.8.rbxlx` and `artifacts/Cloud-Anglers-v0.8.zip`.
+Outputs: `artifacts/Cloud-Anglers-v0.9.rbxlx` and `artifacts/Cloud-Anglers-v0.9.zip`.
 
 Shared modules contain tuning, quality rules, species data and fish geometry.
 Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
@@ -193,6 +176,8 @@ Optional geometry inspection (Luau and Blender required) is described in
 and client animation with geometry/event doubles.
 `python tools/check_travel.py --luau /path/to/luau` checks the production travel
 adapter with geometry/event doubles, including yields and character replacement.
+`python tools/check_portal_interface.py --luau /path/to/luau` checks portal transition
+and control lifecycle with UI/event/tween doubles.
 `python tools/check_startup.py --luau /path/to/luau` checks the complete server
 startup wiring with the same production sources and geometry/event doubles.
 They capture production geometry for offline art review and route checks;

@@ -152,6 +152,7 @@ def validate(scene):
     assert config_match, 'Capture checker could not read the production fishing distance'
     fishing_range = float(config_match.group(1))
     arrival_samples = 0
+    portal_samples = 0
     arrived_positions = []
     for entry in travel:
         destination, arrival, kiosk = entry['id'], entry['arrival'], entry['kiosk']
@@ -167,6 +168,22 @@ def validate(scene):
         assert math.hypot(kiosk[0]-spot[0], kiosk[2]-spot[2]) > 5+EPS, destination+' travel prompt overlaps the fishing marker'
         assert math.dist(kiosk, arrival) > 5+EPS, destination+' travel prompt intercepts fishing immediately after arrival'
         floor = support_by_id[destination]
+        # Follow the authored sideways approach through the actual rail gap.
+        # Sampling a full avatar corridor catches an invisible rail left across a bay.
+        start, end = entry['approach'], entry['entry']
+        length = math.hypot(end[0]-start[0], end[2]-start[2])
+        side = [-(end[2]-start[2])/length, (end[0]-start[0])/length]
+        for step in range(math.ceil(length/.5)+1):
+            t = min(1, step*.5/length)
+            for offset in (-1.3, 0, 1.3):
+                x = start[0]+(end[0]-start[0])*t+side[0]*offset
+                z = start[2]+(end[2]-start[2])*t+side[1]*offset
+                failure = walking_surface(colliders, x, ground, z, destination+' portal approach', .25)
+                assert failure is None, failure
+                portal_samples += 1
+        r = entry['entryRotation']
+        local_arrival = [sum(r[j][i]*(arrival[j]-end[j]) for j in range(3)) for i in range(3)]
+        assert abs(local_arrival[2]) > 2.3, destination+' arrival overlaps its walk-in trigger'
         # The 3.6-by-3.6 footprint includes the +/-0.8-stud multiplayer lanes and
         # a one-stud avatar half-width. Persistent floors must support it alone.
         for dx in (-1.8, -1, 0, 1, 1.8):
@@ -189,6 +206,7 @@ def validate(scene):
     print(f'PASS {sampled} route rays with continuous support and six-stud headroom across a 2.6-stud corridor')
     print(f'PASS {spawn_samples} spawn-footprint rays supported by the underlying world with six-stud headroom')
     print(f'PASS {arrival_samples} arrival-footprint rays, five persistent queryable floors, immediate fishing range and separate travel prompts')
+    print(f'PASS {portal_samples} portal-approach rays through open side rails; arrivals clear of walk-in triggers')
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 

@@ -55,6 +55,8 @@ function methods:IsDescendantOf(ancestor)
  return false
 end
 local players=Instance.new("Players")
+local nativeTypeof=typeof
+local typeof=function(value) return if getmetatable(value)==CF then "CFrame" else nativeTypeof(value) end
 players.GetPlayers=function() return {} end
 local runService=Instance.new("RunService")
 runService.IsStudio=function() return true end
@@ -96,7 +98,6 @@ for _,name in {"FishingAction","FishingState","FishingVisual"} do
 end
 assert(fishing:FindFirstChild("FishingAction").OnServerEvent:ConnectionCount()==1,"startup: fishing handler was not connected exactly once")
 assert(players.PlayerAdded:ConnectionCount()==1,"startup: player join handler was not connected")
-assert(runService.Heartbeat:ConnectionCount()==1,"startup: fishing heartbeat was not connected")
 assert(#closeCallbacks==1,"startup: final save handler was not registered")
 '''
 
@@ -105,6 +106,7 @@ local world=workspace:FindFirstChild("MolnfiskarnaPrototype")
 assert(world and world:IsA("Folder"),"startup: expected the real generated Folder world")
 local remotes=ReplicatedStorage:FindFirstChild("FishingTravelRemotes")
 assert(remotes and remotes:IsA("Folder"),"startup: travel remotes were not published")
+assert(runService.Heartbeat:ConnectionCount()==2,"startup: fishing and portal-entry heartbeats were not connected")
 local event=remotes:FindFirstChild("Travel")
 assert(event and event:IsA("RemoteEvent"),"startup: travel remote is missing")
 assert(event.OnServerEvent:ConnectionCount()==1,"startup: travel remote handler was not connected")
@@ -126,7 +128,7 @@ local supports=world:FindFirstChild("TravelArrivalSupports")
 assert(supports and supports.ModelStreamingMode==Enum.ModelStreamingMode.Persistent and #supports:GetChildren()==5,
  "startup: travel landing supports were not created")
 assert(#waterWrites==5,"startup: native ponds were not generated")
-print("PASS generated Folder-world startup: fishing, five travel stands, prompt handlers and landing supports are connected")
+print("PASS generated Folder-world startup: fishing, five portals, walk-in detection, prompts and landing supports are connected")
 '''
 
 CUSTOM_SETUP = r'''
@@ -141,6 +143,7 @@ local customSpot=Instance.new("Part");customSpot.Name="FishingSpot";customSpot.A
 CUSTOM_CHECK = r'''
 assert(workspace:FindFirstChild("MolnfiskarnaPrototype")==nil,"custom startup unexpectedly generated the prototype")
 assert(ReplicatedStorage:FindFirstChild("FishingTravelRemotes")==nil,"custom startup unexpectedly installed island travel")
+assert(runService.Heartbeat:ConnectionCount()==1,"custom startup needs only the fishing heartbeat")
 assert(players.PlayerRemoving:ConnectionCount()==1,"custom startup needs only fishing cleanup")
 assert(#waterWrites==0,"custom startup unexpectedly wrote native terrain")
 print("PASS custom-map startup: fishing starts without generated scenery or island travel")

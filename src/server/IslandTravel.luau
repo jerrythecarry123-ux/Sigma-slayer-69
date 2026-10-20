@@ -2,16 +2,18 @@
 -- Free travel inside this experience. Clients select an ID; the server owns every position.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("FishingShared")
 local Rules = require(Shared:WaitForChild("IslandTravelRules"))
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local Travel = {}
 local startedWorld: Instance? = nil
-local BLUE = Color3.fromRGB(64, 145, 211)
-local YELLOW = Color3.fromRGB(255, 211, 65)
-local CREAM = Color3.fromRGB(255, 250, 226)
-local INK = Color3.fromRGB(43, 71, 87)
+local BLUE = Color3.fromRGB(62, 128, 158)
+local GOLD = Color3.fromRGB(185, 159, 83)
+local CREAM = Color3.fromRGB(207, 203, 176)
+local INK = Color3.fromRGB(43, 65, 78)
+local STONE = Color3.fromRGB(91, 114, 125)
 
 local function spotBasis(dock: any): CFrame
 	return CFrame.new(table.unpack(dock.Spot)) * CFrame.Angles(0, dock.Yaw, 0)
@@ -22,43 +24,72 @@ function Travel.create(world: Instance): Folder
 	if existing and existing:IsA("Folder") then return existing end
 	local stations = Instance.new("Folder")
 	stations.Name = "IslandTravelStations"
-	-- Five tiny persistent collision plates keep a streamed-out pier from becoming a fall.
-	-- They exactly overlay its walking surface; island scenery still streams normally.
+	-- Persistent plates cover the whole side bay: arriving players always have a
+	-- floor even while an Atomic portal and its neighboring pier finish streaming.
 	local supports = Instance.new("Model")
 	supports.Name, supports.ModelStreamingMode = "TravelArrivalSupports", Enum.ModelStreamingMode.Persistent
 	for _, dock in Layout.Docks do
 		local basis = spotBasis(dock)
-		Kit.part(supports, dock.Id .. "ArrivalFloor", Vector3.new(4.4, 0.2, 7.6),
-			basis * CFrame.new(0, -0.2, 5.4), CREAM,
+		local bayX = dock.Width / 2 + 4.5
+		local gate = basis * CFrame.new(bayX, 0, 8) * CFrame.Angles(0, math.pi / 2, 0)
+		Kit.part(supports, dock.Id .. "ArrivalFloor", Vector3.new(13, 0.2, 12),
+			basis * CFrame.new(bayX, -0.2, 8), CREAM,
 			{ collidable = true, transparency = 1, shadow = false })
 		local station = Instance.new("Model")
 		station.Name, station.ModelStreamingMode = dock.Id, Enum.ModelStreamingMode.Atomic
 		station:SetAttribute("TravelSourceId", dock.Id)
-		local cf = basis * CFrame.new(6.3, 0, 0.5) * CFrame.Angles(0, math.pi, 0)
-		local function block(name: string, size: Vector3, x: number, y: number, z: number, color: Color3): Part
-			return Kit.part(station, name, size, cf * CFrame.new(x, y, z), color)
+		-- The entry plane and landing are authored once and consumed by the server.
+		-- The landing faces back toward the pier, clear of the entry volume.
+		station:SetAttribute("PortalEntryCFrame", gate * CFrame.new(0, 3.3, 0))
+		station:SetAttribute("TravelArrivalCFrame", basis * CFrame.new(dock.Width / 2 + 0.5, 3.3, 5.4)
+			* CFrame.Angles(0, math.pi / 2, 0))
+		local function block(name: string, size: Vector3, x: number, y: number, z: number, color: Color3, options: any?): Part
+			return Kit.part(station, name, size, gate * CFrame.new(x, y, z), color, options)
 		end
-		block("CreamFoot", Vector3.new(3.5, 0.22, 1.8), 0, 0.05, 0, CREAM)
-		local body = block("BlueTicketStand", Vector3.new(2.8, 2.7, 1.1), 0, 1.5, 0, BLUE)
-		block("SunshineCounter", Vector3.new(3.3, 0.25, 1.5), 0, 2.96, 0, YELLOW)
-		block("NoticePost", Vector3.new(0.24, 1.6, 0.24), 0, 3.6, 0.32, BLUE)
-		local board = block("FerryBoard", Vector3.new(3.8, 1.65, 0.3), 0, 4.35, 0.24, CREAM)
-		Kit.sign(board, "ISLAND HOP", "FREE  /  PICK A POND", INK)
-		block("BlueSunshade", Vector3.new(4.1, 0.24, 1.75), 0, 5.3, 0.1, BLUE)
-		block("SunshadeTrim", Vector3.new(4.1, 0.24, 0.15), 0, 5.1, -0.7, YELLOW)
-		-- Original toy duck emblem: a clear yellow silhouette above the blue stand.
-		local duckBody = Kit.ball(station, "DuckBody", Vector3.new(1.5, 0.87, 0.85), (cf * CFrame.new(0, 5.89, 0.1)).Position, YELLOW)
-		duckBody.CFrame = cf * CFrame.new(0, 5.89, 0.1)
-		Kit.ball(station, "DuckHead", Vector3.new(0.72, 0.72, 0.72), (cf * CFrame.new(0.48, 6.33, 0.1)).Position, YELLOW)
-		block("DuckBill", Vector3.new(0.55, 0.19, 0.4), 0.92, 6.29, 0.05, Color3.fromRGB(240, 153, 56))
+		-- Muted framing and transparent color identify a portal without a bright
+		-- light source, neon surface, flash, or effects obscuring the fishing view.
+		block("PortalBayDeck", Vector3.new(12, 0.16, 13), 0, -0.18, 0, CREAM, { studded = true })
 		for _, side in { -1, 1 } do
-			Kit.ball(station, "DuckEye", Vector3.one * 0.09,
-				(cf * CFrame.new(0.62, 6.45, 0.1 + side * 0.33)).Position, INK, { shadow = false })
+			block("PortalStoneFoot", Vector3.new(1.6, 0.65, 2.1), side * 4.1, 0.225, 0, STONE, { studded = true })
+			block("PortalUpright", Vector3.new(1, 8.9, 1.2), side * 4.1, 4.45, 0, STONE, { studded = true })
+			block("PortalInsetStripe", Vector3.new(0.16, 7.3, 0.12), side * 3.53, 4.6, -0.67, BLUE)
+			for _, height in { 1.1, 8.4 } do
+				block("PortalBrassCollar", Vector3.new(1.15, 0.22, 1.34), side * 4.1, height, 0, GOLD)
+			end
+			block("PortalThresholdMarker", Vector3.new(0.4, 0.04, 2.4), side * 2.5, -0.075, -2.6, BLUE)
 		end
-		block("TicketWindow", Vector3.new(1.95, 1.2, 0.04), 0, 1.88, -0.57, CREAM)
-		block("TicketSlot", Vector3.new(1.0, 0.11, 0.05), 0, 1.55, -0.61, INK)
+		block("PortalLintel", Vector3.new(9.6, 1.1, 1.5), 0, 9.25, 0, STONE, { studded = true })
+		block("PortalCrown", Vector3.new(6.2, 0.25, 1.65), 0, 9.94, 0, GOLD)
+		block("PortalVeil", Vector3.new(6.8, 8.6, 0.08), 0, 4.3, 0, BLUE,
+			{ transparency = 0.83, shadow = false })
+		local header = block("PortalHeader", Vector3.new(6.8, 1.1, 0.16), 0, 9.27, -0.84, CREAM)
+		Kit.sign(header, "POND PORTAL", "STEP IN  /  FREE TRAVEL", INK)
+		-- A slow segmented orbit reuses the existing distance-limited scenery
+		-- animator; it has no collision, sound, lighting, or per-frame world scan.
+		local orbit = Kit.model(station, "PortalOrbit")
+		local orbitOrigin = gate * CFrame.new(0, 4.6, -0.12)
+		orbit.WorldPivot = orbitOrigin
+		for index = 0, 11 do
+			local angle = index * math.pi / 6
+			local cf = orbitOrigin * CFrame.Angles(0, 0, angle) * CFrame.new(0, 3.05, 0)
+			Kit.part(orbit, "OrbitRune", Vector3.new(0.63, 0.15, 0.12), cf,
+				if index % 3 == 0 then GOLD else BLUE, { transparency = 0.25, shadow = false })
+		end
+		orbit:SetAttribute("SpinOrigin", orbitOrigin)
+		orbit:SetAttribute("SpinRate", 0.18)
+		-- The pedestal is beyond the edge of the ordinary casting corridor.
+		local pedestal = basis * CFrame.new(bayX, 0, 12.5) * CFrame.Angles(0, math.pi / 2, 0)
+		Kit.part(station, "PortalPedestalBase", Vector3.new(1.5, 0.35, 1.5), pedestal * CFrame.new(0, 0.075, 0), STONE)
+		Kit.part(station, "PortalPedestalStem", Vector3.new(0.8, 1.9, 0.8), pedestal * CFrame.new(0, 1.1, 0), STONE)
+		local body = Kit.part(station, "PortalSelector", Vector3.new(1.9, 0.6, 1.3),
+			pedestal * CFrame.new(0, 2.4, 0), BLUE)
+		Kit.part(station, "PortalSelectorInset", Vector3.new(1.5, 0.08, 0.9), pedestal * CFrame.new(0, 2.74, 0), CREAM)
+		for index = -1, 1 do
+			Kit.part(station, "PortalDestinationKey", Vector3.new(0.22, 0.09, 0.35),
+				pedestal * CFrame.new(index * 0.4, 2.82, 0), GOLD)
+		end
 		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name, prompt.ActionText, prompt.ObjectText = "IslandTravelPrompt", "Choose a pond", "Free island travel"
+		prompt.Name, prompt.ActionText, prompt.ObjectText = "IslandTravelPrompt", "Choose a pond", "Pond portal · Free travel"
 		prompt.KeyboardKeyCode, prompt.GamepadKeyCode = Enum.KeyCode.E, Enum.KeyCode.ButtonX
 		prompt.HoldDuration, prompt.MaxActivationDistance, prompt.RequiresLineOfSight = 0, 5, false
 		prompt.Parent, station.PrimaryPart = body, body
@@ -93,7 +124,8 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 	local lastPacket: { [number]: number } = {}
 	local sources: { [string]: BasePart } = {}
 	local destinations: { [string]: CFrame } = {}
-	for _, dock in Layout.Docks do destinations[dock.Id] = spotBasis(dock) * CFrame.new(0, 3.3, 5.4) end
+	local entries: { [string]: CFrame } = {}
+	local entryState: { [number]: { character: Model, source: string?, opened: boolean } } = {}
 	local function distanceFrom(player: Player, source: string): number
 		local _, root = livingCharacter(player)
 		local stand = sources[source]
@@ -102,19 +134,51 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 	local function respond(player: Player, status: string, message: string?)
 		if player.Parent == Players then event:FireClient(player, status, message) end
 	end
+	local function openPortal(player: Player, source: string): boolean
+		if player.Parent == Players and world:IsDescendantOf(workspace)
+			and state:open(player.UserId, source, os.clock(), distanceFrom(player, source)) then
+			event:FireClient(player, "Open", source)
+			return true
+		end
+		return false
+	end
 	for _, station in stations:GetChildren() do
 		if not station:IsA("Model") then continue end
 		local source = station:GetAttribute("TravelSourceId")
 		local stand = station.PrimaryPart
 		local prompt = station:FindFirstChild("IslandTravelPrompt", true)
 		if type(source) ~= "string" or not stand or not prompt or not prompt:IsA("ProximityPrompt") then continue end
-		sources[source] = stand
-		prompt.Triggered:Connect(function(player)
-			if world:IsDescendantOf(workspace) and state:open(player.UserId, source, os.clock(), distanceFrom(player, source)) then
-				event:FireClient(player, "Open", source)
-			end
-		end)
+		local arrival, entry = station:GetAttribute("TravelArrivalCFrame"), station:GetAttribute("PortalEntryCFrame")
+		if typeof(arrival) ~= "CFrame" or typeof(entry) ~= "CFrame" then continue end
+		sources[source], destinations[source], entries[source] = stand, arrival, entry
+		prompt.Triggered:Connect(function(player) openPortal(player, source) end)
 	end
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(deltaTime: number)
+		elapsed += deltaTime
+		if elapsed < 0.1 then return end
+		elapsed %= 0.1
+		if not world:IsDescendantOf(workspace) then return end
+		for _, player in Players:GetPlayers() do
+			local character, root = livingCharacter(player)
+			if not character or not root then entryState[player.UserId] = nil; continue end
+			local inside: string? = nil
+			for source, entry in entries do
+				local point = entry:PointToObjectSpace(root.Position)
+				if math.abs(point.X) <= 3 and math.abs(point.Y) <= 3.5 and math.abs(point.Z) <= 1.3 then
+					inside = source
+					break
+				end
+			end
+			local previous = entryState[player.UserId]
+			local opened = previous ~= nil and previous.character == character and previous.source == inside and previous.opened
+			-- A quick return can reach the gate during the short request cooldown.
+			-- Retry until its first successful open; after that, closing the menu
+			-- while standing inside never reopens it. Leaving or respawning resets.
+			if inside and not opened then opened = openPortal(player, inside) end
+			entryState[player.UserId] = { character = character, source = inside, opened = opened }
+		end
+	end)
 	event.OnServerEvent:Connect(function(player: Player, destination: any)
 		local now = os.clock()
 		local previous = lastPacket[player.UserId]
@@ -123,7 +187,7 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 		local source = state:source(player.UserId)
 		if not source or player.Parent ~= Players or not world:IsDescendantOf(workspace) then return end
 		local ticket = state:take(player.UserId, destination, now, distanceFrom(player, source))
-		if not ticket then respond(player, "Rejected", "Step closer to the island stand and try again."); return end
+		if not ticket then respond(player, "Rejected", "Step closer to the portal and try again."); return end
 		local character, root = livingCharacter(player)
 		local target = destinations[ticket.destination]
 		if not character or not root or not target then state:finish(player.UserId, ticket); return end
@@ -156,12 +220,15 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 					root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
 				end)
 				if success then respond(player, "Arrived", "Ready to fish!")
-				else respond(player, "Rejected", "Travel could not finish. Please try the stand again.") end
-			else respond(player, "Rejected", "Travel cancelled. Stay beside the stand and try again.") end
+				else respond(player, "Rejected", "Travel could not finish. Please try the portal again.") end
+			else respond(player, "Rejected", "Travel cancelled. Stay beside the portal and try again.") end
 			if state:finish(player.UserId, ticket) and player.Parent == Players then player:SetAttribute("IslandTravelBusy", false) end
 		end)
 	end)
-	Players.PlayerRemoving:Connect(function(player) state:remove(player.UserId); lastPacket[player.UserId] = nil end)
+	Players.PlayerRemoving:Connect(function(player)
+		state:remove(player.UserId)
+		lastPacket[player.UserId], entryState[player.UserId] = nil, nil
+	end)
 	remotes.Parent = ReplicatedStorage
 end
 

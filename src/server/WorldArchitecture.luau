@@ -1,23 +1,23 @@
 --!strict
 -- Original, explorable brick-built harbor. Native studs provide the surface detail;
--- every doorway, walking surface and decorative part keeps its original geometry.
+-- fishing piers open onto side portal bays while bridges retain their railings.
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 
 local Architecture = {}
 local C = {
 	Timber = Color3.fromRGB(143, 102, 61),
 	Wood = Color3.fromRGB(169, 122, 71),
-	Plank = Color3.fromRGB(229, 207, 139),
+	Plank = Color3.fromRGB(207, 187, 133),
 	Dark = Color3.fromRGB(59, 83, 99),
-	Cream = Color3.fromRGB(248, 241, 183),
-	Stone = Color3.fromRGB(99, 132, 147),
-	Moss = Color3.fromRGB(19, 172, 39),
-	Glass = Color3.fromRGB(99, 209, 255),
-	Gold = Color3.fromRGB(255, 210, 29),
-	Rope = Color3.fromRGB(225, 204, 142),
-	Roof = Color3.fromRGB(38, 153, 235),
-	Coral = Color3.fromRGB(230, 89, 54),
-	Sky = Color3.fromRGB(38, 153, 235),
+	Cream = Color3.fromRGB(222, 215, 175),
+	Stone = Color3.fromRGB(89, 117, 132),
+	Moss = Color3.fromRGB(28, 140, 47),
+	Glass = Color3.fromRGB(94, 171, 202),
+	Gold = Color3.fromRGB(221, 180, 47),
+	Rope = Color3.fromRGB(204, 187, 138),
+	Roof = Color3.fromRGB(42, 128, 183),
+	Coral = Color3.fromRGB(204, 89, 62),
+	Sky = Color3.fromRGB(42, 128, 183),
 }
 local PLASTIC = Enum.Material.Plastic
 local SMOOTH = Enum.Material.SmoothPlastic
@@ -323,12 +323,21 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	return model
 end
 
-function Architecture.dock(parent, a, b, width, name, rails)
+function Architecture.dock(parent, a, b, width, name, rails, portalOpening)
 	local model = Kit.model(parent, name or "HarborBoardwalk")
 	local length = (b - a).Magnitude
 	if length < 0.1 then return model end
 	local basis = CFrame.lookAt((a + b) / 2, b)
 	local up = basis.UpVector
+	-- Fishing piers have a side entrance onto the portal bay. Bridges retain both rails.
+	local gapMin, gapMax = 0, 0
+	if portalOpening then
+		local center = length / 2 - portalOpening
+		gapMin, gapMax = center - 6, center + 6
+	end
+	local function inOpening(side, z)
+		return portalOpening ~= nil and side == 1 and z > gapMin - 0.3 and z < gapMax + 0.3
+	end
 	-- One uninterrupted collider keeps small gaps between visible planks harmless.
 	local floor = p(model, "ContinuousWalkSurface", Vector3.new(width, 0.42, length), basis - up * 0.21, C.Timber, PLASTIC, true)
 	floor.Transparency = 1
@@ -355,7 +364,7 @@ function Architecture.dock(parent, a, b, width, name, rails)
 				p(model, "DeepTimberPile", Vector3.new(0.8, 7, 0.8), postCf * CFrame.new(0, -3.5, 0), C.Timber)
 				p(model, "PileWaterlineBand", Vector3.new(0.83, 0.35, 0.83), postCf * CFrame.new(0, -2.7, 0), C.Dark, SMOOTH)
 			end
-			if rails ~= false then
+			if rails ~= false and not inOpening(side, z) then
 				p(model, "RopeRailPost", Vector3.new(0.45, 3.5, 0.45), postCf * CFrame.new(0, 1.7, 0), C.Timber, PLASTIC, true)
 				p(model, "PostCap", Vector3.new(0.6, 0.16, 0.6), postCf * CFrame.new(0, 3.5, 0), C.Plank)
 			end
@@ -364,19 +373,34 @@ function Architecture.dock(parent, a, b, width, name, rails)
 			for _, side in { -1, 1 } do
 				local x = side * (width / 2 - 0.25)
 				local nextZ = z + length / bays
-				for _, h in { 1.4, 3.1 } do
-					local start = Vector3.new(x, h, z)
-					local middle = Vector3.new(x, h - 0.3, (z + nextZ) / 2)
-					local finish = Vector3.new(x, h, nextZ)
-					localBeam(model, basis, "SaggingHempRail", start, middle, 0.14, C.Rope)
-					localBeam(model, basis, "SaggingHempRail", middle, finish, 0.14, C.Rope)
+				local spans = { { z, nextZ } }
+				if portalOpening and side == 1 then
+					spans = { { z, math.min(nextZ, gapMin) }, { math.max(z, gapMax), nextZ } }
 				end
-				p(model, "SafeRailCollider", Vector3.new(0.12, 2.5, length / bays), basis * CFrame.new(x, 1.75, (z + nextZ) / 2), C.Timber, PLASTIC, true).Transparency = 1
+				for _, span in spans do
+					local first, last = span[1], span[2]
+					if last - first < 0.05 then continue end
+					for _, h in { 1.4, 3.1 } do
+						local start = Vector3.new(x, h, first)
+						local middle = Vector3.new(x, h - 0.3, (first + last) / 2)
+						local finish = Vector3.new(x, h, last)
+						localBeam(model, basis, "SaggingHempRail", start, middle, 0.14, C.Rope)
+						localBeam(model, basis, "SaggingHempRail", middle, finish, 0.14, C.Rope)
+					end
+					p(model, "SafeRailCollider", Vector3.new(0.12, 2.5, last - first), basis * CFrame.new(x, 1.75, (first + last) / 2), C.Timber, PLASTIC, true).Transparency = 1
+				end
 			end
 		end
 	end
+	if portalOpening and rails ~= false then
+		for _, z in { gapMin, gapMax } do
+			local frame = basis * CFrame.new(width / 2 - 0.25, 0, z)
+			p(model, "PortalEntrancePost", Vector3.new(0.45, 3.5, 0.45), frame * CFrame.new(0, 1.7, 0), C.Timber, PLASTIC, true)
+			p(model, "PortalEntranceCap", Vector3.new(0.6, 0.16, 0.6), frame * CFrame.new(0, 3.5, 0), C.Plank)
+		end
+	end
 	if length >= 25 then
-		Kit.lantern(model, (basis * CFrame.new(width / 2 - 0.25, 3.9, -length * 0.28)).Position, 0.65, false)
+		Kit.lantern(model, (basis * CFrame.new((if portalOpening then -1 else 1) * (width / 2 - 0.25), 3.9, -length * 0.28)).Position, 0.65, false)
 	end
 	return model
 end

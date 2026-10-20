@@ -279,3 +279,33 @@ Model-kontrollen från v0.7 återställs i minnet och måste misslyckas i samma 
 
 Offline-renderingar används för form och placering. De visar inte Roblox inbyggda
 Studs-ytor eller den sparade Soft-ljussättningen; dessa kontroller måste köras i Studio.
+
+
+## v0.9 — dämpat ljus och fysiska portaler, ännu okört i Studio
+
+Världen har 7 971 delar och 1 121 kolliderbara former. Geometrikontrollen täcker
+3 681 vägprovpunkter, 225 spawn-prov, 125 ankomst-prov och 429 prov genom
+portalernas öppningar i bryggräckena. Produktionskodens server- och klientkontroller
+körs med dubblar för geometri, händelser och tweening. Detta verifierar inte
+Roblox-rendering, verkliga touchkontroller, streaming eller fysik.
+
+- [ ] Öppna **Cloud-Anglers-v0.9.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Lighting har Realistic, GlobalShadows, Brightness 1.9 och ExposureCompensation −0.2.
+- [ ] Gräs, bryggor och dammar är behagliga att se på i fullskärm. Vattenfallen bländar inte.
+- [ ] Skuggor syns under träd, tak och klipphyllor på flera grafiknivåer. Gångvägar förblir läsbara.
+- [ ] Se en portal med långsamt roterande runor vid varje brygga. Ingen ny ljus- eller ljudeffekt.
+- [ ] Gå rakt från spawn till fiske; ingen portalmeny öppnas på den vanliga rutten.
+- [ ] Gå i sidled genom räckets öppning in i portalen. Menyn öppnas en gång.
+- [ ] Stäng menyn medan du står kvar. Den öppnas inte igen förrän du lämnat och gått in på nytt.
+- [ ] Välj ö med mus, touch och handkontroll. Testa 320 px porträtt och 568×320 landskap.
+- [ ] Bilden tonar ned till mörkt före flytten och tillbaka efter ankomst. Ingen vit blixt eller kameraryck.
+- [ ] Du landar nära rätt fiskeplats och vänd mot bryggan. Fiska direkt med E eller knappen.
+- [ ] Besök alla fem öar innan de hunnit laddas in. Ingen faller genom portalgolvet.
+- [ ] Gå direkt tillbaka genom portalen efter ankomst; menyn öppnas när kort spärrtid löpt ut.
+- [ ] Testa snabb stängning före flytt, avvisad resa, tappad anslutning, död och respawn.
+- [ ] Rörelsen återkommer efter avslutad/avbruten resa; inget mörkt lager fastnar.
+- [ ] Testa två klienter som reser samtidigt, även med olika avatarstorlekar.
+- [ ] Efter utströmning/återkomst återkommer portal, runor, prompt och gångöppning korrekt.
+- [ ] Fiske avbryts vid resa utan extra belöning eller kvarvarande flöte/ljudloop.
+- [ ] Sparade mynt, arter, spön och offlineinkomst fungerar som tidigare.
+- [ ] Mät verklig FPS, minne och laddtid på dator, telefon och iPad.

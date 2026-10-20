@@ -11,7 +11,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.8.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v0.9.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
@@ -89,16 +89,17 @@ def build(output: Path) -> None:
     lighting = item("Lighting", "Lighting")
     # Current Roblox lighting replaces the legacy Technology selection. These
     # two properties require Studio/plugin capability, so serialize them here.
-    property_value(lighting, "token", "LightingStyle", "1")  # Soft: clear classic-brick lighting
+    property_value(lighting, "token", "LightingStyle", "0")  # Realistic: directional shade
     property_value(lighting, "bool", "PrioritizeLightingQuality", "true")
     property_value(lighting, "bool", "GlobalShadows", "true")
-    property_value(lighting, "float", "ShadowSoftness", "0.12")
-    property_value(lighting, "float", "Brightness", "3")
-    property_value(lighting, "string", "TimeOfDay", "13:42:00")
-    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.25")
-    property_value(lighting, "float", "EnvironmentSpecularScale", "0.05")
-    color_value(lighting, "Ambient", (120, 145, 159))
-    color_value(lighting, "OutdoorAmbient", (178, 195, 207))
+    property_value(lighting, "float", "ShadowSoftness", "0.22")
+    property_value(lighting, "float", "Brightness", "1.9")
+    property_value(lighting, "float", "ExposureCompensation", "-0.2")
+    property_value(lighting, "string", "TimeOfDay", "15:00:00")
+    property_value(lighting, "float", "EnvironmentDiffuseScale", "0.4")
+    property_value(lighting, "float", "EnvironmentSpecularScale", "0")
+    color_value(lighting, "Ambient", (66, 81, 97))
+    color_value(lighting, "OutdoorAmbient", (104, 120, 134))
 
     for service in ("ReplicatedStorage", "ServerScriptService", "StarterPlayer", "StarterGui"):
         item(service, service)

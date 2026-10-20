@@ -8,21 +8,21 @@ export type Options = {
 }
 
 Kit.palette = table.freeze({
-	-- Read from the supplied Duck Pond screenshot: saturated green bricks,
-	-- blue-gray walls, pale yellow paving and bright cyan ponds.
-	Grass = Color3.fromRGB(20, 200, 55), Moss = Color3.fromRGB(0, 145, 42),
-	Leaf = Color3.fromRGB(14, 163, 45), Lime = Color3.fromRGB(81, 214, 40),
-	Pine = Color3.fromRGB(17, 149, 53), PineLight = Color3.fromRGB(54, 191, 59),
-	Blossom = Color3.fromRGB(230, 119, 171), BlossomLight = Color3.fromRGB(255, 173, 202),
-	Stone = Color3.fromRGB(109, 142, 157), DeepStone = Color3.fromRGB(76, 111, 127),
-	Cliff = Color3.fromRGB(99, 132, 147), Limestone = Color3.fromRGB(247, 241, 180),
-	Sand = Color3.fromRGB(250, 244, 181), Wood = Color3.fromRGB(151, 112, 67),
+	-- Keep the reference's green-and-blue brick identity, with quieter broad
+	-- surfaces so paving, ponds and sky do not compete at full brightness.
+	Grass = Color3.fromRGB(35, 163, 60), Moss = Color3.fromRGB(18, 116, 43),
+	Leaf = Color3.fromRGB(23, 139, 52), Lime = Color3.fromRGB(105, 181, 64),
+	Pine = Color3.fromRGB(20, 126, 50), PineLight = Color3.fromRGB(57, 159, 64),
+	Blossom = Color3.fromRGB(199, 117, 155), BlossomLight = Color3.fromRGB(224, 164, 188),
+	Stone = Color3.fromRGB(98, 126, 139), DeepStone = Color3.fromRGB(70, 97, 111),
+	Cliff = Color3.fromRGB(89, 117, 132), Limestone = Color3.fromRGB(220, 213, 169),
+	Sand = Color3.fromRGB(225, 217, 172), Wood = Color3.fromRGB(145, 108, 65),
 	Bark = Color3.fromRGB(118, 83, 45), BarkLight = Color3.fromRGB(156, 112, 62),
-	Plank = Color3.fromRGB(234, 221, 155), Cream = Color3.fromRGB(255, 250, 202),
-	Teal = Color3.fromRGB(37, 158, 238), Water = Color3.fromRGB(66, 207, 255),
-	Cloud = Color3.fromRGB(249, 253, 255), Coral = Color3.fromRGB(255, 124, 55),
-	Brass = Color3.fromRGB(255, 210, 36), Iron = Color3.fromRGB(65, 93, 107),
-	Lavender = Color3.fromRGB(116, 141, 201), Gold = Color3.fromRGB(255, 221, 0),
+	Plank = Color3.fromRGB(207, 191, 140), Cream = Color3.fromRGB(226, 220, 183),
+	Teal = Color3.fromRGB(43, 129, 185), Water = Color3.fromRGB(45, 149, 184),
+	Cloud = Color3.fromRGB(219, 229, 235), Coral = Color3.fromRGB(223, 116, 65),
+	Brass = Color3.fromRGB(216, 179, 59), Iron = Color3.fromRGB(60, 83, 97),
+	Lavender = Color3.fromRGB(110, 130, 179), Gold = Color3.fromRGB(226, 188, 31),
 })
 
 local function finish(p: BasePart, parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, options: Options?)

@@ -54,9 +54,11 @@ class PlaceTests(unittest.TestCase):
             node = root.find(f"Item[@class='{service}']/Properties")
             return {entry.attrib["name"]: (entry.tag, entry.text) for entry in node}
         lighting = properties("Lighting")
-        self.assertEqual(lighting["LightingStyle"], ("token", "1"))
+        self.assertEqual(lighting["LightingStyle"], ("token", "0"))
         self.assertEqual(lighting["PrioritizeLightingQuality"], ("bool", "true"))
         self.assertEqual(lighting["GlobalShadows"], ("bool", "true"))
+        self.assertEqual(lighting["ExposureCompensation"], ("float", "-0.2"))
+        self.assertEqual(lighting["EnvironmentSpecularScale"], ("float", "0"))
         world = properties("Workspace")
         self.assertEqual(world["StreamingEnabled"], ("bool", "true"))
         self.assertEqual(world["StreamingIntegrityMode"], ("token", "3"))

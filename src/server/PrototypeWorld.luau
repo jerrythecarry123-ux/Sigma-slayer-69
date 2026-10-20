@@ -295,24 +295,28 @@ function World.create(): BasePart
 	spawn.Name,spawn.Size,spawn.CFrame="HarborSpawn",Vector3.new(14,.3,14),CFrame.new(v(Layout.Spawn)+Vector3.yAxis*.2)*CFrame.Angles(0,math.pi,0)
 	spawn.Anchored,spawn.Neutral,spawn.Duration,spawn.Transparency,spawn.CastShadow=true,true,0,1,false
 	spawn.Parent=workspace
-	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=13.7,3,true
-	Lighting.ShadowSoftness=.12
-	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(120,145,159),Color3.fromRGB(178,195,207)
-	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.25,.05
+	-- A lower afternoon sun and less ambient fill give buildings and trees shade
+	-- without turning the daytime map into a dark scene.
+	Lighting.ClockTime,Lighting.Brightness,Lighting.GlobalShadows=15,1.9,true
+	Lighting.ExposureCompensation=-.2
+	Lighting.ShadowSoftness=.22
+	Lighting.Ambient,Lighting.OutdoorAmbient=Color3.fromRGB(66,81,97),Color3.fromRGB(104,120,134)
+	Lighting.EnvironmentDiffuseScale,Lighting.EnvironmentSpecularScale=.4,0
 	local atmosphere=Instance.new("Atmosphere")
-	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.06,0,0,0
-	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(180,220,255),Color3.fromRGB(146,194,243),Lighting
+	atmosphere.Name,atmosphere.Density,atmosphere.Offset,atmosphere.Haze,atmosphere.Glare="SundriftAtmosphere",.1,0,.15,0
+	atmosphere.Color,atmosphere.Decay,atmosphere.Parent=Color3.fromRGB(202,218,232),Color3.fromRGB(155,177,196),Lighting
 	local sky=Instance.new("Sky")
-	sky.Name,sky.SunAngularSize,sky.MoonAngularSize,sky.StarCount,sky.Parent="SundriftSky",9,9,800,Lighting
+	sky.Name,sky.SunAngularSize,sky.MoonAngularSize,sky.StarCount,sky.Parent="SundriftSky",5,5,800,Lighting
 	local clouds=Instance.new("Clouds")
 	clouds.Name,clouds.Cover,clouds.Density,clouds.Color,clouds.Parent="HighClouds",.12,.2,C.Cloud,workspace.Terrain
 	local color=Instance.new("ColorCorrectionEffect")
-	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",.05,.04,Color3.fromRGB(255,255,255),Lighting
+	color.Name,color.Saturation,color.Contrast,color.TintColor,color.Parent="HarborGrade",-.04,.05,Color3.fromRGB(255,255,255),Lighting
+	color.Brightness=-.025
 	local bloom=Instance.new("BloomEffect")
-	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",.035,2.2,24,Lighting
+	bloom.Name,bloom.Intensity,bloom.Threshold,bloom.Size,bloom.Parent="LanternBloom",0,2.2,24,Lighting
 	local rays=Instance.new("SunRaysEffect")
-	rays.Intensity,rays.Spread,rays.Parent=.01,.85,Lighting
-	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,.03,.18
+	rays.Intensity,rays.Spread,rays.Parent=0,.85,Lighting
+	workspace.Terrain.WaterColor,workspace.Terrain.WaterReflectance,workspace.Terrain.WaterTransparency=C.Water,0,.18
 	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.08,4
 	for _,data in Layout.Islands do
 		local tint=if data.Kind=="Cove" then C.Sand elseif data.Kind=="Summit" then C.Moss else C.Grass
@@ -349,7 +353,8 @@ function World.create(): BasePart
 	local first: BasePart?=nil
 	for _,data in Layout.Waters do water(root,data) end
 	for _,dock in Layout.Docks do
-		local deck=Architecture.dock(root,v(dock.A),v(dock.B),dock.Width,dock.Id.."_pier",true)
+		local portalOpening=(v(dock.Spot)-v(dock.A)):Dot((v(dock.B)-v(dock.A)).Unit)-8
+		local deck=Architecture.dock(root,v(dock.A),v(dock.B),dock.Width,dock.Id.."_pier",true,portalOpening)
 		local zone=nil
 		for _,w in Layout.Waters do if w.Id==dock.Id then zone=w end end
 		local spot=Kit.part(spots,"FishingSpot",Vector3.new(dock.Width-5,.05,10),CFrame.new(v(dock.Spot))*CFrame.Angles(0,dock.Yaw,0),C.Teal,{transparency=.72,shadow=false})

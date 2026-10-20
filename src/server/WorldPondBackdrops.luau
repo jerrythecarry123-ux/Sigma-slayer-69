@@ -5,11 +5,11 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 
 local Backdrops = {}
-local GRAY = Color3.fromRGB(99, 132, 147)
-local GRAY_UPPER = Color3.fromRGB(109, 142, 157)
-local GREEN = Color3.fromRGB(14, 187, 43)
-local CYAN = Color3.fromRGB(30, 213, 255)
-local WHITE_WATER = Color3.fromRGB(204, 250, 255)
+local GRAY = Color3.fromRGB(89, 117, 132)
+local GRAY_UPPER = Color3.fromRGB(98, 126, 139)
+local GREEN = Color3.fromRGB(28, 151, 49)
+local CYAN = Color3.fromRGB(56, 153, 181)
+local WHITE_WATER = Color3.fromRGB(160, 199, 208)
 local OFFSETS = { -.87, -.62, -.37, -.12, .12, .37, .62, .87 }
 local HEIGHTS = { 38, 54, 43, 34, 37, 47, 58, 43 }
 
@@ -29,11 +29,11 @@ local function waterfall(parent: Model, frame: CFrame, x: number, z: number, wid
 	local fallHeight = top - .1
 	local curtain = Kit.part(parent, "PondWaterfallCurtain", Vector3.new(width, fallHeight, .24),
 		frame * CFrame.new(x, .1 + fallHeight / 2, z + 7.35), CYAN,
-		{ material = Enum.Material.Neon, transparency = .32, shadow = false })
+		{ material = Enum.Material.SmoothPlastic, transparency = .38, shadow = false })
 	for streakIndex = 1, 3 do
 		local streak = Kit.part(parent, "PondWaterfallStreak", Vector3.new(.13, 4.2, .09),
 			curtain.CFrame * CFrame.new((streakIndex - 2) * width * .31, 0, .19), WHITE_WATER,
-			{ material = Enum.Material.Neon, transparency = .18, shadow = false })
+			{ material = Enum.Material.SmoothPlastic, transparency = .34, shadow = false })
 		streak:SetAttribute("FlowStart", streak.CFrame)
 		streak:SetAttribute("FlowPhase", phase + streakIndex * .29)
 		streak:SetAttribute("FlowDistance", fallHeight - 4.2)
@@ -43,7 +43,7 @@ local function waterfall(parent: Model, frame: CFrame, x: number, z: number, wid
 		local foam=Kit.part(parent, "PondWaterfallFoam", Vector3.new(width * .45, .18 + (foamIndex % 2) * .08, 1.8),
 			frame * CFrame.new(x + (foamIndex - 2) * width * .32, .14, z + 7.9 + (foamIndex % 2) * .8)
 				* CFrame.Angles(0, math.rad((foamIndex - 2) * 11), 0), WHITE_WATER,
-			{ material = Enum.Material.SmoothPlastic, transparency = .16, shadow = false })
+			{ material = Enum.Material.SmoothPlastic, transparency = .34, shadow = false })
 		-- Reuse the existing low-rate shimmer for a little life at the fall's foot.
 		foam:SetAttribute("GlintPhase",phase+foamIndex*.43)
 	end
