@@ -45,9 +45,11 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 		local j = i % n + 1
 		-- Triangle center is half the floor thickness below the declared walking surface.
 		triangle(model, "WalkableMeadow", center - Vector3.yAxis * 0.35, v(edge[i]) - Vector3.yAxis * 0.35,
-			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true,true,true)
+			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true,true,false)
 		local bottomY=if data.Basin then -18 else -34
-		local tiers = { {1,-.75},{1,-2},{1,bottomY},{0,bottomY} }
+		-- A tapered, faceted underside gives each floating island a rock silhouette
+		-- instead of a straight rectangular retaining wall. Walking floors stay level.
+		local tiers = { {1,-.75},{1,-2},{.42,bottomY},{0,bottomY-6} }
 		for tier = 1, #tiers - 1 do
 			local top, bottom = tiers[tier], tiers[tier+1]
 			local function ring(k: number, t: {number}): Vector3
@@ -59,21 +61,14 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 			if top[1]==bottom[1] then
 				-- A straight collar needs one panel, rather than four hidden wedge faces.
 				Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
-					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Plastic,studded=true})
+					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Slate})
 			elseif bottom[1]==0 then
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Plastic,false)
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
 			else
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Plastic,false,true,true)
-				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Plastic,false,true,true)
+				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false,true,false)
+				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Slate,false,true,false)
 			end
 		end
-	end
-	if not data.Basin then
-		-- One inset block guarantees a broad native-studded surface without
-		-- relying on how triangular wedge faces render legacy surface details.
-		-- Its top stays below the paths; the original floor owns collision.
-		Kit.part(model,"InsetStuddedMeadow",Vector3.new(data.Radius[1]*1.25,.06,data.Radius[2]*1.25),
-			CFrame.new(center-Vector3.yAxis*.01),color,{material=Enum.Material.Plastic,studded=true,shadow=false})
 	end
 	return model
 end
@@ -89,8 +84,8 @@ local function path(parent: Instance, points: {{number}}, width: number, materia
 		left[i],right[i]=point+normal*width/2,point-normal*width/2
 	end
 	for i=1,#points-1 do
-		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.Plastic,false,false,true)
-		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.Plastic,false,false,true)
+		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.SmoothPlastic,false,false,false)
+		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.SmoothPlastic,false,false,false)
 	end
 end
 local function waypost(parent: Instance, pos: Vector3, title: string, subtitle: string, yaw: number?)
@@ -152,7 +147,7 @@ local function water(parent: Instance, data: any)
 	Nature.cloud(model,fallPos-Vector3.yAxis*55,Vector3.new(21,8,14),83)
 end
 local function plaza(parent: Instance)
-	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.Plastic,studded=true})
+	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.SmoothPlastic})
 	-- Small koi fountain: clear routes pass either side, not through its bowl.
 	local f=Kit.model(parent,"CloudKoiFountain")
 	Kit.disk(f,"FountainBase",11,11,.4,Vector3.new(-17,12.4,-14),C.Stone,{material=Enum.Material.Marble,collidable=true})

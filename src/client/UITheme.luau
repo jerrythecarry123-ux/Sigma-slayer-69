@@ -79,7 +79,7 @@ function Theme.coin(parent: Instance, position: UDim2, diameter: number)
 	mark.TextXAlignment = Enum.TextXAlignment.Center
 end
 function Theme.rarity(name: string): Color3
-	return if name == "Epic" then Theme.Purple elseif name == "Rare" then Theme.Blue
+	return if name == "Legendary" then Theme.Gold elseif name == "Epic" then Theme.Purple elseif name == "Rare" then Theme.Blue
 		elseif name == "Uncommon" then Theme.Teal else Color3.fromRGB(132, 94, 34)
 end
 return Theme

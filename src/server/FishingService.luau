@@ -12,6 +12,7 @@ local ProfileStore = require(script.Parent:WaitForChild("FishingProfileStore"))
 local Locations = require(script.Parent:WaitForChild("FishingLocations"))
 local World = require(script.Parent:WaitForChild("PrototypeWorld"))
 local IslandTravel = require(script.Parent:WaitForChild("IslandTravel"))
+local Aquarium = require(script.Parent:WaitForChild("AquariumService"))
 local Service = {}
 local started = false
 
@@ -53,6 +54,8 @@ function Service.start()
 	local lastVisual: { [Player]: string } = {}
 	local activeAttempts: { [Player]: number } = {}
 	local closing, pendingReleases = false, 0
+	local aquarium: any = nil
+	local nearestLocation: any = nil
 
 	local function describeLocation(player: Player, fishingSpot: BasePart)
 		local lane = (player.UserId % 4 - 1.5) * 2
@@ -71,7 +74,9 @@ function Service.start()
 	local function decorate(player: Player, packet: any)
 		local location = locations:last(player.UserId) or describeLocation(player, spot)
 		packet.castTarget = location.target
-		packet.zoneId, packet.zoneName = location.zoneId, location.zoneName
+		local current = if packet.phase == "Idle" and nearestLocation then nearestLocation(player) or location else location
+		packet.zoneId, packet.zoneName = current.zoneId, current.zoneName
+		packet.location = { zoneId = current.zoneId, zoneName = current.zoneName }
 		return packet
 	end
 	local function publicVisual(player: Player, packet: any)
@@ -79,10 +84,12 @@ function Service.start()
 		return decorate(player, {
 			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId,
 			readyAt = packet.readyAt, chargeAt = packet.chargeAt,
+			timingCenter = packet.timingCenter, duration = packet.duration,
 			rodLevel = if packet.profile then packet.profile.level else 0,
 			result = if result then {
 				species = result.species, speciesId = result.speciesId, quality = result.quality,
 				rarity = result.rarity, newDiscovery = result.newDiscovery,
+				variant = result.variant, weightKg = result.weightKg, newRecord = result.newRecord,
 			} else nil,
 		})
 	end
@@ -96,6 +103,7 @@ function Service.start()
 		local stats = player:FindFirstChild("leaderstats")
 		local score = if stats then stats:FindFirstChild("Collection") else nil
 		if score and score:IsA("IntValue") and profile then score.Value = profile.points end
+		if aquarium and profile then aquarium.update(player, profile) end
 		local key = packet.phase .. ":" .. tostring(packet.attemptId) .. ":" .. packet.catches
 			.. ":" .. (if profile then profile.level else 0)
 		if lastVisual[player] ~= key then
@@ -113,7 +121,7 @@ function Service.start()
 	local function validSpot(fishingSpot: BasePart): boolean
 		return fishingSpot.Anchored and fishingSpot:IsDescendantOf(workspace)
 	end
-	local function nearestLocation(player: Player)
+	nearestLocation = function(player: Player)
 		local position = fishingPosition(player)
 		if not position then return nil end
 		local candidates = {}
@@ -187,6 +195,7 @@ function Service.start()
 		activeAttempts[player] = nil
 		locations:remove(player.UserId)
 		engine:removePlayer(player.UserId)
+		if aquarium then aquarium.remove(player) end
 	end)
 	for _, player in Players:GetPlayers() do addPlayer(player) end
 	if Config.CreatePrototypeWorld then
@@ -194,11 +203,20 @@ function Service.start()
 		-- The generated world is a Folder; requiring a Model here silently
 		-- skipped the travel service and its stands during real startup.
 		if world then
+			aquarium = Aquarium.start(world, {
+				profile = function(player)
+					local packet = engine:snapshot(player.UserId)
+					return if packet then packet.profile else nil
+				end,
+			})
 			IslandTravel.start(world,function(player)
 				if closing or not connections[player] then return false end
 				local packet=engine:interrupt(player.UserId,workspace:GetServerTimeNow(),"Ready for your next pond.")
 				if packet then emit(player,packet) end
 				return true
+			end, function(player)
+				if closing or not connections[player] or not engine:snapshot(player.UserId) then return nil end
+				return aquarium.arrival(player)
 			end)
 		end
 	end
@@ -211,7 +229,8 @@ function Service.start()
 		local previousAttemptId = activeAttempts[player]
 		local location = locations:forAttempt(player.UserId, previousAttemptId)
 		if verb == "Start" and connections[player] and previousAttemptId == nil then location = nearestLocation(player) end
-		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player, location))
+		local zoneId = if location and Catalog.zone(location.zoneId) then location.zoneId else nil
+		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player, location), zoneId)
 		if packet then
 			if verb == "Start" then locations:acceptStart(player.UserId, previousAttemptId, packet, location) end
 			emit(player, packet)
@@ -235,6 +254,24 @@ function Service.start()
 		for _, player in Players:GetPlayers() do
 			local packet = engine:tick(player.UserId, now, canFish(player, locations:last(player.UserId)))
 			if packet then emit(player, packet) end
+			-- Update the location card even when travelling without casting. The
+			-- attempt binding stays unchanged until a server-accepted Start.
+			if not activeAttempts[player] then
+				local nearest = nearestLocation(player)
+				if nearest then
+					local zone = nearest.zoneId
+					if player:GetAttribute("CurrentFishingZone") ~= zone then
+						player:SetAttribute("CurrentFishingZone", zone)
+						local snapshot = engine:snapshot(player.UserId)
+						if snapshot then
+							snapshot.location = { zoneId = zone, zoneName = nearest.zoneName }
+							-- Do not rewrite the last cast target when only looking at a new pond.
+							if snapshot.profile then snapshot.profile.persistent = saving; snapshot.profile.offlineRate = snapshot.profile.species * 0.25 end
+							state:FireClient(player, snapshot)
+						end
+					end
+				end
+			end
 			local session = sessions[player]
 			if session and not session.releaseRequested then
 				if os.time() >= session.expires then

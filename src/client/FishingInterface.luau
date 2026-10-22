@@ -22,7 +22,7 @@ local function viewport(parent: Instance, name: string, size: UDim2, position: U
 	view.LightDirection = Vector3.new(-1, -1, -2)
 	view.Parent = parent
 	local camera = Instance.new("Camera")
-	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.4, -6.5), Vector3.zero)
+	camera.CFrame = CFrame.lookAt(Vector3.new(3, 1, -6.5), Vector3.zero)
 	camera.FieldOfView = 36
 	camera.Parent = view
 	view.CurrentCamera = camera
@@ -37,11 +37,37 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	gui.Name, gui.ResetOnSpawn = "MolnfiskarnaFishing", false
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = playerGui
+	local totalSpecies = #Catalog.Species
+	local activeZoneId, activeZoneName = "harbor", "Sundrift Harbor"
+	local currentProfile: any = nil
+	local function zoneName(id: string?): string
+		for _, zone in Catalog.Zones or {} do
+			if zone.Id == id then return zone.Name end
+		end
+		return if id == "harbor" then "Sundrift Harbor" else "Explore the islands"
+	end
+	local function zoneFound(profile: any): (number, number)
+		for _, zone in (if profile then profile.zoneProgress or {} else {}) do
+			if zone.id == activeZoneId then return zone.count, zone.total end
+		end
+		return 0, 3
+	end
+	local function nextStep(profile: any): string
+		if not profile or (profile.catches or 0) == 0 then return "CAST  >  HOLD AT THE BITE  >  RELEASE ON GOLD" end
+		if profile.catches == 1 then return "YOUR FIRST FISH IS HOME  ·  OPEN MY AQUARIUM" end
+		if (profile.combo or 0) >= 2 then return "FINE+ CHAIN  x" .. profile.combo .. "  ·  KEEP THE RHYTHM" end
+		if profile.nextUpgrade and profile.coins >= profile.nextUpgrade.cost then return "YOUR NEXT ROD IS READY  ·  VISIT THE WORKSHOP" end
+		local found, total = zoneFound(profile)
+		if found >= total then return "POND COLLECTION COMPLETE  ·  TRY ANOTHER PORTAL" end
+		return found .. "/" .. total .. " FOUND HERE  ·  " .. profile.species .. "/" .. totalSpecies .. " ACROSS THE ISLANDS"
+	end
 	-- A small location label leaves the landscape visible, with one wallet chip.
 	local location = Theme.frame(gui, "Location", UDim2.fromOffset(208, 48), UDim2.fromOffset(16, 12))
 	location.BackgroundTransparency = 0.08
-	local locationName = Theme.text(location, "CLOUD ANGLERS", UDim2.new(1, -24, 0, 21), UDim2.fromOffset(12, 5), 14, Theme.Ink, true)
-	local locationSub = Theme.text(location, "SUNDRIFT HARBOR", UDim2.new(1, -24, 0, 14), UDim2.fromOffset(12, 28), 9, Theme.Muted, true)
+	local locationName = Theme.text(location, "SUNDRIFT HARBOR", UDim2.new(1, -24, 0, 21), UDim2.fromOffset(12, 5), 14, Theme.Ink, true)
+	locationName.TextTruncate = Enum.TextTruncate.AtEnd
+	local locationSub = Theme.text(location, "3 LOCAL SPECIES TO FIND", UDim2.new(1, -24, 0, 14), UDim2.fromOffset(12, 28), 9, Theme.Muted, true)
+	locationSub.TextTruncate = Enum.TextTruncate.AtEnd
 	local coins = Theme.frame(gui, "Wallet", UDim2.fromOffset(122, 48), UDim2.new(1, -138, 0, 12))
 	Theme.surface(coins)
 	Theme.coin(coins, UDim2.fromOffset(10, 10), 28)
@@ -70,15 +96,21 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	local goalTrack = Theme.frame(goalCard, "Progress", UDim2.new(1, -28, 0, 3), UDim2.fromOffset(14, 55), Theme.Line)
 	goalTrack.ClipsDescendants = true
 	local goalFill = Theme.frame(goalTrack, "Fill", UDim2.fromScale(0, 1), UDim2.fromOffset(0, 0), Theme.Teal)
-	local journalButton = Theme.button(gui, "COLLECTION  0/6", UDim2.fromOffset(156, 48), UDim2.fromOffset(16, 150), Theme.Ink)
+	local journalButton = Theme.button(gui, "JOURNAL  0/" .. totalSpecies, UDim2.fromOffset(156, 48), UDim2.fromOffset(16, 150), Theme.Ink)
 	journalButton.TextSize = 12
+	local aquariumButton = Theme.button(gui, "MY AQUARIUM", UDim2.fromOffset(156, 48), UDim2.fromOffset(180, 150), Theme.Teal)
+	aquariumButton.TextSize = 12
+	aquariumButton.Activated:Connect(function()
+		if handlers.openAquarium then audio.ui(); handlers.openAquarium() end
+	end)
 
 	local panel = Theme.frame(gui, "CastCard", UDim2.fromOffset(360, 122), UDim2.new(0.5, 0, 1, -20))
 	panel.AnchorPoint = Vector2.new(0.5, 1)
 	Theme.surface(panel)
-	local status = centered(Theme.text(panel, "Find the lantern-lit dock to begin.", UDim2.new(1, -32, 0, 34), UDim2.fromOffset(16, 8), 12, Theme.Muted))
+	local status = centered(Theme.text(panel, "The water is right ahead. Cast your first line!", UDim2.new(1, -32, 0, 34), UDim2.fromOffset(16, 8), 12, Theme.Muted))
 	local meter = Theme.frame(panel, "TimingTrack", UDim2.new(1, -40, 0, 20), UDim2.fromOffset(20, 52), Theme.Ink)
 	meter.ClipsDescendants = true
+	local timingAreas: { [string]: Frame } = {}
 	for _, zone in {
 		{"Normal", Rules.NormalMin, Rules.NormalMax, Color3.fromRGB(151, 186, 147)},
 		{"Fine", Rules.FineMin, Rules.FineMax, Color3.fromRGB(74, 166, 151)},
@@ -88,6 +120,14 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		area.Name, area.Position = zone[1], UDim2.fromScale(zone[2], 0)
 		area.Size, area.BackgroundColor3 = UDim2.fromScale(zone[3] - zone[2], 1), zone[4]
 		area.BorderSizePixel, area.Parent = 0, meter
+		timingAreas[zone[1]] = area
+	end
+	local function setTimingWindow(center: number?, width: number?)
+		local target = math.clamp(center or (Rules.BrilliantMin + Rules.BrilliantMax) / 2, 0.38, 0.79)
+		local span = math.clamp(width or (Rules.BrilliantMax - Rules.BrilliantMin), 0.08, 0.22)
+		local fineMin, fineMax = math.max(Rules.NormalMin, target - 0.20), math.min(Rules.NormalMax, target + 0.16)
+		timingAreas.Fine.Position, timingAreas.Fine.Size = UDim2.fromScale(fineMin, 0), UDim2.fromScale(fineMax - fineMin, 1)
+		timingAreas.Brilliant.Position, timingAreas.Brilliant.Size = UDim2.fromScale(target - span / 2, 0), UDim2.fromScale(span, 1)
 	end
 	local marker = Instance.new("Frame")
 	marker.Name, marker.Size = "Needle", UDim2.new(0, 4, 1, 0)
@@ -120,7 +160,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	book.AnchorPoint, book.ClipsDescendants = Vector2.new(0.5, 0.5), true
 	Theme.surface(book)
 	local title = Theme.text(book, "The fish collection", UDim2.new(1, -84, 0, 32), UDim2.fromOffset(22, 16), 25, Theme.Ink, true)
-	local bookStats = Theme.text(book, "0 of 6 discovered", UDim2.new(1, -44, 0, 20), UDim2.fromOffset(22, 50), 12, Theme.Muted)
+	local bookStats = Theme.text(book, "0 of " .. totalSpecies .. " discovered", UDim2.new(1, -44, 0, 20), UDim2.fromOffset(22, 50), 12, Theme.Muted)
 	local close = Theme.button(book, "×", UDim2.fromOffset(44, 44), UDim2.new(1, -58, 0, 14), Theme.Soft)
 	close.TextColor3, close.TextSize = Theme.Ink, 25
 	local collectionTab = Theme.button(book, "Collection", UDim2.new(0.5, -26, 0, 44), UDim2.fromOffset(18, 80), Theme.Ink)
@@ -143,7 +183,6 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	local entries: { [string]: any } = {}
 	local selectedId = Catalog.Species[1].Id
 	local hint = Theme.text(book, "Select a fish to explore its entry.", UDim2.new(1, -44, 0, 34), UDim2.new(0, 22, 1, -40), 12, Theme.Muted)
-	local currentProfile: any = nil
 	local function selectSpecies(id: string)
 		selectedId = id
 		for fishId, entry in entries do
@@ -151,7 +190,11 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			entry.stroke.Thickness = if fishId == id then 2 else 1
 		end
 		local species = Catalog.get(id)
-		hint.Text = species.Name .. " · " .. species.Hint
+		local record = if currentProfile and currentProfile.records then currentProfile.records[id] else nil
+		local variant = if currentProfile and currentProfile.variants then currentProfile.variants[id] else nil
+		local recordText = if record then string.format("Best %.2f kg", record) else species.Hint
+		local special = if variant and variant.Prismatic then " · Prismatic found" elseif variant and variant.Golden then " · Golden found" else ""
+		hint.Text = species.Name .. " · " .. zoneName(species.Zone) .. "\n" .. recordText .. special
 	end
 	for index, species in Catalog.Species do
 		local card = Theme.button(collection, "", UDim2.fromOffset(200, 174), UDim2.fromOffset(0, 0), Theme.Soft)
@@ -162,6 +205,8 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		local fish = Fish.create(world, nil, species.Id)
 		fish:PivotTo(CFrame.Angles(0, -0.24, 0))
 		local badge = Theme.frame(card, "RarityDot", UDim2.fromOffset(7, 7), UDim2.fromOffset(12, 12), Theme.rarity(species.Rarity))
+		local habitat = Theme.text(card, string.upper(string.split(zoneName(species.Zone), " ")[1]), UDim2.new(1, -32, 0, 14), UDim2.fromOffset(24, 8), 8, Theme.Muted, true)
+		habitat.TextTruncate = Enum.TextTruncate.AtEnd
 		local name = Theme.text(card, species.Name, UDim2.new(1, -20, 0, 23), UDim2.new(0, 10, 1, -51), 14, Theme.Ink, true)
 		local best = Theme.text(card, "Undiscovered", UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 1, -27), 11, Theme.Muted)
 		entries[species.Id] = { view = view, model = fish, status = best, name = name, badge = badge, stroke = stroke, species = species }
@@ -237,23 +282,28 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	journalButton.Activated:Connect(function() openJournal("Collection") end)
 	close.Activated:Connect(function() audio.ui(); modal.Visible, panel.Visible = false, true end)
 
-	local reveal = Theme.frame(gui, "DiscoveryCard", UDim2.fromOffset(360, 370), UDim2.fromScale(0.5, 0.46))
+	local reveal = Theme.frame(gui, "DiscoveryCard", UDim2.fromOffset(360, 420), UDim2.fromScale(0.5, 0.48))
 	reveal.AnchorPoint, reveal.ZIndex, reveal.Visible = Vector2.new(0.5, 0.5), 5, false
 	Theme.surface(reveal)
 	local revealScale = Instance.new("UIScale")
 	revealScale.Parent = reveal
 	local revealTitle = centered(Theme.text(reveal, "A FRESH CATCH", UDim2.new(1, -64, 0, 22), UDim2.fromOffset(32, 18), 11, Theme.Teal, true))
-	local halo = Theme.frame(reveal, "PortraitHalo", UDim2.fromOffset(176, 176), UDim2.new(0.5, -88, 0, 53), Theme.Soft)
+	local halo = Theme.frame(reveal, "PortraitHalo", UDim2.fromOffset(160, 160), UDim2.new(0.5, -80, 0, 49), Theme.Soft)
 	Theme.round(halo, 100)
-	local view, fishWorld = viewport(reveal, "CatchPortrait", UDim2.new(1, 0, 0, 192), UDim2.fromOffset(0, 43))
+	local view, fishWorld = viewport(reveal, "CatchPortrait", UDim2.new(1, 0, 0, 176), UDim2.fromOffset(0, 39))
 	local revealFish: Model? = nil
-	local revealName = centered(Theme.text(reveal, "Pufflet", UDim2.new(1, -32, 0, 36), UDim2.fromOffset(16, 232), 28, Theme.Ink, true))
-	local revealQuality = centered(Theme.text(reveal, "Common · Normal", UDim2.new(1, -32, 0, 22), UDim2.fromOffset(16, 270), 13, Theme.Muted))
-	local earnings = Theme.frame(reveal, "Earnings", UDim2.new(1, -40, 0, 48), UDim2.fromOffset(20, 309), Theme.Soft)
-	Theme.coin(earnings, UDim2.fromOffset(14, 10), 28)
+	local revealName = centered(Theme.text(reveal, "Pufflet", UDim2.new(1, -32, 0, 36), UDim2.fromOffset(16, 213), 27, Theme.Ink, true))
+	local revealQuality = centered(Theme.text(reveal, "Common · Normal", UDim2.new(1, -32, 0, 22), UDim2.fromOffset(16, 250), 12, Theme.Muted))
+	local revealWeight = centered(Theme.text(reveal, "1.00 kg", UDim2.new(1, -32, 0, 24), UDim2.fromOffset(16, 278), 15, Theme.Teal, true))
+	local earnings = Theme.frame(reveal, "Earnings", UDim2.new(1, -40, 0, 40), UDim2.fromOffset(20, 310), Theme.Soft)
+	Theme.coin(earnings, UDim2.fromOffset(14, 7), 26)
 	local revealCoins = centered(Theme.text(earnings, "+8 coins", UDim2.new(1, -58, 1, 0), UDim2.fromOffset(46, 0), 16, Theme.Ink, true))
 	local closeReveal = Theme.button(reveal, "×", UDim2.fromOffset(44, 44), UDim2.new(1, -48, 0, 3), Theme.Panel)
 	closeReveal.TextColor3, closeReveal.TextSize = Theme.Muted, 23
+	local revealAquarium = Theme.button(reveal, "MY AQUARIUM", UDim2.fromOffset(154, 46), UDim2.fromOffset(20, 360), Theme.Soft)
+	revealAquarium.TextColor3, revealAquarium.TextSize = Theme.Ink, 11
+	local revealContinue = Theme.button(reveal, "CAST AGAIN", UDim2.fromOffset(154, 46), UDim2.fromOffset(186, 360), Theme.Teal)
+	revealContinue.TextSize = 12
 	local revealGeneration, revealBaseScale = 0, 1
 	local revealTween: Tween? = nil
 	local function hideResult()
@@ -262,9 +312,28 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		reveal.Visible, panel.Visible = false, not modal.Visible
 	end
 	closeReveal.Activated:Connect(hideResult)
+	revealContinue.Activated:Connect(function()
+		hideResult()
+		if handlers.castAgain then handlers.castAgain() end
+	end)
+	revealAquarium.Activated:Connect(function()
+		hideResult()
+		if handlers.openAquarium then audio.ui(); handlers.openAquarium() end
+	end)
 	local lastPhase = ""
 	local panelWidth = 360
 	local panelTween: Tween? = nil
+	local function updateLocation(nextLocation: any, profile: any?)
+		if type(nextLocation) == "table" then
+			if type(nextLocation.zoneId) == "string" then activeZoneId = nextLocation.zoneId end
+			if type(nextLocation.zoneName) == "string" then activeZoneName = nextLocation.zoneName else activeZoneName = zoneName(activeZoneId) end
+		end
+		local data = profile or currentProfile
+		local found, total = zoneFound(data)
+		locationName.Text = string.upper(activeZoneName)
+		locationSub.Text = found .. "/" .. total .. " LOCAL SPECIES FOUND"
+		sessionText.Text = nextStep(data)
+	end
 	local function setState(phase: string)
 		if phase == lastPhase then return end
 		lastPhase = phase
@@ -284,14 +353,14 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			coinTween:Play()
 		end
 		currentProfile = profile
-		journalButton.Text = "COLLECTION  " .. profile.species .. "/6"
-		sessionText.Text = profile.species .. "/6 DISCOVERED  ·  " .. profile.points .. " COLLECTION POINTS"
-		bookStats.Text = profile.species .. " / 6 fish found   ·   " .. profile.points .. " / 18 points"
+		journalButton.Text = "JOURNAL  " .. profile.species .. "/" .. totalSpecies
+		updateLocation(nil, profile)
+		bookStats.Text = profile.species .. " / " .. totalSpecies .. " fish found   ·   " .. profile.points .. " / " .. totalSpecies * 3 .. " collection points"
 		equipped.Text = "EQUIPPED · " .. string.upper(profile.rod)
 		incomeText.Text = if profile.persistent then "Your fish earn " .. profile.offlineRate .. " coins/min while you are away. Up to 120 coins over 8 hours. Progress saves automatically."
 			else "Offline earnings start in the published game. This Studio playtest uses temporary progress."
 		goalTitle.Text = profile.goal.title
-		goalKicker.Text = "NEXT ADVENTURE  ·  " .. profile.goal.progress .. "/" .. profile.goal.target
+		goalKicker.Text = (if (profile.catches or 0) < 3 then "FIRST STEPS" else "NEXT ADVENTURE") .. "  ·  " .. profile.goal.progress .. "/" .. profile.goal.target
 		goalReward.Text = "+" .. profile.goal.reward
 		TweenService:Create(goalFill, TweenInfo.new(0.35), { Size = UDim2.fromScale(math.clamp(profile.goal.progress / math.max(1, profile.goal.target), 0, 1), 1) }):Play()
 		for id, entry in entries do
@@ -299,9 +368,12 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			entry.view.ImageColor3 = if best then Color3.new(1, 1, 1) else Color3.fromRGB(83, 112, 108)
 			entry.view.ImageTransparency = if best then 0 else 0.45
 			entry.name.Text = if best then entry.species.Name else "???"
-			entry.status.Text = if best then entry.species.Rarity .. " · " .. ({"Normal", "Fine", "Brilliant"})[best]
-				elseif entry.species.Level > profile.level then "Rod level " .. entry.species.Level else "Waiting to be found"
+			local record = if profile.records then profile.records[id] else nil
+			entry.status.Text = if best and record then string.format("%.2f kg · %s", record, ({"Normal", "Fine", "Brilliant"})[best])
+				elseif best then entry.species.Rarity .. " · " .. ({"Normal", "Fine", "Brilliant"})[best]
+				elseif entry.species.Level > profile.level then "Needs " .. Catalog.Rods[entry.species.Level + 1].Name else zoneName(entry.species.Zone)
 		end
+		selectSpecies(selectedId)
 		local nextRod = profile.nextUpgrade
 		upgradeName.Text = if nextRod then nextRod.name else "Beautifully equipped"
 		upgradeDesc.Text = if nextRod then nextRod.description else "Your rod is fully upgraded. Find every fish and chase Brilliant catches."
@@ -316,17 +388,23 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			if generation ~= revealGeneration or modal.Visible then return end
 			if revealFish then revealFish:Destroy() end
 			revealFish = Fish.create(fishWorld, nil, result.speciesId)
-			revealTitle.Text = if result.newDiscovery then "A NEW DISCOVERY" elseif result.improved then "YOUR NEW PERSONAL BEST" else "A FRESH CATCH"
-			revealTitle.TextColor3 = Theme.rarity(result.rarity or "Common")
-			halo.BackgroundColor3 = Theme.rarity(result.rarity or "Common"):Lerp(Theme.Panel, 0.86)
-			revealName.Text, revealQuality.Text = result.species, (result.rarity or "Common") .. " · " .. result.quality
-			revealCoins.Text = "+" .. (result.coins or 0) .. " coins" .. (if (result.goalBonus or 0) > 0 then "  +" .. result.goalBonus .. " bonus" else "")
+			if Fish.applyAppearance then Fish.applyAppearance(revealFish, result.variant, nil) end
+			local variant = if result.variant and result.variant ~= "Normal" then result.variant else nil
+			local accent = if variant == "Prismatic" then Theme.Purple elseif variant == "Golden" then Theme.Gold else Theme.rarity(result.rarity or "Common")
+			revealTitle.Text = if variant then string.upper(variant) .. " CATCH" elseif result.newDiscovery then "A NEW DISCOVERY" elseif result.newRecord then "YOUR NEW SIZE RECORD" elseif result.improved then "YOUR NEW BEST GRADE" else "A FRESH CATCH"
+			revealTitle.TextColor3 = accent
+			halo.BackgroundColor3 = accent:Lerp(Theme.Panel, 0.86)
+			revealName.Text = result.species
+			revealQuality.Text = (result.rarity or "Common") .. " · " .. result.quality .. (if (result.combo or 0) >= 2 then " · x" .. result.combo .. " CHAIN" else "")
+			revealWeight.Text = string.format("%.2f kg", result.weightKg or 1) .. (if result.newRecord then "  ·  NEW RECORD" else "")
+			local bonus = result.goalBonus or 0
+			revealCoins.Text = "+" .. (result.coins or 0) .. " coins" .. (if bonus > 0 then "  +" .. bonus .. " bonus" else "")
 			panel.Visible, reveal.Visible = false, true
 			revealScale.Scale = revealBaseScale * 0.85
 			if revealTween then revealTween:Cancel() end
 			revealTween = TweenService:Create(revealScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = revealBaseScale })
 			revealTween:Play()
-			task.delay(2.8, function() if generation == revealGeneration then hideResult() end end)
+			task.delay(if result.newDiscovery or variant then 2.8 else 1.4, function() if generation == revealGeneration then hideResult() end end)
 		end)
 	end
 	local lastWidth, lastHeight = 0, 0
@@ -348,14 +426,16 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		if panelTween then panelTween:Cancel() end
 		if revealTween then revealTween:Cancel() end
 		local layout = Layout.measure(safeWidth, safeHeight)
-		location.Size = UDim2.fromOffset(math.min(208, layout.width - 218), 48)
-		locationName.Text = if layout.narrow then "ANGLERS" else "CLOUD ANGLERS"
+		location.Size = UDim2.fromOffset(math.min(208, layout.width - (if layout.compact then 218 else 162)), 48)
 		locationName.TextSize = if layout.narrow then 11 else 14
-		locationSub.Text = if layout.narrow then "SUNDRIFT" else "SUNDRIFT HARBOR"
 		locationSub.TextSize = if layout.narrow then 8 else 9
 		goalCard.Size, goalCard.Visible = UDim2.fromOffset(layout.goalWidth, 64), not layout.compact
 		journalButton.Position = UDim2.fromOffset(16, layout.journalY)
-		journalButton.Size = UDim2.fromOffset(if layout.narrow then 144 else 156, 48)
+		journalButton.Size = UDim2.fromOffset(layout.navWidth, 48)
+		journalButton.TextSize = if layout.narrow then 11 else 12
+		aquariumButton.Position, aquariumButton.Size = UDim2.fromOffset(layout.aquariumX, layout.aquariumY), UDim2.fromOffset(layout.navWidth, 48)
+		aquariumButton.TextSize = if layout.narrow then 10 else 12
+		soundButton.Position = UDim2.fromOffset(layout.soundX, layout.soundY)
 		panelWidth = layout.panelWidth
 		panel.Size = UDim2.fromOffset(panelWidth, if lastPhase == "Reeling" then 180 else 122)
 		panel.Position = UDim2.new(0.5, 0, 1, -layout.panelBottom)
@@ -392,6 +472,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	return {
 		button = button, status = status, marker = marker, legend = legend, buttonScale = buttonScale,
 		hideResult = hideResult, showResult = showResult, updateProfile = updateProfile,
+		updateLocation = updateLocation, setTimingWindow = setTimingWindow,
 		notify = notify, setState = setState, animate = animate, openJournal = openJournal,
 		closeJournal = function() modal.Visible,panel.Visible=false,true end,
 		isJournalOpen = function() return modal.Visible end,

@@ -11,7 +11,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v0.9.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v1.0.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
@@ -29,6 +29,7 @@ SOURCES = {
     "ServerScriptService/WorldTrailDetails": ("ModuleScript", "src/server/WorldTrailDetails.luau"),
     "ServerScriptService/WorldLayout": ("ModuleScript", "src/server/WorldLayout.luau"),
     "ServerScriptService/IslandTravel": ("ModuleScript", "src/server/IslandTravel.luau"),
+    "ServerScriptService/AquariumService": ("ModuleScript", "src/server/AquariumService.luau"),
     "ServerScriptService/PrototypeWorld": ("ModuleScript", "src/server/PrototypeWorld.luau"),
     "ServerScriptService/FishingLocations": ("ModuleScript", "src/server/FishingLocations.luau"),
     "ServerScriptService/FishingService": ("ModuleScript", "src/server/FishingService.luau"),
@@ -41,6 +42,7 @@ SOURCES = {
     "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
     "StarterPlayer/StarterPlayerScripts/ResidentPresentation": ("ModuleScript", "src/client/ResidentPresentation.luau"),
     "StarterPlayer/StarterPlayerScripts/IslandTravelInterface": ("ModuleScript", "src/client/IslandTravelInterface.luau"),
+    "StarterPlayer/StarterPlayerScripts/AquariumInterface": ("ModuleScript", "src/client/AquariumInterface.luau"),
     "StarterPlayer/StarterPlayerScripts/WorldScenery": ("ModuleScript", "src/client/WorldScenery.luau"),
     "StarterPlayer/StarterPlayerScripts/InterfaceLayout": ("ModuleScript", "src/client/InterfaceLayout.luau"),
     "StarterPlayer/StarterPlayerScripts/UITheme": ("ModuleScript", "src/client/UITheme.luau"),

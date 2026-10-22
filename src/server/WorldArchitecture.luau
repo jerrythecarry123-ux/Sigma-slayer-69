@@ -1,5 +1,5 @@
 --!strict
--- Original, explorable brick-built harbor. Native studs provide the surface detail;
+-- Original, explorable harbor with painted plaster, fitted slate and shaped trim;
 -- fishing piers open onto side portal bays while bridges retain their railings.
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 
@@ -21,26 +21,10 @@ local C = {
 }
 local PLASTIC = Enum.Material.Plastic
 local SMOOTH = Enum.Material.SmoothPlastic
--- Broad rectangular bricks use Roblox's native surface treatment, so studs add
--- no parts or collision edges. Glass, rods, ropes and narrow trim remain smooth.
+-- An occasional supply crate retains toy-like surface detail; broad buildings,
+-- stonework and fitted deck planks use a calmer, continuous painted finish.
 local STUDDED_BLOCKS = {
 	CrateBody = true,
-	RaisedTimberFloor = true, RearWall = true, SideWall = true, FrontWallBay = true,
-	DoorwayHeadWall = true, GablePlasterInfill = true,
-	RoofUnderlay = true, IndividualSlateShingle = true,
-	FoundationStones = true, PaintedSideWainscot = true, PaintedRearWainscot = true,
-	PorchFloor = true, BackCounter = true, CounterTop = true,
-	CafeServingCounter = true, CafeHatchCountertop = true,
-	WorkshopJournalStand = true, PorchBenchSeat = true,
-	ChimneyStack = true, ChimneyCap = true,
-	WeatheredDeckPlank = true, PostCap = true,
-	DoorwayUpperWall = true, WindowLowerWall = true, WindowUpperWall = true,
-	LimewashedTowerWall = true, TowerStoneFooting = true, MarinerBlueBand = true,
-	SpiralStairTread = true, AccessibleLookoutBalcony = true,
-	ColumnPedestal = true, ColumnCapital = true, RadialArchVoussoir = true,
-	BrokenMasonry = true, ObservatoryBench = true,
-	MarketCounter = true, CounterEdge = true, ProduceTray = true,
-	PicnicTableTop = true, PicnicBench = true,
 }
 
 local function p(parent, name, size, cf, color, material, collidable)
@@ -63,6 +47,15 @@ local function localBall(parent, cf, name, size, position, color, material)
 	return Kit.ball(parent, name, size, cf:PointToWorldSpace(position), color, {
 		material = material or SMOOTH,
 	})
+end
+
+local function canvasHem(parent, cf, width, height, color)
+	-- Two tapered halves make a little hanging cloth point in the front plane.
+	for _, side in { -1, 1 } do
+		Kit.wedge(parent, "DrapedCanvasHem", Vector3.new(0.12, height, width / 2),
+			cf * CFrame.new(side * width / 4, 0, 0) * CFrame.Angles(0, side * math.pi / 2, 0)
+				* CFrame.Angles(math.pi, 0, 0), color, { material = SMOOTH })
+	end
 end
 
 local function barrel(parent, cf, scale)
@@ -114,27 +107,45 @@ end
 local function window(parent, cf, width, height, shutters)
 	p(parent, "RecessedWindow", Vector3.new(width, height, 0.1), cf, C.Dark)
 	Kit.part(parent, "WindowGlass", Vector3.new(width - 0.3, height - 0.3, 0.11), cf * CFrame.new(0, 0, -0.08), C.Glass,
-		{ material = Enum.Material.Glass, transparency = 0.22, reflectance = 0.15 })
+		{ material = Enum.Material.Glass, transparency = 0.22, reflectance = 0.04 })
 	for _, side in { -1, 1 } do
 		p(parent, "WindowJamb", Vector3.new(0.16, height + 0.25, 0.24), cf * CFrame.new(side * width / 2, 0, -0.08), C.Cream)
-		p(parent, "WindowLintel", Vector3.new(width + 0.3, 0.16, 0.24), cf * CFrame.new(0, side * height / 2, -0.08), C.Cream)
 		if shutters then
 			p(parent, "PaintedShutter", Vector3.new(width * 0.26, height, 0.14), cf * CFrame.new(side * width * 0.7, 0, -0.02), C.Roof, PLASTIC)
 			p(parent, "ShutterHinge", Vector3.new(width * 0.26, 0.12, 0.12), cf * CFrame.new(side * width * 0.7, -height * 0.29, -0.12), C.Dark, SMOOTH)
 		end
 	end
+	-- Clipped shoulders and a raised crown soften the rectangular opening without
+	-- changing the wall or placing any geometry inside the room's walking space.
+	local shoulder = math.min(0.42, width * 0.18)
+	local arch = {
+		Vector3.new(-width / 2, height / 2 - 0.2, -0.08),
+		Vector3.new(-width / 2 + shoulder, height / 2 + 0.12, -0.08),
+		Vector3.new(width / 2 - shoulder, height / 2 + 0.12, -0.08),
+		Vector3.new(width / 2, height / 2 - 0.2, -0.08),
+	}
+	for index = 1, 3 do localBeam(parent, cf, "ShapedWindowCrown", arch[index], arch[index + 1], 0.2, C.Cream) end
+	p(parent, "WindowLintel", Vector3.new(width + 0.3, 0.16, 0.24), cf * CFrame.new(0, -height / 2, -0.08), C.Cream)
 	p(parent, "WindowMullion", Vector3.new(0.1, height, 0.2), cf * CFrame.new(0, 0, -0.15), C.Cream)
 	p(parent, "WindowTransom", Vector3.new(width, 0.1, 0.2), cf * CFrame.new(0, 0.05, -0.15), C.Cream)
 	p(parent, "DeepWindowSill", Vector3.new(width + 0.65, 0.2, 0.65), cf * CFrame.new(0, -height / 2 - 0.08, -0.2), C.Timber)
 end
 
 local function flowerBox(parent, cf, width, tint)
-	p(parent, "WindowFlowerBox", Vector3.new(width, 0.65, 0.7), cf, C.Wood, PLASTIC)
+	p(parent, "WindowFlowerBox", Vector3.new(width - 0.4, 0.65, 0.7), cf, C.Wood, SMOOTH)
+	for _, side in { -1, 1 } do
+		Kit.wedge(parent, "TaperedPlanterEnd", Vector3.new(0.7, 0.65, 0.24),
+			cf * CFrame.new(side * (width / 2 - 0.12), 0, 0) * CFrame.Angles(0, side * math.pi / 2, 0), C.Wood,
+			{ material = SMOOTH })
+	end
 	p(parent, "Soil", Vector3.new(width - 0.16, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, SMOOTH)
-	for i = 1, 4 do
-		local x = (i - 2.5) * width / 4
-		localBall(parent, cf, "TrailingLeaf", Vector3.new(0.65, 0.55, 0.65), Vector3.new(x, 0.5, -0.05), C.Moss, Enum.Material.SmoothPlastic)
-		localBall(parent, cf, "WindowBlossom", Vector3.new(0.36, 0.27, 0.36), Vector3.new(x + 0.05, 0.8, -0.12), tint, Enum.Material.SmoothPlastic)
+	for i = -1, 1 do
+		local x = i * width / 3.5
+		Kit.wedge(parent, "PointedWindowLeaf", Vector3.new(0.1, 0.45, 0.65),
+			cf * CFrame.new(x - 0.1, 0.56, -0.09) * CFrame.Angles(0, i * 0.4 + 0.25, math.rad(24)), C.Moss,
+			{ material = SMOOTH })
+		Kit.disk(parent, "WindowRosette", 0.45, 0.45, 0.1, cf:PointToWorldSpace(Vector3.new(x + 0.05, 0.75, -0.12)), tint, { material = SMOOTH })
+		Kit.disk(parent, "FlowerHeart", 0.12, 0.12, 0.08, cf:PointToWorldSpace(Vector3.new(x + 0.05, 0.83, -0.12)), C.Gold, { material = SMOOTH })
 	end
 end
 
@@ -177,7 +188,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	window(model, cf * CFrame.new(0, 5.45, rear) * CFrame.Angles(0, math.pi, 0), w * 0.37, 3.25, true)
 	p(model, "DoorLintel", Vector3.new(4.2, 0.3, 0.7), cf * CFrame.new(0, 7.15, front - 0.12), C.Timber)
 	p(model, "DoorwayHeadWall", Vector3.new(3.8, h - 7.25, 0.5), cf * CFrame.new(0, (h + 7.25) / 2, front), tint, Enum.Material.SmoothPlastic, true)
-	-- Studded blue and red brick courses follow the existing roof slope.
+	-- Fitted painted slate follows the existing roof slope.
 	local overhang, rise = 1.25, 4.3
 	local roofHalf = half + overhang
 	local pitch = math.atan2(rise, roofHalf)
@@ -202,13 +213,15 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		end
 		p(model, "EaveTimber", Vector3.new(0.24, 0.28, roofDepth + 0.3), cf * CFrame.new(side * roofHalf, h, 0), C.Timber)
 	end
-	p(model, "RidgeCap", Vector3.new(0.48, 0.35, roofDepth + 0.2), cf * CFrame.new(0, h + rise + 0.13, 0), C.Dark, SMOOTH)
-	-- Stepped brick infill stays under the roof without closing the entrance below it.
+	localBeam(model, cf, "RidgeCap", Vector3.new(0, h + rise + 0.13, -roofDepth / 2 - 0.1),
+		Vector3.new(0, h + rise + 0.13, roofDepth / 2 + 0.1), 0.48, C.Dark, SMOOTH)
+	-- Two fitted triangular panels fill each gable cleanly. The former staircase
+	-- of narrow blocks left dark notches under the sloping roof.
 	for _, z in { -d / 2 - 0.08, d / 2 + 0.08 } do
-		for i = -5, 5 do
-			local x = i * w / 11
-			local panelHeight = rise * (1 - (math.abs(x) + w / 22) / roofHalf)
-			p(model, "GablePlasterInfill", Vector3.new(w / 11 + 0.02, panelHeight, 0.18), cf * CFrame.new(x, h + panelHeight / 2, z), tint, Enum.Material.SmoothPlastic)
+		for _, side in { -1, 1 } do
+			Kit.wedge(model, "FittedPlasterGable", Vector3.new(0.18, rise, roofHalf),
+				cf * CFrame.new(side * roofHalf / 2, h + rise / 2, z) * CFrame.Angles(0, -side * math.pi / 2, 0),
+				tint, { material = SMOOTH })
 		end
 		for i = -3, 3 do
 			local x = i * half / 4
@@ -237,7 +250,12 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		p(model, "PaintedCanvasStripe", Vector3.new((w + 2) / 6, 0.03, 5.39),
 			canopyCf * CFrame.new(-(w + 2) / 2 + (stripe * 2 + 0.5) * (w + 2) / 6, 0.15, 0), roofColor, SMOOTH)
 	end
-	p(model, "PorchFascia", Vector3.new(w + 2, 0.35, 0.26), cf * CFrame.new(0, 7.1, front - 5.2), roofColor)
+	-- Alternating shallow folds give the fabric a draped hem rather than a beam.
+	for fold = 0, 3 do
+		local hemColor = if fold % 2 == 0 then roofColor else C.Cream
+		canvasHem(model, cf * CFrame.new(-(w + 2) / 2 + (fold + 0.5) * (w + 2) / 4, 7.06, front - 5.2),
+			(w + 2) / 4 - 0.035, 0.46, hemColor)
+	end
 	local label = buildingKind == "Workshop" and "THE ROD WORKSHOP" or (buildingKind == "Cafe" and "THE TIDE TABLE" or "HARBOR COTTAGE")
 	local subtitle = buildingKind == "Workshop" and "A better rod. A bigger adventure." or (buildingKind == "Cafe" and "Fresh bakes. Good company." or "A little home above the clouds")
 	local sign = p(model, "PaintedShopSign", Vector3.new(math.min(11, w - 3), 1.55, 0.22), cf * CFrame.new(0, 6.45, front - 5.28), roofColor)
@@ -250,8 +268,11 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	p(model, "CounterTop", Vector3.new(w - 3.5, 0.2, 2.1), cf * CFrame.new(0, 3.1, d / 2 - 1.25), C.Plank)
 	for i = -1, 1 do
 		local x = i * (w - 4) / 3
-		localBall(model, cf, "GlazedStoragePot", Vector3.new(0.85, 0.95, 0.85), Vector3.new(x, 5.15, d / 2 - 0.8),
-			i == 0 and C.Gold or C.Roof, SMOOTH)
+		local potColor = if i == 0 then C.Gold else C.Roof
+		Kit.disk(model, "GlazedStoragePot", 0.72, 0.72, 0.85, cf:PointToWorldSpace(Vector3.new(x, 5.15, d / 2 - 0.8)), potColor, { material = SMOOTH })
+		if i ~= 0 then
+			Kit.disk(model, "PotteryLip", 0.85, 0.85, 0.12, cf:PointToWorldSpace(Vector3.new(x, 5.58, d / 2 - 0.8)), potColor:Lerp(C.Cream, 0.2), { material = SMOOTH })
+		end
 	end
 	local rearCf = cf * CFrame.new(0, 0, rear) * CFrame.Angles(0, math.pi, 0)
 	if buildingKind == "Cafe" then
@@ -491,7 +512,7 @@ function Architecture.ruins(parent, cf)
 				cf:PointToWorldSpace(Vector3.new(x + (segment == 1 and side * 0.08 or 0), 1.9 + segment * 2.2, -1)), C.Stone:Lerp(C.Cream, segment * 0.04),
 				{ material = PLASTIC, collidable = true })
 		end
-		p(model, "ColumnCapital", Vector3.new(3, 0.55, 3), cf * CFrame.new(x, 7.55, -1), C.Stone, PLASTIC)
+		Kit.disk(model, "ColumnCapital", 3, 3, 0.55, cf:PointToWorldSpace(Vector3.new(x, 7.55, -1)), C.Stone, { material = SMOOTH })
 		localBall(model, cf, "MossOnCapital", Vector3.new(2.2, 0.15, 1.4), Vector3.new(x, 7.87, -1.4), C.Moss, Enum.Material.SmoothPlastic)
 	end
 	for i = 0, 10 do
@@ -543,7 +564,7 @@ function Architecture.props(parent, cf, kind)
 			local color = i % 2 == 0 and C.Cream or C.Roof
 			local awningCf = cf * CFrame.new(-3.5 + i, 6.7, -0.2) * CFrame.Angles(math.rad(9), 0, 0)
 			p(model, "StripedCanvasAwning", Vector3.new(0.97, 0.14, 5.2), awningCf, color, SMOOTH)
-			p(model, "ScallopedAwningValance", Vector3.new(0.97, 0.5, 0.12), cf * CFrame.new(-3.5 + i, 6.06, -2.77), color, SMOOTH)
+			canvasHem(model, cf * CFrame.new(-3.5 + i, 6.06, -2.77), 0.97, 0.5, color)
 		end
 		for _, x in { -2.3, 0, 2.3 } do
 			p(model, "ProduceTray", Vector3.new(1.9, 0.35, 2.2), cf * CFrame.new(x, 3.05, 0), C.Timber, PLASTIC)

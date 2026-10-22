@@ -143,7 +143,14 @@ for _,dock in modules.WorldLayout.Docks do
  local floor=supports:FindFirstChild(dock.Id.."ArrivalFloor")
  assert(math.abs(floor.Position.Y+floor.Size.Y/2-(dock.Spot[2]-.1))<.0001,"arrival plate surface mismatch")
 end
-travel.start(world,beforeTravel)
+local galleryTarget=CFrame.new(-72,15.3,80)
+local function galleryArrival(player)
+ if player.galleryFault=="missing" then return nil end
+ if player.galleryFault=="invalid" then return "client-forged-position" end
+ if player.galleryFault=="error" then error("plot not available") end
+ return galleryTarget*CFrame.new((player.UserId%3)*8,0,0)
+end
+travel.start(world,beforeTravel,galleryArrival)
 travel.start(world,beforeTravel)
 local remote=ReplicatedStorage:FindFirstChild("FishingTravelRemotes"):FindFirstChild("Travel")
 local harbor=stations:FindFirstChild("harbor")
@@ -332,6 +339,87 @@ check("removed world during stream wait prevents arrival",function()
  prompt.Triggered:Fire(p); remote.OnServerEvent:Fire(p,"summit")
  world.Parent=nil; finishPending(); world.Parent=workspace
  assert(status(p)=="Rejected" and (r.Position-original).Magnitude==0)
+end)
+check("gallery shortcut needs no portal menu and uses only the owned server landing",function()
+ local p,_,r=makePlayer(harbor,true)
+ r.CFrame=CFrame.new(700,90,700); local original=r.Position
+ remote.OnServerEvent:Fire(p,"gallery")
+ assert(status(p)=="Loading" and p:GetAttribute("IslandTravelBusy")==true and #pending==1)
+ assert((r.Position-original).Magnitude==0,"gallery moved before streaming finished")
+ local target=galleryArrival(p)
+ assert((p.streamRequest-target.Position).Magnitude<.0001,"client replaced the owned plot target")
+ finishPending()
+ assert(status(p)=="Arrived" and p:GetAttribute("IslandTravelBusy")==false)
+ assert((r.Position-target.Position).Magnitude<.0001,"gallery pivot offset corrupted landing")
+ assert(r.AssemblyLinearVelocity.Magnitude==0 and r.AssemblyAngularVelocity.Magnitude==0)
+end)
+check("gallery pending blocks competing gallery and normal-portal requests",function()
+ local p=makePlayer(harbor)
+ prompt.Triggered:Fire(p)
+ remote.OnServerEvent:Fire(p,"gallery")
+ local before=callbackCount
+ clock+=.2; remote.OnServerEvent:Fire(p,"gallery")
+ clock+=.2; remote.OnServerEvent:Fire(p,"forest")
+ assert(#pending==1 and callbackCount==before,"concurrent request replaced gallery work")
+ finishPending()
+ assert(status(p)=="Arrived" and p:GetAttribute("IslandTravelBusy")==false)
+ clock+=.2; remote.OnServerEvent:Fire(p,"gallery")
+ assert(status(p)=="Rejected" and #pending==0,"gallery shortcut bypassed its cooldown")
+end)
+check("normal portal streaming blocks a competing gallery shortcut",function()
+ local p=makePlayer(harbor)
+ prompt.Triggered:Fire(p); remote.OnServerEvent:Fire(p,"forest")
+ local before=callbackCount
+ clock+=.2; remote.OnServerEvent:Fire(p,"gallery")
+ assert(#pending==1 and callbackCount==before,"gallery bypassed normal pending travel")
+ finishPending(); assert(status(p)=="Arrived")
+end)
+check("missing invalid or throwing gallery callbacks never start streaming",function()
+ for _,fault in {"missing","invalid","error"} do
+  local p,_,r=makePlayer(harbor); p.galleryFault=fault; local original=r.Position
+  remote.OnServerEvent:Fire(p,"gallery")
+  assert(status(p)=="Rejected" and not p.streamRequest and not p:GetAttribute("IslandTravelBusy"))
+  assert((r.Position-original).Magnitude==0)
+ end
+end)
+check("gallery respects server readiness and living unanchored characters",function()
+ local p=makePlayer(harbor); p.rejectTravel=true
+ remote.OnServerEvent:Fire(p,"gallery")
+ assert(status(p)=="Rejected" and not p.streamRequest and p:GetAttribute("IslandTravelBusy")==false)
+ for _,invalid in {"dead","anchored"} do
+  local q,_,r,h=makePlayer(harbor)
+  if invalid=="dead" then h.Health=0 else r.Anchored=true end
+  remote.OnServerEvent:Fire(q,"gallery")
+  assert(status(q)=="Rejected" and not q.streamRequest)
+ end
+end)
+check("gallery stream errors keep the player in place and release controls",function()
+ local p,_,r=makePlayer(harbor); p.streamError=true; local original=r.Position
+ remote.OnServerEvent:Fire(p,"gallery")
+ assert(status(p)=="Rejected" and not p:GetAttribute("IslandTravelBusy") and (r.Position-original).Magnitude==0)
+end)
+check("gallery rechecks death replacement movement departure and world after yielding",function()
+ for _,change in {"dead","replacement","move","leave","world"} do
+  local p,_,r,h=makePlayer(harbor); local original=r.Position
+  remote.OnServerEvent:Fire(p,"gallery"); assert(#pending==1)
+  if change=="dead" then h.Health=0
+  elseif change=="replacement" then local _,character=makePlayer(harbor);p.Character=character
+  elseif change=="move" then r.CFrame=CFrame.new(900,100,900);original=r.Position
+  elseif change=="leave" then players.PlayerRemoving:Fire(p);p.Parent=nil
+  elseif change=="world" then world.Parent=nil end
+  finishPending();world.Parent=workspace
+  assert((r.Position-original).Magnitude==0,change.." allowed a stale gallery move")
+  if p.Parent==players then assert(status(p)=="Rejected" and p:GetAttribute("IslandTravelBusy")==false) end
+ end
+end)
+check("departed gallery players cannot leave cooldown or pending state for reused IDs",function()
+ local p=makePlayer(harbor)
+ remote.OnServerEvent:Fire(p,"gallery")
+ players.PlayerRemoving:Fire(p);p.Parent=nil;finishPending()
+ local replacement=makePlayer(harbor);replacement.UserId=p.UserId
+ remote.OnServerEvent:Fire(replacement,"gallery")
+ assert(status(replacement)=="Loading" and #pending==1,"departed gallery ticket survived removal")
+ finishPending();assert(status(replacement)=="Arrived")
 end)
 print("Production travel adapter:",checks,"scenario checks;",partCount,"parts; authorization, five destinations, streaming failures and character races passed")
 print("These are event/geometry-double checks. Roblox replication, native prompt behavior and landing physics still require Studio.")

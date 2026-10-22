@@ -16,6 +16,17 @@ EXPORT = r'''
 local world=modules.PrototypeWorld
 local spot=world.create()
 modules.IslandTravel.create(workspace:FindFirstChild("MolnfiskarnaPrototype"))
+local gallery=modules.AquariumService.start(workspace:FindFirstChild("MolnfiskarnaPrototype"),{profile=function() return nil end})
+-- Explicit offline preview players never appear in the published experience.
+for index=1,previewPlayerCount do
+ local player=Instance.new("Player")
+ player.UserId,player.DisplayName,player.Parent=index,"Preview Angler "..index,previewPlayers
+ local ids=if index%2==0 then {"mossback","moonray","bubblesquid"} else {"ribbonkoi","crownwhale","sunskipper"}
+ local best,records,variants={},{},{}
+ for _,id in ids do best[id]=3; records[id]=modules.FishCatalog.get(id).WeightMax; variants[id]={Golden=true} end
+ local style=modules.FishCatalog.AquariumStyles[(index-1)%#modules.FishCatalog.AquariumStyles+1].Id
+ gallery.update(player,{display=ids,best=best,records=records,variants=variants,equippedStyle=style})
+end
 local parts={}
 local collisions=0
 local function vec(v) return {v.X,v.Y,v.Z} end
@@ -64,8 +75,15 @@ print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,ambie
 '''
 
 
-def capture(luau: str) -> dict:
+def capture(luau: str, gallery_players: int = 0) -> dict:
     program = (ROOT / 'tools/preview_roblox.luau').read_text()
+    program += '''
+local previewPlayers=Instance.new("Players")
+previewPlayers.GetPlayers=function() return {} end
+local originalGetService=game.GetService
+game.GetService=function(self,name) return if name=="Players" then previewPlayers else originalGetService(self,name) end
+'''
+    program += f'\nlocal previewPlayerCount={gallery_players}\n'
     for name, source in [('FishCatalog', 'src/shared/FishCatalog.luau'),
                          ('FishModel', 'src/shared/FishModel.luau'),
                          ('WorldPrimitives', 'src/server/WorldPrimitives.luau'),
@@ -79,6 +97,7 @@ def capture(luau: str) -> dict:
                          ('WorldPondBackdrops', 'src/server/WorldPondBackdrops.luau'),
                          ('WorldDockDetails', 'src/server/WorldDockDetails.luau'),
                          ('WorldTrailDetails', 'src/server/WorldTrailDetails.luau'),
+                         ('AquariumService', 'src/server/AquariumService.luau'),
                          ('PrototypeWorld', 'src/server/PrototypeWorld.luau')]:
         program += '\nmodules.' + name + ' = (function()\n' + (ROOT / source).read_text() + '\nend)()\n'
         program += f'local token_{name}=Instance.new("ModuleScript"); token_{name}.Name="{name}"; token_{name}.Parent=shared\n'
@@ -96,7 +115,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--luau', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--gallery-players', type=int, choices=range(0, 13), default=0,
+                        help='Add explicitly named offline preview anglers for gallery art inspection')
     args = parser.parse_args()
-    scene = capture(args.luau)
+    scene = capture(args.luau, args.gallery_players)
     args.output.write_text(json.dumps(scene))
     print(f"Captured {len(scene['parts'])} source parts including invisible colliders; {scene['collisions']} collidable. This is geometry inspection, not a Roblox runtime test.")

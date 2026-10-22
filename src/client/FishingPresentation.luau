@@ -59,7 +59,7 @@ function Presentation.new(audio: any)
 			local bubble = visualPart(folder, "CatchSpark", Vector3.new(size, size, size), CFrame.new(position),
 				if golden then Color3.fromRGB(255, 218, 120) else Color3.fromRGB(182, 239, 250))
 			bubble.Shape = Enum.PartType.Ball
-			bubble.Material = Enum.Material.Neon
+			bubble.Material = Enum.Material.SmoothPlastic
 			TweenService:Create(bubble, TweenInfo.new(0.65, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Position = position + Vector3.new(random:NextNumber(-2, 2), random:NextNumber(1, 4), random:NextNumber(-2, 2)),
 				Transparency = 1,
@@ -104,10 +104,12 @@ function Presentation.new(audio: any)
 			rig.Name = "FishingRod_" .. actor.player.UserId
 			local origin = visualPart(rig, "Grip", Vector3.new(0.28, 0.8, 0.28), CFrame.identity, Color3.fromRGB(101, 76, 66))
 			rig.PrimaryPart = origin
-			local shaft = visualPart(rig, "Rod", Vector3.new(0.12, 3.5, 0.12), CFrame.new(0, 2, 0), Color3.fromRGB(78, 174, 188))
+			visualPart(rig, "Rod", Vector3.new(0.13, 1.55, 0.13), CFrame.new(0, 1.15, 0), Color3.fromRGB(78, 174, 188))
+			visualPart(rig, "RodMiddle", Vector3.new(0.105, 1.2, 0.105), CFrame.new(0, 2.525, 0), Color3.fromRGB(78, 174, 188))
+			local shaft = visualPart(rig, "RodTip", Vector3.new(0.075, 0.55, 0.075), CFrame.new(0, 3.4, 0), Color3.fromRGB(78, 174, 188))
 			visualPart(rig, "Reel", Vector3.new(0.45, 0.45, 0.32), CFrame.new(0, 0.35, -0.25), Color3.fromRGB(243, 196, 107))
 			local tip = Instance.new("Attachment")
-			tip.Position = Vector3.new(0, 1.75, 0)
+			tip.Position = Vector3.new(0, 0.275, 0)
 			tip.Parent = shaft
 			rig.Parent = folder
 			actor.rig, actor.tip = rig, tip
@@ -124,7 +126,7 @@ function Presentation.new(audio: any)
 		local bobber = visualPart(folder, "Bobber_" .. actor.player.UserId, Vector3.new(0.65, 0.65, 0.65),
 			CFrame.new(actor.castFrom or Vector3.zero), Color3.fromRGB(255, 129, 111))
 		bobber.Shape = Enum.PartType.Ball
-		bobber.Material = Enum.Material.Neon
+		bobber.Material = Enum.Material.SmoothPlastic
 		local anchor = Instance.new("Attachment")
 		anchor.Parent = bobber
 		local beam = Instance.new("Beam")
@@ -175,6 +177,7 @@ function Presentation.new(audio: any)
 		actor.lastCatches = incoming.catches
 		if changed and incoming.phase == "Waiting" then
 			actor.landed, actor.bite = false, false
+			if actor.caughtFish then actor.caughtFish:Destroy(); actor.caughtFish = nil end
 			actor.castFrom = if hand then hand.Position + Vector3.new(0, 2, 0) else incoming.castTarget
 			if actor.bobber then actor.bobber:Destroy() end
 			actor.bobber, actor.line = nil, nil
@@ -186,9 +189,10 @@ function Presentation.new(audio: any)
 			if freshCatch and position then
 				if actor.caughtFish then actor.caughtFish:Destroy() end
 				actor.caughtFish = Fish.create(folder, "CaughtFish", incoming.result.speciesId)
+				Fish.applyAppearance(actor.caughtFish, incoming.result.variant, incoming.result.weightKg)
 				actor.catchAt = workspace:GetServerTimeNow()
 				actor.catchFrom = position
-				burst(position, true)
+				burst(position, incoming.result.quality == "Brilliant" or incoming.result.variant == "Golden")
 				ripple(position)
 			elseif changed and previous.phase == "Reeling" and position then
 				burst(position, false)
@@ -208,7 +212,7 @@ function Presentation.new(audio: any)
 	RunService.PreSimulation:Connect(function(deltaTime)
 		-- Animator writes Transform before PreSimulation. This pass supplies the fishing pose.
 		for _, actor in actors do
-			local active = actor.state.phase == "Waiting" or actor.state.phase == "Reeling"
+			local active = actor.state.phase == "Waiting" or actor.state.phase == "Reeling" or actor.caughtFish ~= nil
 			local previousWeight = actor.poseWeight
 			local target = if active then 1 else 0
 			actor.poseWeight += (target - actor.poseWeight) * (1 - math.exp(-deltaTime * 14))
@@ -229,8 +233,15 @@ function Presentation.new(audio: any)
 
 	RunService.RenderStepped:Connect(function()
 		local time = workspace:GetServerTimeNow()
+		local camera = workspace.CurrentCamera
 		for _, player in Players:GetPlayers() do getActor(player) end
 		for _, actor in actors do
+			local character = actor.player.Character
+			local candidateRoot = if character then character:FindFirstChild("HumanoidRootPart") else nil
+			if camera and candidateRoot and candidateRoot:IsA("BasePart") and (candidateRoot.Position - camera.CFrame.Position).Magnitude > 180 then
+				if actor.rig then clearRig(actor) end
+				continue
+			end
 			local hand = ensureRig(actor)
 			local root = if actor.character then actor.character:FindFirstChild("HumanoidRootPart") else nil
 			if not hand or not root or not root:IsA("BasePart") or not actor.rig then continue end
@@ -249,11 +260,20 @@ function Presentation.new(audio: any)
 			actor.pitch = pitch
 			local direction = forward * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 			actor.rig:PivotTo(CFrame.lookAt(hand.Position, hand.Position + direction) * CFrame.Angles(-math.pi / 2, 0, 0))
-			local shaft = actor.rig:FindFirstChild("Rod")
-			if shaft and shaft:IsA("BasePart") then
-				local level = packet.rodLevel or 0
-				shaft.Color = if level >= 3 then Color3.fromRGB(255, 211, 108)
-					elseif level >= 2 then Color3.fromRGB(187, 155, 243) else Color3.fromRGB(78, 174, 188)
+			local level = packet.rodLevel or 0
+			local rodColor = if level >= 3 then Color3.fromRGB(222, 181, 87)
+				elseif level >= 2 then Color3.fromRGB(166, 136, 211) else Color3.fromRGB(68, 154, 167)
+			local tension = if packet.phase == "Reeling" then math.clamp((time - (packet.chargeAt or time)) / (packet.duration or 1), 0, 1) else 0
+			local bend = if packet.phase == "Reeling" then 0.07 + tension * 0.22 + math.sin(time * 17) * 0.025 else 0.015
+			local rodPivot = actor.rig:GetPivot()
+			local middleFrame = rodPivot * CFrame.new(0, 1.925, 0) * CFrame.Angles(-bend, 0, 0) * CFrame.new(0, 0.6, 0)
+			for _, partName in { "Rod", "RodMiddle", "RodTip" } do
+				local shaft = actor.rig:FindFirstChild(partName)
+				if shaft and shaft:IsA("BasePart") then
+					shaft.Color = rodColor
+					if partName == "RodMiddle" then shaft.CFrame = middleFrame
+					elseif partName == "RodTip" then shaft.CFrame = middleFrame * CFrame.new(0, 0.6, 0) * CFrame.Angles(-bend * 0.5, 0, 0) * CFrame.new(0, 0.275, 0) end
+				end
 			end
 			if active then
 				createBobber(actor)
@@ -262,8 +282,10 @@ function Presentation.new(audio: any)
 					local from = actor.castFrom or hand.Position
 					local arc = from:Lerp(target, castT) + Vector3.new(0, math.sin(castT * math.pi) * 5, 0)
 					if castT >= 1 then
-						local bob = math.sin(time * (if packet.phase == "Reeling" then 22 else 3)) * 0.16
-						arc = target + Vector3.new(0, bob - (if actor.bite then 0.25 else 0), 0)
+						local bob = math.sin(time * (if packet.phase == "Reeling" then 22 else 3)) * 0.12
+						local nibble = if not actor.bite and time > (packet.readyAt or math.huge) - 0.2 then math.sin(time * 30) * 0.11 else 0
+						local tug = if packet.phase == "Reeling" then math.sin(time * 9) * 0.16 else 0
+						arc = target + Vector3.new(forward.Z * tug, bob + nibble - (if actor.bite then 0.25 else 0), -forward.X * tug)
 						if not actor.landed then
 							actor.landed = true
 							ripple(target)
@@ -276,13 +298,14 @@ function Presentation.new(audio: any)
 				end
 			end
 			if actor.caughtFish then
-				local t = math.clamp((time - actor.catchAt) / 1.2, 0, 1)
-				local destination = root.Position + Vector3.new(0, 3, 0)
-				local position = actor.catchFrom:Lerp(destination, t) + Vector3.new(0, math.sin(t * math.pi) * 7, 0)
-				actor.caughtFish:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * math.pi * 4, math.sin(t * 8) * 0.25))
+				local elapsed = time - actor.catchAt
+				local t = math.clamp(elapsed / 0.95, 0, 1)
+				local destination = root.Position + Vector3.new(0, 3.5, 0) + root.CFrame.LookVector * 1.6
+				local position = actor.catchFrom:Lerp(destination, t) + Vector3.new(0, math.sin(t * math.pi) * 6.2, 0)
+				actor.caughtFish:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * math.pi * 2, math.sin(t * 8) * 0.18))
 				Fish.animate(actor.caughtFish, time)
-				if t >= 1 then
-					burst(destination, true)
+				if elapsed >= 1.3 then
+					burst(destination, packet.result ~= nil and (packet.result.quality == "Brilliant" or packet.result.variant == "Golden"))
 					actor.caughtFish:Destroy()
 					actor.caughtFish = nil
 				end

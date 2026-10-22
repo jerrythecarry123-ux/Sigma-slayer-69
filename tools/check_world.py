@@ -197,6 +197,8 @@ def validate(scene):
                 arrival_samples += 1
 
     shade_names={'LeafShoulder','EvergreenBough','PalmLeaf','StratifiedCliff','RoofUnderlay',
+                 'FacetedLeafCrown','TaperedPalmFrond','TaperedPalmTip',
+                 'TaperedShoreButtress','UpperShoreRockFacet','UnevenMossLedge',
                  'BrickLeafShelf','BrickNeedleShelf','BrickPalmFrond','StoneBrickBase','StoneBrickCrown',
                  'LowerPondCliffBrick','UpperPondCliffBrick'}
     for p in parts:

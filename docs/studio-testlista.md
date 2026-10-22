@@ -309,3 +309,41 @@ Roblox-rendering, verkliga touchkontroller, streaming eller fysik.
 - [ ] Fiske avbryts vid resa utan extra belöning eller kvarvarande flöte/ljudloop.
 - [ ] Sparade mynt, arter, spön och offlineinkomst fungerar som tidigare.
 - [ ] Mät verklig FPS, minne och laddtid på dator, telefon och iPad.
+
+
+## v1.0 — samlarspelet och formgivningen, ännu okört i Roblox
+
+Produktionskod och rena regler kontrolleras i molnmiljön; verklig rendering,
+ljuduppspelning, streaming, fysik och enhetsprestanda måste kontrolleras här.
+
+- [ ] Öppna Cloud-Anglers-v1.0.rbxlx och tryck Play; inga återkommande Output-fel.
+- [ ] Första kastet fungerar med touch, E och RT. Håll vid napp och släpp i färgzonen.
+- [ ] Guldzonen flyttar sig mellan kast; visad kvalitet matchar resultatet.
+- [ ] Första tre fångsterna ger olika startarter och fyller akvariet automatiskt.
+- [ ] HUD visar begripligt nästa mål: fånga, uppgradera spö, upptäck nästa damm.
+- [ ] Fem öar har tre egna arter var. Varje ö ger fisk med startspöt.
+- [ ] Spöuppgraderingar öppnar angivna arter; Crownwhale kräver Aurora Rod.
+- [ ] Fångstkort visar rätt vikt, utseende, rekord och mynt utan dubbel kedjebonus.
+- [ ] Cast Again återgår snabbt till fisket; journal/akvarium stoppar väntande fångstkort.
+- [ ] Journalen visar 15 arter, habitat, spökrav, fångstgrad och viktutveckling.
+- [ ] MY AQUARIUM visar tre platser. Bara ägda arter kan väljas; inga dubbletter.
+- [ ] Teman kostar rätt antal spelmynt. Redan köpta teman kostar inget vid nytt byte.
+- [ ] VISIT MY TANK använder mörk övergång och landar framför ditt eget akvarium.
+- [ ] Två eller fler klienter ser olika ägares tankar och rätt arter/teman/namn.
+- [ ] En spelare lämnar och en annan återanvänder tom plats utan kvarvarande fiskar.
+- [ ] Tio spelare kan få egna platser; nya rader har golv och fri gångväg.
+- [ ] Alla arter, särskilt Moonray/Crownwhale, ryms vid glaset under simanimationen.
+- [ ] Strömma ut/in galleriet; fiskar återupptar rörelse utan dubbla animationer.
+- [ ] Träd har sammanhängande spetsiga kronor; tallarnas stammar sticker inte upp ur toppen.
+- [ ] Palmlöv, stenar, blommor, trädgårdshäckar och sjöväggar känns formade, inte staplade klossar.
+- [ ] Öarnas undersidor smalnar av; gångytorna ovanpå är fortsatt fria och säkra.
+- [ ] Granska husens gavlar, fönster, markiser och planteringar på nära håll.
+- [ ] Fiskars fenor, stjärtar, ögon och gälmarkeringar syns i porträtt och i världen.
+- [ ] Ljuset är fortsatt dämpat och skuggorna läsbara på låg/medel/hög grafik.
+- [ ] Inga nya ljud har tillkommit; befintlig ljudknapp och mix fungerar.
+- [ ] Avbryt resor/kast med död, respawn och tappat fokus; kontroller återkommer.
+- [ ] Öppna en äldre testprofil: mynt, spön, arter och mål återställs utan nollning.
+- [ ] Nya akvarieval, teman, rekord och utseenden finns kvar efter återinträde.
+- [ ] Testa offlinegåvan i publicerad privat testversion med riktiga Roblox-klienten.
+- [ ] Kontrollera UI i 320 px porträtt, kort landskap, iPad och dator.
+- [ ] Mät faktisk FPS/minne och inläsning på riktig telefon/iPad före publik release.

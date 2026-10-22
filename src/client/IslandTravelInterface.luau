@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Rules = require(ReplicatedStorage:WaitForChild("FishingShared"):WaitForChild("IslandTravelRules"))
 local Interface = {}
 local started = false
+local visitGallery: (() -> boolean)? = nil
 local BLUE = Color3.fromRGB(55, 137, 203)
 local PALE = Color3.fromRGB(214, 230, 232)
 local CREAM = Color3.fromRGB(229, 229, 210)
@@ -101,6 +102,7 @@ local function mount(event: RemoteEvent)
 	local rows: { { id: string, button: TextButton, badge: TextLabel } } = {}
 	local source, waiting, terminal = "", false, false
 	local phase, destinationName = "closed", ""
+	local galleryJourney = false
 	local generation = 0
 	local oldSelection: GuiObject? = nil
 	local coverTween: Tween? = nil
@@ -134,7 +136,7 @@ local function mount(event: RemoteEvent)
 		end
 	end
 	local function updateVisibility()
-		shade.Visible = phase == "menu" or phase == "rejected" or phase == "covering"
+		shade.Visible = phase == "menu" or phase == "rejected" or (phase == "covering" and not galleryJourney)
 		gui.Enabled = phase ~= "closed" or arrival.Visible
 		player:SetAttribute("IslandTravelMenuOpen", phase ~= "closed")
 	end
@@ -179,6 +181,38 @@ local function mount(event: RemoteEvent)
 		end
 	end
 	local reject: (string) -> ()
+	local function beginJourney(destinationId: string, name: string)
+		generation += 1
+		local token = generation
+		galleryJourney = destinationId == "gallery"
+		phase, waiting, destinationName = "covering", true, name
+		arrival.Visible = false
+		status.Text, status.TextColor3 = "Opening your gateway...", BLUE
+		curtain.Visible, curtain.BackgroundTransparency = true, 1
+		journey.Visible, destinationLabel.Visible = false, false
+		lockMovement(true)
+		refreshButtons()
+		updateVisibility()
+		fadeCover(0, 0.16, token, function()
+			phase = "pending"
+			journey.Text, journey.Visible = "CROSSING TO", true
+			destinationLabel.Text, destinationLabel.Visible = destinationName, true
+			updateVisibility()
+			local ok = pcall(function() event:FireServer(destinationId) end)
+			if not ok then reject("Your travel could not connect. Close this menu and try again."); return end
+			task.delay(8, function()
+				if generation == token and phase == "pending" then
+					reject("Travel took too long. Close this menu and try again.")
+				end
+			end)
+		end)
+	end
+	visitGallery = function(): boolean
+		if phase ~= "closed" then return false end
+		oldSelection = GuiService.SelectedObject
+		beginJourney("gallery", "Aquarium Gallery")
+		return true
+	end
 	for index, destination in Rules.Destinations do
 		local button = Instance.new("TextButton")
 		button.Name, button.Text, button.LayoutOrder = destination.Id, "", index
@@ -195,27 +229,7 @@ local function mount(event: RemoteEvent)
 		table.insert(rows, { id = destination.Id, button = button, badge = badge })
 		button.Activated:Connect(function()
 			if phase ~= "menu" or waiting or terminal or destination.Id == source then return end
-			generation += 1
-			local token = generation
-			phase, waiting, destinationName = "covering", true, destination.Name
-			status.Text, status.TextColor3 = "Opening your gateway...", BLUE
-			curtain.Visible, curtain.BackgroundTransparency = true, 1
-			journey.Visible, destinationLabel.Visible = false, false
-			refreshButtons()
-			updateVisibility()
-			fadeCover(0, 0.16, token, function()
-				phase = "pending"
-				journey.Text, journey.Visible = "CROSSING TO", true
-				destinationLabel.Text, destinationLabel.Visible = destinationName, true
-				updateVisibility()
-				local ok = pcall(function() event:FireServer(destination.Id) end)
-				if not ok then reject("Your portal could not connect. Close this menu and try again."); return end
-				task.delay(8, function()
-					if generation == token and phase == "pending" then
-						reject("The portal took too long. Close this menu and step into it again.")
-					end
-				end)
-			end)
+			beginJourney(destination.Id, destination.Name)
 		end)
 	end
 	local function resize()
@@ -262,6 +276,7 @@ local function mount(event: RemoteEvent)
 			generation += 1
 			cancelTween()
 			source, waiting, terminal, phase = argument, false, false, "menu"
+			galleryJourney = false
 			curtain.Visible, arrival.Visible = false, false
 			status.Text, status.TextColor3 = "No coins, tickets or unlocks needed.", MUTED
 			list.CanvasPosition = Vector2.zero
@@ -286,6 +301,7 @@ local function mount(event: RemoteEvent)
 			fadeCover(1, 0.2, token, function()
 				curtain.Visible, phase = false, "closed"
 				arrivalName.Text, arrival.Visible = destinationName, true
+				ready.Text = if galleryJourney then "YOUR COLLECTION ON DISPLAY" else "READY TO FISH"
 				lockMovement(false)
 				restoreSelection()
 				updateVisibility()
@@ -315,6 +331,10 @@ function Interface.start()
 		local event = remotes:WaitForChild("Travel", 5)
 		if event and event:IsA("RemoteEvent") then mount(event) end
 	end)
+end
+
+function Interface.visitGallery(): boolean
+	return if visitGallery then visitGallery() else false
 end
 
 return Interface

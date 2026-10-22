@@ -4,9 +4,10 @@ type Config = {
 	read PreparationTime: number, read BiteTimeout: number, read ChargeLeadTime: number,
 	read ChargeDuration: number, read StartCooldown: number, read RequestCapacity: number,
 	read RequestsPerSecond: number, read SpeciesName: string,
+	read DynamicTiming: boolean?,
 }
 type Attempt = {
-	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?,
+	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?, zoneId: string?, timingCenter: number?,
 }
 type Session = {
 	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
@@ -18,14 +19,14 @@ local Engine = {}
 Engine.__index = Engine
 type EngineData = {
 	config: Config,
-	rules: { read qualityAt: (number) -> string? },
+	rules: { read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)? },
 	sessions: { [number]: Session },
 	sequence: number,
 	progression: any?,
 }
 export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
 
-function Engine.new(config: Config, rules: { read qualityAt: (number) -> string? }, progression: any?): FishingEngine
+function Engine.new(config: Config, rules: { read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)? }, progression: any?): FishingEngine
 	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0, progression = progression }, Engine)
 end
 
@@ -61,12 +62,15 @@ function Engine.snapshot(self: FishingEngine, userId: number): Packet?
 		packet.expiresAt = attempt.expiresAt
 		packet.chargeAt = attempt.chargeAt
 		packet.duration = self.config.ChargeDuration
+		packet.timingCenter = attempt.timingCenter
 	end
 	return packet
 end
 
 function Engine.finish(self: FishingEngine, userId: number, now: number, message: string): Packet
 	local session = self.sessions[userId]
+	local miss = if self.progression then self.progression.miss else nil
+	if session.profile and type(miss) == "function" then miss(session.profile) end
 	session.attempt = nil
 	session.nextStart = now + self.config.StartCooldown
 	local packet = self:snapshot(userId) :: Packet
@@ -94,7 +98,7 @@ function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: 
 end
 
 function Engine.command(
-	self: FishingEngine, userId: number, action: any, attemptId: any, now: number, canFish: boolean
+	self: FishingEngine, userId: number, action: any, attemptId: any, now: number, canFish: boolean, zoneId: string?
 ): Packet?
 	local session = self.sessions[userId]
 	if not session then return nil end
@@ -108,6 +112,18 @@ function Engine.command(
 	if action == "Sync" then return self:snapshot(userId) end
 	local aborted = self:tick(userId, now, canFish)
 	if aborted then return aborted end
+	if (action == "Display" or action == "Style") and self.progression and session.profile then
+		local packet = self:snapshot(userId) :: Packet
+		if session.attempt then packet.message = "Finish your cast before changing your aquarium."; return packet end
+		local result
+		if action == "Display" and type(attemptId) == "table" then
+			result = self.progression.display(session.profile, attemptId.id, attemptId.slot)
+		elseif action == "Style" then result = self.progression.style(session.profile, attemptId) end
+		if not result then return nil end
+		packet = self:snapshot(userId) :: Packet
+		packet.purchase, packet.message = result, result.message
+		return packet
+	end
 	if action == "Upgrade" and self.progression and session.profile then
 		local packet = self:snapshot(userId) :: Packet
 		if session.attempt then
@@ -136,6 +152,8 @@ function Engine.command(
 		session.attempt = {
 			id = self.sequence, phase = "Waiting", readyAt = readyAt,
 			expiresAt = readyAt + self.config.BiteTimeout,
+			zoneId = zoneId,
+			timingCenter = if self.config.DynamicTiming and self.rules.centerFor then self.rules.centerFor(self.sequence) else nil,
 		}
 		return self:snapshot(userId)
 	end
@@ -153,12 +171,15 @@ function Engine.command(
 	elseif action == "Release" and attempt.phase == "Reeling" then
 		-- No client-supplied quality, timestamp, species or reward is trusted.
 		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
-		local quality = self.rules.qualityAt(progress)
+		local quality = self.rules.qualityAt(progress, attempt.timingCenter)
 		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
 		session.catches += 1
-		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality)
+		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality, attempt.zoneId)
 			else { species = self.config.SpeciesName, quality = quality }
-		local packet = self:finish(userId, now, "You caught a " .. self.config.SpeciesName .. "!")
+		-- A successful catch ends its attempt without resetting the quality chain.
+		session.attempt = nil
+		session.nextStart = now + self.config.StartCooldown
+		local packet = self:snapshot(userId) :: Packet
 		packet.message = "You caught a " .. reward.species .. "!"
 		packet.result = reward
 		return packet

@@ -10,6 +10,8 @@ local Rules = require(Shared:WaitForChild("FishingRules"))
 local audio = require(script.Parent:WaitForChild("FishingAudio")).new()
 local presentation = require(script.Parent:WaitForChild("FishingPresentation")).new(audio)
 local Interface = require(script.Parent:WaitForChild("FishingInterface"))
+local AquariumInterface = require(script.Parent:WaitForChild("AquariumInterface"))
+local TravelInterface = require(script.Parent:WaitForChild("IslandTravelInterface"))
 local remotes = ReplicatedStorage:WaitForChild("FishingRemotes")
 local action = remotes:WaitForChild("FishingAction") :: RemoteEvent
 local state = remotes:WaitForChild("FishingState") :: RemoteEvent
@@ -17,13 +19,14 @@ local visual = remotes:WaitForChild("FishingVisual") :: RemoteEvent
 local player = Players.LocalPlayer
 local packet: any = { phase = "Connecting", catches = 0, nextStart = 0 }
 local ui: any = nil
+local aquariumUI: any = nil
 local pendingSince: number? = nil
 local heldInput: InputObject? = nil
 local heldConnection: RBXScriptConnection? = nil
 local releasedBeforeAck = false
 local visiblePrompts: {[ProximityPrompt]: boolean} = {}
 local message = "The pond is right ahead. Cast your first line!"
-local keyHint = if UserInputService.TouchEnabled then "" else "  [E]"
+local keyHint = if UserInputService.TouchEnabled then "" elseif UserInputService.GamepadEnabled then "  [RT]" else "  [E]"
 local function now(): number return workspace:GetServerTimeNow() end
 local function travelling(): boolean
 	return player:GetAttribute("IslandTravelMenuOpen")==true or player:GetAttribute("IslandTravelBusy")==true
@@ -36,24 +39,54 @@ local function clearHeld()
 end
 local function request(verb: string, argument: any?)
 	pendingSince = now()
-	action:FireServer(verb, if verb == "Upgrade" then argument else packet.attemptId)
+	action:FireServer(verb, if verb == "Upgrade" or verb == "Display" or verb == "Style" then argument else packet.attemptId)
 end
 local function cancel()
 	clearHeld()
 	releasedBeforeAck = false
 	if packet.attemptId then request("Cancel") end
 end
+local function openAquarium()
+	if travelling() then return end
+	cancel()
+	ui.closeJournal()
+	ui.hideResult()
+	aquariumUI.open()
+end
+aquariumUI = AquariumInterface.new(player:WaitForChild("PlayerGui"), {
+	display = function(id: string, slot: number)
+		if packet.profile and not pendingSince then request("Display", { id = id, slot = slot }) end
+	end,
+	style = function(id: string)
+		if packet.profile and not pendingSince then request("Style", id) end
+	end,
+	visit = function()
+		aquariumUI.close()
+		cancel()
+		ui.closeJournal()
+		ui.hideResult()
+		if not TravelInterface.visitGallery() then ui.notify("Your gallery is getting ready. Try again in a moment.") end
+	end,
+	close = function() end,
+})
 ui = Interface.new(player:WaitForChild("PlayerGui"), audio, {
-	openJournal = function() cancel(); ui.hideResult() end,
+	openJournal = function() cancel(); aquariumUI.close(); ui.hideResult() end,
+	openAquarium = openAquarium,
+	castAgain = function()
+		ui.hideResult()
+		if travelling() or aquariumUI.isOpen() or pendingSince or packet.phase ~= "Idle" or now() < packet.nextStart then return end
+		message = "Casting into the clouds..."
+		request("Start")
+	end,
 	upgrade = function()
 		if not packet.profile or pendingSince then return end
 		request("Upgrade", packet.profile.level)
 	end,
 })
 player:GetAttributeChangedSignal("IslandTravelMenuOpen"):Connect(function()
-	if travelling() then cancel(); ui.hideResult(); ui.closeJournal() end
+	if travelling() then cancel(); ui.hideResult(); ui.closeJournal(); aquariumUI.close() end
 end)
-task.spawn(function() require(script.Parent:WaitForChild("IslandTravelInterface")).start() end)
+task.spawn(TravelInterface.start)
 local function release()
 	if not heldInput then return end
 	clearHeld()
@@ -61,7 +94,7 @@ local function release()
 end
 local function press(input: InputObject)
 	if travelling() then return end
-	if ui.isJournalOpen() then return end
+	if ui.isJournalOpen() or aquariumUI.isOpen() then return end
 	if ui.isResultOpen() then ui.hideResult(); return end
 	if heldInput or pendingSince then return end
 	if packet.phase == "Idle" and now() >= packet.nextStart then
@@ -82,35 +115,42 @@ ui.button.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then press(input) end
 end)
 UserInputService.InputBegan:Connect(function(input, processed)
-	if not processed and next(visiblePrompts)==nil and input.KeyCode == Enum.KeyCode.E and not UserInputService:GetFocusedTextBox() then press(input) end
+	if not processed and next(visiblePrompts)==nil and (input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.ButtonR2)
+		and not UserInputService:GetFocusedTextBox() then press(input) end
 end)
 UserInputService.InputEnded:Connect(function(input)
 	local held = heldInput
 	if not held then return end
 	if input == held
 		or (held.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)
-		or (held.KeyCode == Enum.KeyCode.E and input.KeyCode == Enum.KeyCode.E) then release() end
+		or (held.KeyCode == Enum.KeyCode.E and input.KeyCode == Enum.KeyCode.E)
+		or (held.KeyCode == Enum.KeyCode.ButtonR2 and input.KeyCode == Enum.KeyCode.ButtonR2) then release() end
 end)
 UserInputService.WindowFocusReleased:Connect(cancel)
 UserInputService.TextBoxFocused:Connect(cancel)
 ProximityPromptService.PromptShown:Connect(function(prompt)
-	if prompt.Name == "RodWorkshopPrompt" or prompt.Name == "IslandTravelPrompt" then visiblePrompts[prompt]=true end
+	if prompt.Name == "RodWorkshopPrompt" or prompt.Name == "IslandTravelPrompt" or prompt.Name == "AquariumPrompt" then visiblePrompts[prompt]=true end
 end)
 ProximityPromptService.PromptHidden:Connect(function(prompt)
 	visiblePrompts[prompt]=nil
 end)
 ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 	if prompt.Name == "RodWorkshopPrompt" and who == player and not travelling() then ui.openJournal("Workshop") end
+	if prompt.Name == "AquariumPrompt" and who == player then openAquarium() end
 end)
 visual.OnClientEvent:Connect(presentation.apply)
 state.OnClientEvent:Connect(function(incoming)
 	local previousId, previousCatches = packet.attemptId, packet.catches
 	packet, pendingSince = incoming, nil
 	ui.updateProfile(packet.profile)
+	aquariumUI.updateProfile(packet.profile)
+	ui.updateLocation(packet.location, packet.profile)
+	ui.setTimingWindow(packet.timingCenter or 0.68, 0.14)
 	ui.setState(packet.phase)
 	if packet.result and packet.catches > previousCatches then
 		local result = packet.result
-		message = result.species .. " / " .. result.quality .. "! What will you discover next?"
+		message = (if result.variant and result.variant ~= "Normal" then result.variant .. " " else "")
+			.. result.species .. " · " .. result.quality .. (if result.weightKg then string.format(" · %.2f kg", result.weightKg) else "")
 		ui.showResult(result)
 		if (result.goalBonus or 0) > 0 then
 			ui.notify("Adventure complete! +" .. result.goalBonus .. " bonus coins")
@@ -128,7 +168,7 @@ state.OnClientEvent:Connect(function(incoming)
 	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false end
 	if packet.phase == "Waiting" and packet.attemptId ~= previousId then ui.hideResult() end
 	audio.setReeling(packet.phase == "Reeling")
-	if (ui.isJournalOpen() or travelling()) and packet.phase == "Waiting" then request("Cancel"); return end
+	if (ui.isJournalOpen() or aquariumUI.isOpen() or travelling()) and packet.phase == "Waiting" then request("Cancel"); return end
 	if packet.phase == "Reeling" then
 		if releasedBeforeAck then releasedBeforeAck = false; request("Release")
 		elseif not heldInput then request("Cancel") end
@@ -138,7 +178,10 @@ RunService.RenderStepped:Connect(function()
 	local time = now()
 	if pendingSince and time - pendingSince > 3 then clearHeld(); releasedBeforeAck = false; request("Sync") end
 	local camera = workspace.CurrentCamera
-	if camera then ui.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y) end
+	if camera then
+		ui.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y)
+		aquariumUI.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y)
+	end
 	ui.button.BackgroundColor3 = Color3.fromRGB(37, 119, 109)
 	ui.legend.Text = "NORMAL  ·  FINE  ·  BRILLIANT"
 	if packet.phase == "Waiting" then
@@ -151,7 +194,7 @@ RunService.RenderStepped:Connect(function()
 	elseif packet.phase == "Reeling" then
 		local progress = math.clamp((time - (packet.chargeAt or time)) / (packet.duration or 1), 0, 1)
 		ui.marker.Position = UDim2.fromScale(progress, 0)
-		local quality = Rules.qualityAt(progress)
+		local quality = Rules.qualityAt(progress, packet.timingCenter)
 		ui.legend.Text = "NOW: " .. string.upper(quality or "OUTSIDE THE ZONE")
 		ui.status.Text = if pendingSince then "Checking your catch..." else "Release in the zone. Aim for gold!"
 		ui.button.Text = if pendingSince then "ONE MOMENT..." else "RELEASE!"

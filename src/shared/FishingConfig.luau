@@ -5,6 +5,7 @@ return table.freeze({
 	BiteTimeout = 12,
 	ChargeLeadTime = 0.3,
 	ChargeDuration = 2.8,
+	DynamicTiming = true,
 	StartCooldown = 0.6,
 	MaxDistance = 16,
 	RequestCapacity = 12,

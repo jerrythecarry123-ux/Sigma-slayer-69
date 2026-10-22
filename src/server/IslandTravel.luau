@@ -110,7 +110,7 @@ local function livingCharacter(player: Player): (Model?, BasePart?)
 	return nil, nil
 end
 
-function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
+function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?, galleryArrival: ((Player) -> CFrame?)?)
 	if startedWorld == world then return end
 	assert(startedWorld == nil, "Install one island travel server only")
 	startedWorld = world
@@ -122,6 +122,8 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 	event.Name, event.Parent = "Travel", remotes
 	local state = Rules.new()
 	local lastPacket: { [number]: number } = {}
+	local lastGallery: { [number]: number } = {}
+	local galleryPending: { [number]: {} } = {}
 	local sources: { [string]: BasePart } = {}
 	local destinations: { [string]: CFrame } = {}
 	local entries: { [string]: CFrame } = {}
@@ -135,7 +137,7 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 		if player.Parent == Players then event:FireClient(player, status, message) end
 	end
 	local function openPortal(player: Player, source: string): boolean
-		if player.Parent == Players and world:IsDescendantOf(workspace)
+		if player.Parent == Players and player:GetAttribute("IslandTravelBusy") ~= true and world:IsDescendantOf(workspace)
 			and state:open(player.UserId, source, os.clock(), distanceFrom(player, source)) then
 			event:FireClient(player, "Open", source)
 			return true
@@ -179,11 +181,79 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 			entryState[player.UserId] = { character = character, source = inside, opened = opened }
 		end
 	end)
+	local function performTravel(
+		player: Player, character: Model, root: BasePart, target: CFrame,
+		stillPending: () -> boolean, nearSource: () -> boolean, finish: () -> boolean, gallery: boolean
+	)
+		player:SetAttribute("IslandTravelBusy", true)
+		local function complete()
+			if finish() and player.Parent == Players then player:SetAttribute("IslandTravelBusy", false) end
+		end
+		if beforeTravel then
+			local callbackOk, permitted = pcall(beforeTravel, player)
+			if not callbackOk or permitted ~= true then
+				complete()
+				respond(player, "Rejected", "Your character is not ready to travel. Please try again in a moment.")
+				return
+			end
+		end
+		respond(player, "Loading", if gallery then "Getting your aquarium ready..." else "Getting your next pond ready...")
+		task.spawn(function()
+			-- Streaming may yield. A departed, replaced or dead avatar is never moved.
+			local ok = pcall(function() player:RequestStreamAroundAsync(target.Position, 3) end)
+			local currentCharacter, currentRoot = livingCharacter(player)
+			local valid = ok and player.Parent == Players and stillPending()
+				and character == currentCharacter and root == currentRoot and world:IsDescendantOf(workspace)
+				and nearSource()
+			if valid then
+				local success = pcall(function()
+					local lane = if gallery then 0 else (player.UserId % 3 - 1) * 0.8
+					local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
+					local clearance = math.max(3.3, humanoid.HipHeight + root.Size.Y * 0.5 + 0.3)
+					local desiredRoot = target * CFrame.new(lane, clearance - 3.3, 0)
+					-- Custom character pivots need not coincide with their root part.
+					character:PivotTo(desiredRoot * root.CFrame:ToObjectSpace(character:GetPivot()))
+					root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+				end)
+				if success then respond(player, "Arrived", if gallery then "Your collection is on display!" else "Ready to fish!")
+				else respond(player, "Rejected", "Travel could not finish. Please try again.") end
+			else respond(player, "Rejected", "Travel cancelled. Stay still and try again.") end
+			complete()
+		end)
+	end
 	event.OnServerEvent:Connect(function(player: Player, destination: any)
 		local now = os.clock()
 		local previous = lastPacket[player.UserId]
 		if previous and now - previous < 0.15 then return end
 		lastPacket[player.UserId] = now
+		if player.Parent ~= Players or not world:IsDescendantOf(workspace) or player:GetAttribute("IslandTravelBusy") == true then return end
+		if destination == "gallery" then
+			-- An explicit gallery shortcut is allowed anywhere. Its callback owns
+			-- the player's plot and landing; no client coordinates are accepted.
+			local character, root = livingCharacter(player)
+			local previousGallery = lastGallery[player.UserId]
+			if not galleryArrival or not character or not root or (previousGallery and now - previousGallery < 1.5) then
+				respond(player, "Rejected", "Your aquarium is not ready yet. Please try again in a moment.")
+				return
+			end
+			local ok, target = pcall(galleryArrival, player)
+			if not ok or typeof(target) ~= "CFrame" then
+				respond(player, "Rejected", "Your aquarium is not ready yet. Please try again in a moment.")
+				return
+			end
+			local ticket, source = {}, root.Position
+			galleryPending[player.UserId], lastGallery[player.UserId] = ticket, now
+			performTravel(player, character, root, target, function()
+				return galleryPending[player.UserId] == ticket
+			end, function()
+				return (root.Position - source).Magnitude <= Rules.MaxDistance
+			end, function()
+				if galleryPending[player.UserId] ~= ticket then return false end
+				galleryPending[player.UserId] = nil
+				return true
+			end, true)
+			return
+		end
 		local source = state:source(player.UserId)
 		if not source or player.Parent ~= Players or not world:IsDescendantOf(workspace) then return end
 		local ticket = state:take(player.UserId, destination, now, distanceFrom(player, source))
@@ -191,43 +261,18 @@ function Travel.start(world: Instance, beforeTravel: ((Player) -> boolean)?)
 		local character, root = livingCharacter(player)
 		local target = destinations[ticket.destination]
 		if not character or not root or not target then state:finish(player.UserId, ticket); return end
-		player:SetAttribute("IslandTravelBusy", true)
-		if beforeTravel then
-			local callbackOk, permitted = pcall(beforeTravel, player)
-			if not callbackOk or permitted ~= true then
-				state:finish(player.UserId, ticket)
-				player:SetAttribute("IslandTravelBusy", false)
-				respond(player, "Rejected", "Your character is not ready to travel. Please try again in a moment.")
-				return
-			end
-		end
-		respond(player, "Loading", "Getting your next pond ready...")
-		task.spawn(function()
-			-- RequestStreamAroundAsync may yield. Never move a dead, replaced or departed character.
-			local ok = pcall(function() player:RequestStreamAroundAsync(target.Position, 3) end)
-			local currentCharacter, currentRoot = livingCharacter(player)
-			local valid = ok and player.Parent == Players and state:isPending(player.UserId, ticket)
-				and character == currentCharacter and root == currentRoot and world:IsDescendantOf(workspace)
-				and distanceFrom(player, ticket.source) <= Rules.MaxDistance
-			if valid then
-				local success = pcall(function()
-					local lane = (player.UserId % 3 - 1) * 0.8
-					local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
-					local clearance = math.max(3.3, humanoid.HipHeight + root.Size.Y * 0.5 + 0.3)
-					local desiredRoot = target * CFrame.new(lane, clearance - 3.3, 0)
-					-- Custom characters can have a model pivot far away from their root part.
-					character:PivotTo(desiredRoot * root.CFrame:ToObjectSpace(character:GetPivot()))
-					root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
-				end)
-				if success then respond(player, "Arrived", "Ready to fish!")
-				else respond(player, "Rejected", "Travel could not finish. Please try the portal again.") end
-			else respond(player, "Rejected", "Travel cancelled. Stay beside the portal and try again.") end
-			if state:finish(player.UserId, ticket) and player.Parent == Players then player:SetAttribute("IslandTravelBusy", false) end
-		end)
+		performTravel(player, character, root, target, function()
+			return state:isPending(player.UserId, ticket)
+		end, function()
+			return distanceFrom(player, ticket.source) <= Rules.MaxDistance
+		end, function()
+			return state:finish(player.UserId, ticket)
+		end, false)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		state:remove(player.UserId)
 		lastPacket[player.UserId], entryState[player.UserId] = nil, nil
+		lastGallery[player.UserId], galleryPending[player.UserId] = nil, nil
 	end)
 	remotes.Parent = ReplicatedStorage
 end

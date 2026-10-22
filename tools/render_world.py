@@ -53,6 +53,7 @@ for part in parts:
         material.use_nodes = True
         shader = material.node_tree.nodes.get('Principled BSDF')
         shader.inputs['Base Color'].default_value = (*linear(part['color']), 1)
+        shader.inputs['Alpha'].default_value = part['alpha']
         shader.inputs['Roughness'].default_value = 0.7
         if part['material'] in ('Glass','Water'):
             shader.inputs['Roughness'].default_value = 0.22
@@ -97,6 +98,8 @@ views={
  'pier':((36,23,99),(3,15,129),32),
  'fishinghub':((29,26,75),(-5,16,112),28),
  'portal':((7,20,103),(-15,17,118),36),
+ 'gallery':((-65,25,56),(-119,17,96),36),
+ 'galleryclose':((-92,18,76),(-92,17,93),40),
  'pond':((0,24,98),(0,21,175),26),
  'dockdetails':((19,18,83),(10,14,97),40),
  'traildetails':((17,17,-7),(31,14,-13),42),

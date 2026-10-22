@@ -128,7 +128,16 @@ local supports=world:FindFirstChild("TravelArrivalSupports")
 assert(supports and supports.ModelStreamingMode==Enum.ModelStreamingMode.Persistent and #supports:GetChildren()==5,
  "startup: travel landing supports were not created")
 assert(#waterWrites==5,"startup: native ponds were not generated")
-print("PASS generated Folder-world startup: fishing, five portals, walk-in detection, prompts and landing supports are connected")
+local gallery=world:FindFirstChild("AquariumGallery")
+assert(gallery and gallery:IsA("Folder"),"startup: aquarium gallery was not installed")
+local galleryFloors=gallery:FindFirstChild("GallerySafetyFloors")
+assert(galleryFloors and galleryFloors.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,
+ "startup: gallery floors must persist before players arrive")
+assert(#galleryFloors:GetChildren()==2,"startup: empty gallery needs access and first-row support")
+for _,child in gallery:GetChildren() do
+ assert(not child:GetAttribute("AquariumPlot"),"startup: empty gallery created a fake player aquarium")
+end
+print("PASS generated Folder-world startup: fishing, five portals, walk-in detection, aquarium gallery and persistent landing supports are connected")
 '''
 
 CUSTOM_SETUP = r'''
@@ -169,9 +178,9 @@ def assemble(*, custom: bool = False, legacy_guard: bool = False) -> str:
         folder = "server" if path.startswith("ServerScriptService/") else "shared"
         source = (ROOT / relative_source).read_text()
         if legacy_guard and name == "FishingService":
-            guard = "\t\tif world then\n\t\t\tIslandTravel.start(world,"
+            guard = "\t\tif world then\n\t\t\taquarium = Aquarium.start(world,"
             assert source.count(guard) == 1, "The legacy-guard mutation must target the production travel startup branch"
-            source = source.replace(guard, "\t\tif world and world:IsA(\"Model\") then\n\t\t\tIslandTravel.start(world,", 1)
+            source = source.replace(guard, "\t\tif world and world:IsA(\"Model\") then\n\t\t\taquarium = Aquarium.start(world,", 1)
         program += (
             f'\nlocal startupToken{index}=Instance.new("ModuleScript")\n'
             f'startupToken{index}.Name="{name}";startupToken{index}.Parent={folder}\n'

@@ -55,11 +55,14 @@ test("upgrades unlock species and bounded duplicates guarantee discovery", funct
 	local p = firstThree()
 	for _ = 1, 6 do assert(Catalog.get(progression.catch(p, "Normal").speciesId).Level == 0) end
 	assert(progression.upgrade(p).success and p.level == 1)
-	for _ = 1, 6 do progression.catch(p, "Normal") end
-	assert(progression.snapshot(p).species == 5 and not p.best.aurorafin)
+	for _ = 1, #Catalog.Species * 3 do progression.catch(p, "Normal") end
+	local unlocked = 0
+	for _, species in Catalog.Species do if species.Level <= 1 then unlocked += 1 end end
+	assert(progression.snapshot(p).species == unlocked and not p.best.aurorafin)
 	assert(progression.upgrade(p).success and p.level == 2)
-	for _ = 1, 3 do progression.catch(p, "Normal") end
-	assert(p.best.aurorafin and progression.snapshot(p).species == 6)
+	for _ = 1, #Catalog.Species * 3 do progression.catch(p, "Normal") end
+	assert(p.best.aurorafin and p.best.coralcrown and not p.best.crownwhale)
+	assert(progression.snapshot(p).species == #Catalog.Species - 1)
 end)
 
 test("better grades replace rather than accumulate collection points", function()
@@ -79,7 +82,7 @@ test("goals earned before they are displayed are retained", function()
 	progression.catch(p, "Normal")
 	local purchase = progression.upgrade(p)
 	assert(purchase.success and purchase.goalBonus == 45)
-	assert(progression.snapshot(p).goal.title == "Complete your field journal")
+	assert(progression.snapshot(p).goal.title == "Discover 6 different species")
 end)
 
 test("snapshots and exported profiles never expose mutable server collection", function()
@@ -204,6 +207,179 @@ test("loaded profiles restore currency, goals, grades and catches without aliasi
 	assert(snap.profile.coins == 59 and snap.catches == 3 and snap.profile.species == 3)
 	local copy = assert(e:exportProfile(1)); copy.best.pufflet = 3
 	assert(assert(e:snapshot(1)).profile.best.pufflet == 1)
+end)
+
+test("every free island has three distinct species and an available starter fish", function()
+	assert(#Catalog.Species == 15 and #Catalog.Zones == 5)
+	local ids = {}
+	for _, species in Catalog.Species do
+		assert(not ids[species.Id] and species.WeightMin > 0 and species.WeightMax >= species.WeightMin)
+		ids[species.Id] = true
+	end
+	for _, zone in Catalog.Zones do
+		local count, starters = 0, 0
+		for _, species in Catalog.Species do
+			if species.Zone == zone.Id then count += 1; if species.Level == 0 then starters += 1 end end
+		end
+		assert(count == 3 and starters >= 1)
+	end
+end)
+
+test("server-selected island restricts catches and rod requirements", function()
+	for _, zone in Catalog.Zones do
+		local p = progression.create()
+		for _ = 1, 30 do
+			local result = progression.catch(p, "Normal", zone.Id)
+			local species = Catalog.get(result.speciesId)
+			assert(species.Zone == zone.Id and species.Level == 0)
+		end
+	end
+	local p = progression.create()
+	assert(not pcall(function() progression.catch(p, "Normal", "forged-zone") end))
+	assert(p.catches == 0 and p.coins == 0)
+end)
+
+test("island discovery guarantee survives catches on other islands", function()
+	local p = progression.create()
+	for _ = 1, 3 do progression.catch(p, "Normal", "harbor") end
+	progression.catch(p, "Normal", "blossom")
+	assert(p.best.petalperch and not p.best.ribbonkoi)
+	for _ = 1, 2 do
+		progression.catch(p, "Normal", "blossom")
+		progression.catch(p, "Normal", "harbor")
+	end
+	assert(progression.catch(p, "Normal", "blossom").speciesId == "ribbonkoi")
+end)
+
+test("first catches are ordinary and variants use server rolls after teaching", function()
+	local value = .999
+	local variantProgression = Progression.new(Catalog, function() return value end)
+	local p = variantProgression.create()
+	for _ = 1, 3 do assert(variantProgression.catch(p, "Normal", "harbor").variant == "Normal") end
+	local prism = variantProgression.catch(p, "Fine", "harbor")
+	assert(prism.variant == "Prismatic" and p.variants[prism.speciesId].Prismatic)
+	value = .98
+	local gold = variantProgression.catch(p, "Fine", "harbor")
+	assert(gold.variant == "Golden" and p.variants[gold.speciesId].Golden)
+	value = .5
+	assert(variantProgression.catch(p, "Fine", "harbor").variant == "Normal")
+	assert(saves.validate(p))
+end)
+
+test("weight records are bounded, improve once and survive smaller catches", function()
+	local value = 0
+	local measured = Progression.new(Catalog, function() return value end)
+	local p = measured.create()
+	local first = measured.catch(p, "Normal", "harbor")
+	assert(first.weightKg == Catalog.get(first.speciesId).WeightMin and first.newRecord)
+	measured.catch(p, "Normal", "harbor"); measured.catch(p, "Normal", "harbor")
+	value = .3
+	local larger = measured.catch(p, "Normal", "harbor")
+	assert(larger.speciesId == first.speciesId and larger.newRecord and larger.weightKg > first.weightKg)
+	value = 0
+	local smaller = measured.catch(p, "Normal", "harbor")
+	assert(not smaller.newRecord and p.records[first.speciesId] == larger.weightKg)
+	for _, species in Catalog.Species do
+		p.level = 3
+		local caught = measured.catch(p, "Brilliant", species.Zone)
+		local data = Catalog.get(caught.speciesId)
+		assert(caught.weightKg >= data.WeightMin and caught.weightKg <= data.WeightMax)
+	end
+end)
+
+test("skill chains reward good catches with a cap and misses reset the chain", function()
+	local p = progression.create()
+	assert(progression.catch(p, "Fine", "harbor").comboBonus == 0)
+	assert(progression.catch(p, "Brilliant", "harbor").comboBonus == 2)
+	for _ = 1, 30 do assert(progression.catch(p, "Fine", "harbor").comboBonus <= 20) end
+	assert(progression.snapshot(p).combo == 32)
+	progression.miss(p)
+	assert(progression.snapshot(p).combo == 0)
+	progression.catch(p, "Fine", "harbor")
+	assert(progression.catch(p, "Normal", "harbor").combo == 0)
+end)
+
+test("new discoveries fill three display slots and explicit changes swap owned fish", function()
+	local p = firstThree()
+	assert(table.concat(p.display, ",") == "pufflet,mintfin,emberfin")
+	assert(progression.display(p, "emberfin", 1).success)
+	assert(p.display[1] == "emberfin" and p.display[3] == "pufflet")
+	progression.catch(p, "Normal", "blossom")
+	assert(progression.display(p, "petalperch", 2).success and p.display[2] == "petalperch")
+	assert(saves.validate(p))
+end)
+
+test("display changes reject undiscovered fish, invalid slots and forged values", function()
+	local p = firstThree()
+	local before = table.concat(p.display, ",")
+	for _, id in { "crownwhale", "forged" } do assert(not progression.display(p, id, 1).success) end
+	for _, slot in { 0, 4, 1.5, 0/0, math.huge, "1" } do assert(not progression.display(p, "pufflet", slot).success) end
+	assert(not progression.display(p, {}, 1).success and table.concat(p.display, ",") == before)
+	local empty = progression.create()
+	assert(not progression.display(empty, "pufflet", 1).success)
+	progression.catch(empty, "Normal", "harbor")
+	assert(not progression.display(empty, "pufflet", 2).success and #empty.display == 1)
+end)
+
+test("cosmetic aquarium purchases charge once and equip without affecting fishing power", function()
+	local p = progression.create()
+	assert(not progression.style(p, "blossom").success and p.coins == 0)
+	p.coins = 200
+	assert(progression.style(p, "blossom").success and p.coins == 135 and p.styles.blossom)
+	assert(progression.style(p, "lagoon").success and p.coins == 135)
+	assert(progression.style(p, "blossom").success and p.coins == 135 and p.equippedStyle == "blossom")
+	assert(not progression.style(p, "forged").success and not progression.style(p, {}).success)
+	assert(p.level == 0 and p.catches == 0 and saves.validate(p))
+end)
+
+test("extended snapshots and copies do not alias aquarium, variants or records", function()
+	local p = firstThree()
+	p.variants.pufflet = { Golden = true }
+	p.styles.blossom = true
+	local snap, copy = progression.snapshot(p), progression.copy(p)
+	snap.display[1] = "mintfin"; snap.variants.pufflet.Golden = nil; snap.records.pufflet = 99; snap.styles.blossom = nil
+	copy.display[2] = "pufflet"; copy.variants.pufflet.Golden = nil
+	assert(p.display[1] == "pufflet" and p.display[2] == "mintfin" and p.variants.pufflet.Golden and p.styles.blossom)
+	assert(p.records.pufflet == .4)
+end)
+
+test("legacy saves migrate aquarium fields without changing earned progress", function()
+	local old = populatedRecord()
+	old.profile.records, old.profile.variants, old.profile.display = nil, nil, nil
+	old.profile.styles, old.profile.equippedStyle, old.profile.combo, old.profile.zoneDuplicates = nil, nil, nil, nil
+	old.profile.goalIndex = 6
+	local migrated = assert(saves.acquire(old, "migrated", 1000)).profile
+	assert(migrated.coins == old.profile.coins and migrated.level == old.profile.level and migrated.catches == 3)
+	assert(migrated.goalIndex == 6 and migrated.best.pufflet == 1 and migrated.styles.lagoon and migrated.equippedStyle == "lagoon")
+	assert(#migrated.display == 3 and next(migrated.records) == nil and saves.validate(migrated))
+	assert(old.profile.display == nil and old.profile.styles == nil, "migration changed UpdateAsync input")
+end)
+
+test("save validation rejects invalid records, variant ownership and display holes", function()
+	local p = firstThree()
+	p.records.pufflet = math.huge; assert(not saves.validate(p))
+	p.records.pufflet = 0/0; assert(not saves.validate(p))
+	p.records.pufflet = .1; assert(not saves.validate(p))
+	p = firstThree(); p.records.crownwhale = 20; assert(not saves.validate(p))
+	p = firstThree(); p.variants.pufflet = { Mythic = true }; assert(not saves.validate(p))
+	p = firstThree(); p.variants.crownwhale = { Golden = true }; assert(not saves.validate(p))
+	p = firstThree(); p.display = {[1]="pufflet", [3]="mintfin"}; assert(not saves.validate(p))
+	p = firstThree(); p.display = {"pufflet", "pufflet"}; assert(not saves.validate(p))
+	p = firstThree(); p.display = {"crownwhale"}; assert(not saves.validate(p))
+	p = firstThree(); p.styles.forged = true; assert(not saves.validate(p))
+	p = firstThree(); p.equippedStyle = "blossom"; assert(not saves.validate(p))
+	p = firstThree(); p.combo = -1; assert(not saves.validate(p))
+	p = firstThree(); p.zoneDuplicates.forged = 1; assert(not saves.validate(p))
+end)
+
+test("zone collection progress uses actual discoveries and earned coins stay capped", function()
+	local p = firstThree()
+	local zones = progression.snapshot(p).zoneProgress
+	assert(#zones == 5 and zones[1].id == "harbor" and zones[1].count == 3 and zones[1].total == 3)
+	for i = 2, 5 do assert(zones[i].count == 0) end
+	p.coins = 1000000000 - 1
+	progression.catch(p, "Brilliant", "harbor")
+	assert(p.coins == 1000000000 and saves.validate(p))
 end)
 
 print(string.format("%d progression/save tests passed; 0 skipped", passed))

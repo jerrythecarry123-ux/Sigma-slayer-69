@@ -7,7 +7,7 @@ local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local C = Kit.palette
 local Landscaping = {}
 local TAU = math.pi * 2
-local foliage = { material = Enum.Material.Plastic, studded = true }
+local foliage = { material = Enum.Material.SmoothPlastic }
 local detail = { material = Enum.Material.Plastic, shadow = false }
 local wood = { material = Enum.Material.Plastic, studded = true }
 local cloth = { material = Enum.Material.Plastic, shadow = false }
@@ -39,22 +39,24 @@ end
 
 local function flower(parent: Instance, pos: Vector3, height: number, tint: Color3, angle: number)
 	local top = pos + Vector3.yAxis * height
-	Kit.part(parent, "SquareFlowerStem", Vector3.new(.14, height, .14), CFrame.new((pos+top)/2), C.Moss, detail)
-	Kit.part(parent, "FlowerLeafBrick", Vector3.new(.8, .16, .38),
-		CFrame.new(pos + Vector3.new(.3, height * .46, 0)) * CFrame.Angles(0,angle,0), C.Leaf, detail)
-	Kit.part(parent, "CrossFlowerPetal", Vector3.new(1.45,.2,.55), CFrame.new(top), tint, detail)
-	Kit.part(parent, "SquareFlowerPetal", Vector3.new(.55,.2,1.45), CFrame.new(top), tint, detail)
-	Kit.part(parent, "PollenHeart", Vector3.new(.45,.23,.45), CFrame.new(top+Vector3.yAxis*.12), C.Gold, detail)
+	Kit.beam(parent, "FlowerStem", pos, top, .12, C.Moss, detail)
+	Kit.wedge(parent, "PointedFlowerLeaf", Vector3.new(.08,.42,.95),
+		CFrame.new(pos + Vector3.new(.3, height * .46, 0)) * CFrame.Angles(0,angle,math.pi/2), C.Leaf, detail)
+	for petal=0,3 do
+		local cf=CFrame.new(top)*CFrame.Angles(0,angle+petal*math.pi/2,0)*CFrame.new(0,0,-.38)
+		Kit.wedge(parent,"SculptedFlowerPetal",Vector3.new(.65,.12,.85),cf,tint,detail)
+	end
+	Kit.disk(parent, "PollenHeart", .35, .35, .16, top+Vector3.yAxis*.12, C.Gold, detail)
 end
 
 local function planting(parent: Instance, pos: Vector3, scale: number, tint: Color3, seed: number): Model
 	local model = group(parent, "FloweringIslandBorder")
 	local random = Random.new(seed)
-	-- Low, flat leaf bricks leave views across the paths open.
-	Kit.part(model, "FlatLeafBed", Vector3.new(6.8,.65,4.2)*scale,
-		CFrame.new(pos+Vector3.yAxis*.35*scale), C.Leaf, foliage)
-	Kit.part(model, "RaisedLeafBed", Vector3.new(4.8,.45,3.2)*scale,
-		CFrame.new(pos+Vector3.new(-.5,.9,.2)*scale), C.Leaf:Lerp(C.Lime,.08), foliage)
+	-- Shallow planted ovals soften the border without forming green boxes.
+	Kit.disk(model, "LowPlantedBorder", 6.8*scale, 4.2*scale, .32*scale,
+		pos+Vector3.yAxis*.18*scale, C.Leaf, foliage)
+	Kit.disk(model, "InnerLeafMound", 4.8*scale, 3.2*scale, .28*scale,
+		pos+Vector3.new(-.5,.42,.2)*scale, C.Leaf:Lerp(C.Lime,.08), foliage)
 	for i = 0, 2 do
 		local a = .35 + i * TAU / 3
 		flower(model, pos + Vector3.new(math.cos(a) * 2.1, .15, math.sin(a) * 1.4) * scale,
@@ -68,11 +70,13 @@ local function hedge(parent: Instance, center: Vector3, length: number, yaw: num
 	local cf = CFrame.new(center) * CFrame.Angles(0, yaw, 0)
 	for i = 0, 2 do
 		local pos = cf:PointToWorldSpace(Vector3.new((i - 1) * length / 3, .95 + i % 2 * .2, 0))
-		Kit.part(model, "ClippedLeafBrick", Vector3.new(length/3+.12,1.8,3.5), CFrame.new(pos)*CFrame.Angles(0,yaw,0),
-			C.Leaf:Lerp(C.Lime,i*.03), foliage)
+		for _,side in {-1,1} do
+			Kit.wedge(model, "TaperedGardenHedge", Vector3.new(length/3+.12,1.8,2),
+				CFrame.new(pos)*CFrame.Angles(0,yaw,0)*CFrame.new(0,0,side*.75)*CFrame.Angles(0,if side==1 then math.pi else 0,0),
+				C.Leaf:Lerp(C.Lime,i*.03), foliage)
+		end
 		if i ~= 1 then
-			Kit.part(model, "SquareHedgeBloom", Vector3.new(.85,.3,.85),
-				CFrame.new(pos+Vector3.new(0,1,-.85)), tint, detail)
+			Kit.disk(model, "HedgeRosette", .75,.75,.13,pos+Vector3.new(0,1,-.85),tint,detail)
 		end
 	end
 	return model
@@ -82,7 +86,7 @@ local function fern(parent: Instance, pos: Vector3, scale: number, yaw: number)
 	for i = 0, 3 do
 		local a = yaw + i * TAU / 4
 		local tip = pos + Vector3.new(math.cos(a) * 2.5, .8 + i % 2 * .35, math.sin(a) * 2.5) * scale
-		local frond = Kit.part(parent, "BrickFernFrond", Vector3.new(.8, .18, 3.25) * scale,
+		local frond = Kit.wedge(parent, "TaperedFernFrond", Vector3.new(.8, .18, 3.25) * scale,
 			CFrame.lookAt((pos + tip) / 2, tip) * CFrame.Angles(.1, 0, 0), C.Leaf:Lerp(C.Lime, i % 3 * .12), detail)
 		frond.CFrame *= CFrame.new(0, .3 * scale, 0)
 	end
@@ -96,7 +100,7 @@ local function forestFloor(parent: Instance, pos: Vector3, seed: number)
 		local base = pos + Vector3.new(i - 2, 0, 2.7 + i % 2 * .6)
 		local height = .6 + i * .18
 		Kit.part(model, "IvoryMushroomStalk", Vector3.new(.26,height,.26), CFrame.new(base+Vector3.yAxis*height/2), C.Cream, detail)
-		Kit.part(model, "SquareMushroomCap", Vector3.new(1.25, .48, 1.25), CFrame.new(base + Vector3.yAxis * height),
+		Kit.ball(model, "MushroomDome", Vector3.new(1.25, .48, 1.25), base + Vector3.yAxis * height,
 			if i == 2 then flowerTints[1] else flowerTints[2], detail)
 		Kit.part(model, "MushroomCapSpot", Vector3.new(.29, .05, .3), CFrame.new(base + Vector3.new(.2, height + .24, -.12)), C.Cream, detail)
 	end
@@ -109,7 +113,7 @@ local function blossomDrift(parent: Instance, pos: Vector3, seed: number)
 	for i = 1, 12 do
 		local a = random:NextNumber(0, TAU)
 		local radius = random:NextNumber(1.4, 6)
-		local petal = Kit.part(model, "FallenBlossomPetal", Vector3.new(.55, .035, 1),
+		local petal = Kit.wedge(model, "FallenBlossomPetal", Vector3.new(.55, .035, 1),
 			CFrame.new(pos + Vector3.new(math.cos(a) * radius, .07, math.sin(a) * radius * .65)),
 			C.Blossom:Lerp(C.BlossomLight, i % 3 * .3), detail)
 		petal.CFrame *= CFrame.Angles(0, random:NextNumber(0, TAU), 0)

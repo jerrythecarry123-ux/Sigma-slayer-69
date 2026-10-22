@@ -130,6 +130,7 @@ local Rules=productionRules
 local require=function(module) if module==pm then return {GetControls=function()return controls end} end;assert(module==rulesmodule);return Rules end
 '''
 CHECK = r'''
+assert(ui.visitGallery()==false,'gallery began before the travel interface mounted')
 ui.start();ui.start()
 local gui=pgui:FindFirstChild('IslandTravel')
 local function find(root,name)
@@ -201,9 +202,34 @@ GuiService.SelectedObject=oldSelection;input.GamepadEnabled=true
 open();assert(GuiService.SelectedObject==button,'gamepad did not select an available pond')
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.ButtonB},false)
 assert(GuiService.SelectedObject==oldSelection and controls.controlsEnabled and not gui.Enabled,'gamepad close lost focus or movement')
+-- Direct gallery visits use the same cover, cancellation and control lifecycle,
+-- without pretending that a physical portal opened a destination menu first.
+input.GamepadEnabled=false
+local beforeGallery=#sends
+assert(ui.visitGallery() and not controls.controlsEnabled,'gallery did not start from closed phase')
+assert(not find(gui,'Backdrop').Visible,'gallery flashed a destination menu before covering')
+step(.1);input.InputBegan:Fire({KeyCode=Enum.KeyCode.Escape},false);step(.2)
+assert(#sends==beforeGallery and controls.controlsEnabled and not gui.Enabled,'cancelled gallery request leaked')
+assert(ui.visitGallery());step(.159);assert(#sends==beforeGallery,'gallery sent before cover')
+step(.002)
+assert(#sends==beforeGallery+1 and sends[#sends]=='gallery' and cover.BackgroundTransparency==0,'gallery did not send a covered ID-only request')
+assert(not ui.visitGallery(),'gallery replaced a pending request')
+event.OnClientEvent:Fire('Open','forest');event.OnClientEvent:Fire('Arrived','Gallery ready');step(.201)
+assert(controls.controlsEnabled and find(gui,'PondName').Text=='Aquarium Gallery','gallery arrival restored the wrong journey')
+assert(find(gui,'Ready').Text=='YOUR COLLECTION ON DISPLAY','gallery arrival claimed the player was at a fishing pier')
+step(1.4)
+assert(ui.visitGallery());step(.161);newHumanoid.Died:Fire();event.OnClientEvent:Fire('Arrived','Late');step(.3)
+assert(controls.controlsEnabled and not gui.Enabled,'gallery death/late arrival stranded controls')
+assert(ui.visitGallery());step(.161);event.OnClientEvent:Fire('Rejected','Plot not ready');step(.201)
+assert(controls.controlsEnabled and find(gui,'Status').Text=='Plot not ready','gallery rejection was not recoverable')
+close.Activated:Fire()
+assert(ui.visitGallery());step(.161);step(8.3)
+assert(controls.controlsEnabled and not cover.Visible,'gallery timeout stranded its cover')
+close.Activated:Fire()
 print('PASS production portal interface: dark-cover send timing, ID-only payload, arrival reveal and movement restoration')
 print('PASS cancellation before send, pending-close guard, death/respawn, rejection, transport failure and timeout recovery')
 print('PASS repeated Open, late arrival, stale timeout/banner callbacks and pre-disabled controls ownership')
+print('PASS direct gallery shortcut: no menu flash, covered ID-only send, pending exclusion and death/rejection/timeout recovery')
 print('UI/event/tween doubles only; actual rendering, native input and PlayerModule integration still require Studio.')
 '''
 def check(luau: str) -> None:

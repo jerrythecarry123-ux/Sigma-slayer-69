@@ -10,6 +10,12 @@ local function uint(value: any, maximum: number): boolean
 end
 
 function SaveRules.new(catalog: any, progression: any)
+	local speciesById: { [string]: any } = {}
+	for _, species in catalog.Species do speciesById[species.Id] = species end
+	local zones: { [string]: boolean } = {}
+	for _, zone in catalog.Zones or {} do zones[zone.Id] = true end
+	local styles: { [string]: boolean } = { lagoon = true }
+	for _, style in catalog.AquariumStyles or {} do styles[style.Id] = true end
 	local function validate(profile: any): boolean
 		if type(profile) ~= "table" or type(profile.best) ~= "table" then return false end
 		if not uint(profile.coins, 1000000000) or not uint(profile.level, #catalog.Rods - 1)
@@ -17,9 +23,49 @@ function SaveRules.new(catalog: any, progression: any)
 			or not uint(profile.duplicateCount, 1000000000) or not uint(profile.goalIndex, #catalog.Goals + 1)
 			or profile.goalIndex < 1 then return false end
 		for id, rank in profile.best do
-			local exists = false
-			for _, species in catalog.Species do if species.Id == id then exists = true; break end end
-			if not exists or not uint(rank, 3) or rank < 1 then return false end
+			if not speciesById[id] or not uint(rank, 3) or rank < 1 then return false end
+		end
+		-- Optional extension fields allow version-1 saves from before aquariums to
+		-- migrate through progression.copy. Present fields must be fully valid.
+		if profile.records ~= nil then
+			if type(profile.records) ~= "table" then return false end
+			for id, kg in profile.records do
+				local species = speciesById[id]
+				if not species or not profile.best[id] or type(kg) ~= "number" or kg ~= kg
+					or kg < (species.WeightMin or .4) or kg > (species.WeightMax or 4) then return false end
+			end
+		end
+		if profile.variants ~= nil then
+			if type(profile.variants) ~= "table" then return false end
+			for id, owned in profile.variants do
+				if not speciesById[id] or not profile.best[id] or type(owned) ~= "table" then return false end
+				for variant, found in owned do
+					if (variant ~= "Golden" and variant ~= "Prismatic") or found ~= true then return false end
+				end
+			end
+		end
+		if profile.display ~= nil then
+			if type(profile.display) ~= "table" then return false end
+			local seen, count = {}, 0
+			for slot, id in profile.display do
+				if not uint(slot, 3) or slot < 1 or type(id) ~= "string" or not profile.best[id] or seen[id] then return false end
+				seen[id] = true
+				count += 1
+			end
+			for slot = 1, count do if not profile.display[slot] then return false end end
+		end
+		if profile.styles ~= nil then
+			if type(profile.styles) ~= "table" or profile.styles.lagoon ~= true then return false end
+			for id, owned in profile.styles do if not styles[id] or owned ~= true then return false end end
+		end
+		if profile.equippedStyle ~= nil then
+			if type(profile.equippedStyle) ~= "string" or not styles[profile.equippedStyle]
+				or (profile.equippedStyle ~= "lagoon" and (not profile.styles or not profile.styles[profile.equippedStyle])) then return false end
+		end
+		if profile.combo ~= nil and not uint(profile.combo, 100) then return false end
+		if profile.zoneDuplicates ~= nil then
+			if type(profile.zoneDuplicates) ~= "table" then return false end
+			for id, count in profile.zoneDuplicates do if not zones[id] or not uint(count, 1000000000) then return false end end
 		end
 		return true
 	end

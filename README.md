@@ -1,150 +1,129 @@
-# Cloud Anglers — v0.9
+# Cloud Anglers — v1.0
 
-[Open the Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v0.9.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.0.rbxlx)
 
-Choose **Download raw file**, open the downloaded `.rbxlx` in Roblox Studio and
-press **Play**. The five-island map is generated when Play starts.
+Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
+The world is generated at Play; an empty Edit viewport before Play is expected.
+No plugins, model imports, API keys or animation uploads are needed.
 
-## Play
+## Your first session
 
-Start beside the main pier's fishing area. **CAST LINE** with the button or E; at the
-bite, hold and release in the colored zone. Gold gives Brilliant quality.
-Catch six species, fill the field journal and earn coins for three rod upgrades.
-Breeze Rod unlocks two rare fish; Nimbus Rod unlocks Aurorafin. Your best grade
-per species adds to the collection leaderboard. Open **COLLECTION → Rod workshop**
-or visit the yellow-canopy dockside stand to upgrade.
+1. Start beside the water. Tap **CAST LINE**, or press E / gamepad RT.
+2. When the bobber bites, hold the button, then release inside the colored zone.
+   Gold earns Brilliant quality. The target changes between casts: watch the meter.
+3. Your first three species automatically fill your personal aquarium. Open
+   **MY AQUARIUM** to pick three favorites, then **VISIT MY TANK** to see them.
+4. After three different fish, buy the Breeze Rod through **JOURNAL → Rod workshop**
+   or the dockside upgrade stand. The next goal always appears in the HUD.
+5. Step into a **POND PORTAL** and choose another island. Each pond has its own
+   three species, with starter fish available on every island. Islands are free.
 
-Walk sideways onto a **POND PORTAL** bay beside a fishing pier, step into its frame
-and pick any other island. You can also use its E/touch/gamepad prompt.
-Travel is free, with no unlocks or tickets. Arrive facing the pier within fishing
-range; return to the water or explore the island.
+Fine and Brilliant catches build a skill chain with a bounded coin bonus. Failed
+or cancelled attempts clear that chain. Species have different weight ranges;
+beat your personal size records and find Golden or Prismatic appearances. The
+first three catches have normal appearances so the introduction teaches real
+progress. Afterward, Golden is 2.5% and Prismatic is 0.5%, from gameplay only.
+A missed fish never removes money or collected fish.
 
-## New in v0.9 — quieter light and physical portals
+## Fifteen fish, five habitats
 
-- Afternoon lighting uses Brightness 1.9, exposure −0.2, lower ambient fill and
-  **Realistic** shadow rendering. Bloom and sun rays are disabled. Broad grass,
-  paving, cliffs and waterfalls have quieter colors; waterfalls no longer use Neon.
-- Five stone-framed portals replace the small travel stands. Each has a transparent
-  veil, a slow rune orbit, a selector pedestal and an adjoining deck. Pier railings
-  have real openings; the ordinary route to fishing stays outside the entry trigger.
-- Step into a gate to choose a pond. Movement pauses during selection and travel.
-  A dark 0.16-second cover hides relocation, followed by a 0.2-second reveal and
-  destination name. No white flash, camera shake or new sound is used.
-- The server requests destination streaming, checks the same living character
-  again, and lands it on one of five persistent support floors beside fishing.
-  Closing before departure cancels the send; death, rejection and timeout restore
-  controls. An early return into a gate waits for the short server cooldown.
-- Brick scenery, moving residents, short first-cast route, walking speed 22,
-  collections, rod upgrades, offline income and the existing audio mix remain.
-
-The classic brick details introduced in v0.8 remain: native Studs on Plastic,
-block trees, stepped pond walls, ten animated waterfalls, tackle boxes, lures,
-float buckets, cleats and five decorated trail-side bench nooks. Native studs
-add no individual parts or external assets.
-
-## Island life retained from v0.6
-
-- Seven original animated residents repair equipment, serve lemonade, fish,
-  tend flowers, wave, walk or watch the horizon. They are decorative inhabitants.
-- Six gulls glide and flap above the islands, six butterflies circle gardens and
-  two small fish schools move through the lagoons.
-- Brick flower beds, blooming hedges, saplings, ferns, mushrooms and fallen
-  petals fill selected spaces without covering the main walking routes.
-- Striped café parasols, produce crates, picnics, towels, shells and a bobbing
-  painted skiff give the harbor and beaches small everyday scenes.
-- Houses gain painted trim, shutters, broad windows and striped canopies; the
-  café has a bakery hatch and the workshop displays rods and a golden fish emblem.
-- Tree crowns sway gently. Residents and foliage animate locally at 20 Hz only
-  near the camera, with streamed arrivals/removals handled independently.
-
-## The world
-
-An original sky archipelago roughly **800 × 550 studs**, with five connected,
-walkable regions and five working fishing piers. Four wide bridges include level
-coast landings and continuous, protected walking surfaces.
-
-| Region | Places to explore |
+| Island | Its collection |
 | --- | --- |
-| Sundrift Harbor | Enterable workshop/café/cottage, busy garden square, residents, market, parasols, painted skiff and climbable lighthouse |
-| Petalwind Grove | Swaying blossom trees, fallen petals, gardener, tea picnic and animated canvas windmill |
-| Evergreen Reach | Layered pines, ferns, mushrooms, timber cottage and rising summit bridge |
-| Tideglass Cove | Curved palms, beach picnic, lookout resident, shaded crystal grotto and quiet lagoon |
-| Starfall Lookout | Old stone observatory, telescope, ruins, sky picnic and high fishing pier |
+| Sundrift Harbor | Pufflet, Mintfin, Emberfin |
+| Petalwind Grove | Petalperch, Ribbon Koi, Starwhisker (Breeze Rod) |
+| Evergreen Reach | Mossback, Pinepike, Moonray (Breeze Rod) |
+| Tideglass Cove | Bubble Squid, Sunskipper, Coralcrown (Nimbus Rod) |
+| Starfall Lookout | Cloudmoth, Aurorafin (Nimbus Rod), Crownwhale (Aurora Rod) |
 
-- Irregular coast polygons, gray brick collars and far-shore terraces frame the five ponds.
-- Native Roblox Terrain water provides waves/reflections in all five lagoons;
-  waterfalls and a drifting airship add movement without more sound effects.
-- Current **Realistic** lighting and quality-prioritized rendering are saved in
-  the place. Lower afternoon light, reduced ambient fill and shadow-casting roofs,
-  canopies and cliffs create shade. Small plants avoid unnecessary shadow work.
-- Instance streaming loads neighborhoods as needed. Small trees/buildings/bridge
-  sections are atomic; entire islands are not forced to load as one object.
-- Server-owned fishing locks each attempt to its selected pier and correct water
-  height. All existing collections, coins, rods, goals and offline income persist
-  with the same v0.3 save namespace. The v0.4 UI and six-clip audio mix are retained.
+The journal shows habitats, rod requirements, best grades and weight records.
+Discovery protection guarantees an unseen eligible fish after at most two
+consecutive duplicates while eligible undiscovered fish remain in that pond.
+Collection points reward better grades rather than duplicate grinding. Other
+players' collections appear on the leaderboard; there is no PvP.
 
-The generator produces **7,971 anchored source parts**, including **1,121 colliders**
-(invisible safety floors/rails included). Native water is separate terrain data.
-Pier railings open onto the portal decks; bridges retain both railings.
-Only the five arrival support floors are persistent; entire islands are not.
-These are measured source counts, not a mobile frame-rate guarantee.
+## A collection you can show
 
-All visual assets are original procedural geometry or Roblox built-in materials;
-no imported models, custom audio IDs or external mesh uploads are needed.
+Each player gets a public tank along the harbor's Aquarium Walk. Three selected
+fish swim locally, with their collected appearances, species names and best
+weight labels. Friends can walk through the gallery and see real player displays.
+Vacated plots can be reused; more rows are built as players join.
 
-## What was checked
+Four aquarium themes use earned coins: **Lagoon** is free, **Blossom Garden**
+costs 65, **Coral Reef** 110 and **Star Observatory** 140. They change colors and
+physical decorations: a sunken arch, bonsai garden, coral branches or observatory
+stones. Owned themes can be re-equipped without another charge.
+The three-slot editor rejects unowned species, duplicate placements and invalid
+slots. Size records and collected variants are independent achievements; a tank's
+**BEST** weight label does not claim that its displayed variant set that record.
 
-80 automated tests pass: 19 fishing, 12 locations, 18 progression/saving, 4 UI layout,
-9 world layout, 15 travel authorization and 3 place export. All 32 production files
-plus 6 Luau test suites compile. Independent rays through the actual captured colliders check 3,681 route
-samples for continuous support and six-stud headroom over a 2.6-stud corridor.
-225 more rays check the full spawn footprint, 125 check arrival footprints and
-429 check portal approaches through the railing openings.
-Twenty production travel-adapter scenarios cover walk-in entry, authorization, all five destinations,
-stream failures, duplicate requests, cooldown retry and character death/replacement/departure during loading.
-A separate unchanged-production client check covers dark transitions, control recovery,
-cancelled requests, timeouts and respawn with UI/event/tween doubles.
-An additional production-code smoke check exercises 1,006 resident animation steps,
-late-arriving attributes, stable joints, camera distance limits and streaming
-cleanup/rebind using geometry and event doubles. This is not a Roblox runtime test.
-A separate check executes production FishingService startup, including the real
-Folder world and all five prompt handlers. It also verifies custom-map startup
-and detects an in-memory restoration of the former Model-only guard.
+There are no Robux checkout buttons or paid random rewards in this build. Cosmetic
+progress is playable now; no unconfigured purchases are shown to children.
 
-Offline Blender views were used to inspect geometry. They do not emulate Roblox
-materials, native-water rendering, streaming, physics or device performance.
-**Roblox Studio/client rendering and phone/iPad performance remain untested here.**
-Use the [Studio checklist](docs/studio-testlista.md) before calling the map ready
-for a public release.
+## More shaped scenery
 
-## Saving and offline income
+- Fish have tapered fins, forked tails, inset faces, gills and species-specific
+  silhouettes: rays, a turtle-like Mossback, squid, winged fish and Crownwhale.
+- Trees use branching trunks, pointed crowns, layered pine skirts and curved
+  palms. Rocks have chipped facets; plants have pointed leaves and shaped petals.
+- Floating islands taper underneath. Pond walls gain sloping rock faces, cracks,
+  moss ledges, trailing vines and softened waterfalls, replacing flat block fronts.
+- Houses have fitted gables, shaped window crowns, planter rims, roof caps and
+  folded canvas hems. Smooth broad surfaces replace most exposed toy-brick studs.
+- Aquariums gain beveled pedestals, open frame rails, arched crowns, glass mullions
+  and small themed scenes. Close details remain clear of the fish swim volumes.
+- Animated residents, gulls, butterflies, fish schools, drifting boats and swaying
+  foliage remain. The existing audio mix is retained; no new sounds are added.
 
-**Offline income requires a published Roblox experience.** In normal Roblox-client
-play, saving is on by default. Each discovered species earns 0.25 coins/minute
-while away, up to eight hours and 120 coins per return. The welcome summary shows
-what was added. There is no separate claim button or client-calculated reward.
+Afternoon Realistic lighting retains exposure −0.2, low ambient fill and stronger
+shade. Bloom, sun rays and water reflectance are off. Portal/gallery travel uses
+a short dark transition, with no white flash, camera shake or paid unlock.
 
-**Studio Play uses temporary profiles by default.** The UI clearly labels this.
-For a real return test, publish a separate private test experience, join it through
-the Roblox client, catch fish, leave for five minutes and rejoin.
+## Saving and return play
 
-Optional Studio persistence needs a published test place, Studio API access and
-`SaveInStudio = true` in FishingConfig. It uses a separate test store.
-No API keys are needed. Do not enable test writes against unrelated production data.
+Published Roblox-client play saves automatically. The existing v0.3 save namespace
+and version-1 records remain: old coins, rods, catch grades and milestones migrate
+without resetting progress. New records, variants, aquarium slots and themes save
+with the same lease-protected profile.
 
-See [saving/return-play design and test steps](docs/discovery-and-return-play.md).
-Actual DataStore integration, sound playback, visuals and mobile layout have not
-been executed in the cloud runner; the [Studio checklist](docs/studio-testlista.md)
-keeps those checks distinct from automated logic tests.
+Each discovered species earns 0.25 coins/min while away, up to eight hours and
+120 coins per return. The welcome summary reports the server-calculated gift.
+Studio Play uses temporary profiles by default and labels them clearly.
+For persistence testing, publish a separate private test experience and join it
+through the Roblox client. Optional Studio saving uses a separate test store;
+see [return-play design](docs/discovery-and-return-play.md).
 
-## Development
+## Validation and limits
 
-Source is embedded in the downloadable place. Studio changes do not sync back to
-Git automatically. Edit source and rebuild; save custom world work separately.
-Rojo is not configured. `CreatePrototypeWorld = false` supports a saved custom
-`Workspace.World.FishingSpot`; its forward direction controls cast direction.
+99 automated tests cover fishing, locations, progression/saving, responsive layout,
+travel authorization and place export. All 34 production modules/scripts and six
+Luau suites compile. Separate checks execute unchanged production code for:
 
-Python 3.10+, no packages:
+- 28 portal/gallery server scenarios: authorization, streaming failure, concurrent
+  requests, character replacement, departure and movement during loading.
+- Dark transitions, control restoration, stale callbacks, gamepad focus and
+  timeouts with UI/event/tween doubles.
+- All 15 fish: bounded parts, repeatable appearances and animation at distant pivots.
+- Actual fishing UI: catalog totals, every timing target, region changes, accurate
+  rewards, cancelled reveals and repeat-catch dismissal.
+- Player aquariums: independent owners, profile caching, theme changes, plot reuse,
+  dynamic rows, supported arrivals, swim bounds, local animation and streaming rebind.
+- Normal generated-Folder startup, custom-map startup, and a regression mutation
+  that restores the former broken Model-only travel guard.
+
+Analytic rays through captured colliders check 3,681 walking-route points, 225 spawn
+points, 125 portal-arrival points and 429 portal approaches. Initial scenery stays
+below 10,000 anchored parts; player tanks add streamed Atomic displays. Only thin
+portal landing plates and gallery walking floors are persistent. Walking speed is
+22 studs/second; the first casting marker is about one second from spawn.
+
+Offline Blender previews inspect source geometry and placement. They do not
+reproduce Roblox rendering, physics, native input, streaming, sound or device FPS.
+**Actual Roblox Studio/client visuals and phone/iPad performance remain untested
+here.** Complete the [Studio checklist](docs/studio-testlista.md) before public release.
+
+## Build and check
+
+Python standard library builds the place and source ZIP:
 
 ```powershell
 python tools/build_place.py
@@ -152,38 +131,24 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-With the official Luau CLI:
+Outputs: `artifacts/Cloud-Anglers-v1.0.rbxlx` and `artifacts/Cloud-Anglers-v1.0.zip`.
+With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell
-luau tests/fishing_engine.spec.luau
-luau tests/fishing_progression.spec.luau
-luau tests/interface_layout.spec.luau
-luau tests/fishing_locations.spec.luau
-luau tests/world_layout.spec.luau
-luau tests/island_travel.spec.luau
+python tools/check_startup.py --luau /path/to/luau
+python tools/check_travel.py --luau /path/to/luau
+python tools/check_portal_interface.py --luau /path/to/luau
+python tools/check_fishing_interface.py --luau /path/to/luau
+python tools/check_fish_models.py --luau /path/to/luau
+python tools/check_aquarium.py --luau /path/to/luau
+python tools/check_residents.py --luau /path/to/luau
+python tools/preview_world.py --luau /path/to/luau --output /tmp/world.json
+python tools/check_world.py /tmp/world.json
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v0.9.rbxlx` and `artifacts/Cloud-Anglers-v0.9.zip`.
+`preview_world.py --gallery-players 3` adds clearly named **offline preview** owners
+for art inspection. They never appear in the downloadable game.
 
-Shared modules contain tuning, quality rules, species data and fish geometry.
-Server modules own attempts, economy/goals, atomic save rules, the DataStore adapter
-and world construction. Client modules separate input, UI theme/interface, sounds
-and 3D effects. All production modules are checked for inclusion in the place.
-
-Optional geometry inspection (Luau and Blender required) is described in
-`tools/preview_world.py`; `tools/check_world.py` checks actual generated colliders.
-`python tools/check_residents.py --luau /path/to/luau` checks resident construction
-and client animation with geometry/event doubles.
-`python tools/check_travel.py --luau /path/to/luau` checks the production travel
-adapter with geometry/event doubles, including yields and character replacement.
-`python tools/check_portal_interface.py --luau /path/to/luau` checks portal transition
-and control lifecycle with UI/event/tween doubles.
-`python tools/check_startup.py --luau /path/to/luau` checks the complete server
-startup wiring with the same production sources and geometry/event doubles.
-They capture production geometry for offline art review and route checks;
-it does not emulate Roblox lighting, sound, physics, UI or runtime behavior.
-
-The supplied YouTube video was blocked here. The return-income request was supplied
-by the user; recommendation guidance was checked against [Roblox's official discovery
-documentation](https://create.roblox.com/docs/discovery). No algorithm or retention
+The supplied YouTube video was unavailable in this environment. Offline income
+came from the user's explicit request. No discovery ranking, retention or revenue
 result is guaranteed or claimed.
