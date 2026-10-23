@@ -179,7 +179,9 @@ end
 
 local function skiff(parent: Instance)
 	local model = group(parent, "SundriftPaintedSkiff")
-	local cf = CFrame.new(22, 8.2, 144) * CFrame.Angles(0, -.22, 0)
+	-- Seat the hull slightly into native water; the old origin held its entire
+	-- bottom above the surface even at the low point of the gentle bob.
+	local cf = CFrame.new(22, 7.65, 144) * CFrame.Angles(0, -.22, 0)
 	model.WorldPivot=cf
 	Kit.part(model, "SkiffFloor", Vector3.new(4.6, .4, 12), cf * CFrame.new(0, .65, 0), C.Plank, wood)
 	for _, x in {-2.5, 2.5} do
@@ -189,7 +191,12 @@ local function skiff(parent: Instance)
 		Kit.beam(model, "PointedBowSide", cf:PointToWorldSpace(Vector3.new(x, 1.1, -6)), cf:PointToWorldSpace(Vector3.new(0, 1.1, -8.4)), .55, C.Teal, wood)
 		Kit.beam(model, "PointedBowRim", cf:PointToWorldSpace(Vector3.new(x, 2, -6)), cf:PointToWorldSpace(Vector3.new(0, 2, -8.4)), .21, C.Cream, wood)
 	end
-	Kit.wedge(model, "BowFloor", Vector3.new(4.4, .25, 2.6), cf * CFrame.new(0, .55, -6), C.Wood, wood)
+	-- Mirrored thin wedges form a horizontal triangle inside the pointed bow.
+	-- An upright wedge left a ramp poking through the narrowing hull sides.
+	for _, side in {-1, 1} do
+		Kit.wedge(model, "BowFloor", Vector3.new(.12, 2.2, 2.5),
+			cf * CFrame.new(side * 1.1, .8, -7.15) * CFrame.Angles(0, 0, -side * math.pi / 2), C.Wood, wood)
+	end
 	Kit.part(model, "Transom", Vector3.new(5.3, 1.8, .45), cf * CFrame.new(0, 1.1, 6), C.Teal, wood)
 	for _, z in {-3.7, .7, 4} do Kit.part(model, "RowingBench", Vector3.new(4.7, .27, 1.25), cf * CFrame.new(0, 1.6, z), C.Plank, wood) end
 	for _, side in {-1, 1} do

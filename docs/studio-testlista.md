@@ -397,3 +397,23 @@ De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
 - [ ] Prova låg/hög grafikkvalitet och riktig mobil/iPad. Notera texturutseende,
   skuggor, minne och bildfrekvens; molnkontrollerna mäter inte detta.
 - [ ] Fiska och använd varje portal; jämför befintlig progression och sparning.
+
+
+## v1.3 — osynliga hinder och felplacerade delar, ännu okörda i Studio
+
+- [ ] Öppna **Cloud-Anglers-v1.3.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Gå över hela startområdet: fötterna ska följa bryggan utan ett upphöjt
+  osynligt steg. Respawn fungerar även när den tillfälliga byggplattan saknar kollision.
+- [ ] Besök alla fem portaler. Vid långsam laddning ska själva gångdäcket vara
+  synligt och bära spelaren även om portalens dekoration inte är laddad.
+- [ ] Gå akvariepromenaden med flera spelare och fler rader. Samma synliga
+  brädor ska bära spelaren även när fiskar, glas och dekor laddas ur.
+- [ ] Titta under/utmed bryggorna och broarna: synligt trä under plankornas
+  springor, inga osynliga gångytor som sticker ut över det fria vattnet.
+- [ ] Gå runt och hoppa intill de stora stenarna. Ingen kollision i tom luft
+  utanför de synliga sluttande stenytorna. Kontrollera kameran vid stenarna.
+- [ ] Se båten från vattenhöjd under hela gungningen: skrovet möter vattnet,
+  den torra durken och den triangulära fören håller sig innanför skrovet.
+- [ ] Fiska i samtliga fem dammar; flötena ska hamna i fritt vatten.
+- [ ] Prova riktig mobil/iPad och klientens streaming. Molnkontrollerna kör
+  inte Roblox fysik eller nätverksladdning på en verklig enhet.

@@ -127,7 +127,7 @@ for _,node in world:GetDescendants() do
  if node:IsA("BasePart") then
   partCount+=1
   assert(node.Anchored and not node.CanTouch,"unanchored or touch-heavy travel station")
-  if node.CanCollide then assert(node.Parent==supports and node.Transparency==1,"unexpected travel obstruction") end
+  if node.CanCollide then assert(node.Parent==supports and node.Transparency==0 and node.Material==Enum.Material.WoodPlanks,"unexpected travel obstruction") end
  end
 end
 assert(partCount<=350,"travel part budget exceeded")
@@ -420,6 +420,14 @@ check("departed gallery players cannot leave cooldown or pending state for reuse
  remote.OnServerEvent:Fire(replacement,"gallery")
  assert(status(replacement)=="Loading" and #pending==1,"departed gallery ticket survived removal")
  finishPending();assert(status(replacement)=="Arrived")
+end)
+check("visible landing decks remain after portal decoration unloads",function()
+ stations.Parent=nil
+ assert(#supports:GetChildren()==5 and supports.Parent==world)
+ for _,floor in supports:GetChildren() do
+  assert(floor.Anchored and floor.CanCollide and floor.CanQuery and floor.Transparency==0,
+   "decor unloaded into an invisible or unsupported arrival")
+ end
 end)
 print("Production travel adapter:",checks,"scenario checks;",partCount,"parts; authorization, five destinations, streaming failures and character races passed")
 print("These are event/geometry-double checks. Roblox replication, native prompt behavior and landing physics still require Studio.")

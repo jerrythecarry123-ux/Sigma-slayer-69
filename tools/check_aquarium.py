@@ -173,7 +173,12 @@ for _,who in ownerList do
  table.insert(arrivals,landing.Position)
 end
 local rowFloors=gallery.folder:FindFirstChild("GallerySafetyFloors")
-assert(rowFloors.ModelStreamingMode==Enum.ModelStreamingMode.Persistent and #rowFloors:GetChildren()==5,"new plot rows did not gain persistent support")
+assert(rowFloors.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,"gallery walking surfaces must persist")
+for _,part in rowFloors:GetChildren() do
+ assert(part:IsA("BasePart") and part.CanCollide and part.CanQuery,"persistent gallery floor is not physical/queryable")
+ assert(part.Transparency==0 and part.Material==Enum.Material.WoodPlanks,"streaming leaves an invisible gallery walkway")
+ assert(math.abs(part.Position.Y+part.Size.Y/2-12)<.00001,"gallery floor is not flush with its walking surface")
+end
 gallery.remove(second);assert(gallery.arrival(second)==nil,"removed player retained a landing")
 local replacement=Instance.new("Player");replacement.UserId=11;replacement.DisplayName="New angler";replacement.Parent=players
 gallery.update(replacement,fullSnapshot)
@@ -283,7 +288,8 @@ local parts={}
 for _,part in gallery.folder:GetDescendants() do
  if part:IsA("BasePart") and part.CanCollide then
   table.insert(parts,{name=part.Name,size=vec(part.Size),position=vec(part.Position),rotation=part.CFrame.r,
-   shape=if part:IsA("WedgePart") then "Wedge" else part.Shape,path=part.Name})
+   shape=if part:IsA("WedgePart") then "Wedge" else part.Shape,path=part.Name,
+   visible=part.Transparency==0,persistent=part:IsDescendantOf(rowFloors)})
  end
 end
 local points={}
@@ -331,14 +337,16 @@ def check(luau: str) -> None:
         colliders.append((part, part["position"][0]-radii[0], part["position"][0]+radii[0],
                           part["position"][2]-radii[2], part["position"][2]+radii[2]))
     count = 0
-    floors = [entry for entry in colliders if entry[0]["name"] != "TankSafetyCollider"]
+    floors = [entry for entry in colliders if entry[0]["persistent"] and entry[0]["visible"]]
+    assert floors, "gallery has no persistent visible deck"
     for arrival in scene["arrivals"]:
         for dx in (-1.8, -1, 0, 1, 1.8):
             for dz in (-1.8, -1, 0, 1, 1.8):
                 x, z = arrival[0]+dx, arrival[2]+dz
                 failure = world.walking_surface(colliders, x, 12, z, "aquarium arrival", .1)
                 assert failure is None, failure
-                assert any(world.interval(part, x, z) for part, *_ in floors), "arrival lacks persistent floor support"
+                floor_failure = world.walking_surface(floors, x, 12, z, "visible streamed aquarium arrival", .1)
+                assert floor_failure is None, floor_failure
                 count += 1
     routes = [((-48, 80), (-106, 80)), ((-106, 80), (-106, 156))]
     for a, b in routes:
@@ -350,8 +358,10 @@ def check(luau: str) -> None:
                 z = a[1]+(b[1]-a[1])*step/length+side[1]*offset
                 failure = world.walking_surface(colliders, x, 12, z, "gallery promenade", .1)
                 assert failure is None, failure
+                floor_failure = world.walking_surface(floors, x, 12, z, "visible streamed gallery promenade", .1)
+                assert floor_failure is None, floor_failure
                 count += 1
-    print(f"PASS {count} actual-collider arrival/promenade samples with persistent support and six-stud headroom")
+    print(f"PASS {count} actual-collider arrival/promenade samples with visible persistent decks and six-stud headroom")
     print("Geometry/UI/event doubles only; Roblox rendering, replication and device performance still require Studio.")
 
 

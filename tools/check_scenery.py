@@ -88,6 +88,43 @@ assert(controlPoint(rope.Attachment0,rope.CurveSize0).Y<dock.Position.Y-.5,
 assert(controlPoint(rope.Attachment1,-rope.CurveSize1).Y<bow.Position.Y-.5,
  'mooring boat tangent bends sideways rather than sagging down')
 local boatOrigin=boat:GetAttribute('DriftOrigin')
+-- Evaluate the actual authored hull and dry interior through the complete
+-- conservative bob/tilt envelope, including maximum bob with no tilt.
+local waterY
+for _,water in modules.WorldLayout.Waters do if water.Id=='harbor' then waterY=water.Center[2] end end
+assert(waterY,'harbor water is missing')
+local hullPoints,dryPoints={},{}
+local bowFloors=0
+for _,part in boat:GetDescendants() do
+ if part:IsA('BasePart') and part.Name=='PaintedHull' then
+  for _,x in {-1,1} do for _,y in {-1,1} do for _,z in {-1,1} do
+   table.insert(hullPoints,boatOrigin:PointToObjectSpace(part.CFrame*Vector3.new(x*part.Size.X/2,y*part.Size.Y/2,z*part.Size.Z/2)))
+  end end end
+ elseif part:IsA('BasePart') and part.Name=='SkiffFloor' then
+  for _,x in {-1,1} do for _,z in {-1,1} do
+   table.insert(dryPoints,boatOrigin:PointToObjectSpace(part.CFrame*Vector3.new(x*part.Size.X/2,part.Size.Y/2,z*part.Size.Z/2)))
+  end end
+ elseif part:IsA('BasePart') and part.Name=='BowFloor' then
+  bowFloors+=1
+  local vertical=(part.CFrame*Vector3.xAxis-part.Position).Y
+  local top=if vertical>0 then part.Size.X/2 else -part.Size.X/2
+  -- Actual triangular top-face vertices of a WedgePart, rather than its box.
+  for _,vertex in {Vector3.new(top,-part.Size.Y/2,-part.Size.Z/2),Vector3.new(top,-part.Size.Y/2,part.Size.Z/2),Vector3.new(top,part.Size.Y/2,part.Size.Z/2)} do
+   local localPoint=boatOrigin:PointToObjectSpace(part.CFrame*vertex)
+   assert(localPoint.Z>=-8.401 and localPoint.Z<=-5.899 and math.abs(localPoint.Y-.86)<.001,
+    'bow floor is not a level, fitted triangle')
+   table.insert(dryPoints,localPoint)
+  end
+ end
+end
+assert(#hullPoints==16 and #dryPoints==10 and bowFloors==2,'boat contact/dry-floor geometry is incomplete')
+for _,bob in {-.12,0,.12} do for _,pitch in {-.01,0,.01} do for _,roll in {-.018,0,.018} do
+ local frame=boatOrigin*CFrame.new(0,bob,0)*CFrame.Angles(pitch,0,roll)
+ local bottom=math.huge
+ for _,point in hullPoints do bottom=math.min(bottom,(frame*point).Y) end
+ assert(bottom<=waterY-.045,'boat hull hovers above the water at a bob extreme')
+ for _,point in dryPoints do assert((frame*point).Y>waterY+.07,'water reaches the boat interior during bob/tilt') end
+end end end
 local bowRest=boatOrigin:PointToObjectSpace(bow.Position)
 local dockPosition=dock.Position
 boat.WorldPivot=CFrame.new(2000,30,4) -- WorldPivot does not replicate from server.
@@ -180,7 +217,7 @@ assert(boat.AttributeChanged:Count()==0 and flow.AttributeChanged:Count()==0,'re
 assert(flow.Transparency==.47 and glint.Transparency==.21,'world cleanup overwrote external opacity')
 world.Parent=workspace;workspace.ChildAdded:Fire(world);step(1800000107)
 assert((boat:GetPivot().Position-frozen).Magnitude>.0001,'returning world did not resume animation')
-print('PASS production scenery: fixed moorings, authored pivots, quiet flow wraps and bounded large-clock angles')
+print('PASS production scenery: seated boat hull/dry fitted bow, fixed moorings, authored pivots, quiet flow wraps and bounded large-clock angles')
 print('PASS distance limits, late/nonfinite attributes, opacity ownership, streamed root and world rebind')
 print('Geometry/event doubles only; native Beam appearance, Roblox replication and device FPS require client checks.')
 '''

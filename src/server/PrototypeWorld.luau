@@ -453,6 +453,9 @@ function World.create(): BasePart
 		end
 	end
 	root.Parent=workspace
+	-- The joining pad is only needed during construction. Leaving its raised
+	-- invisible collision enabled made avatars hover above the finished planks.
+	spawn.CanCollide,spawn.CanTouch,spawn.CanQuery=false,false,false
 	assert(first,"Map needs a primary fishing spot")
 	return first
 end

@@ -180,14 +180,14 @@ function Nature.rock(parent: Instance, pos: Vector3, size: Vector3, seed: number
 	local yaw=random:NextNumber(0,math.pi)
 	local oldFrame=CFrame.new(pos+Vector3.yAxis*size.Y*.34)*CFrame.Angles(.05,yaw,-.06)
 	local tint=C.Stone:Lerp(C.DeepStone,random:NextNumber(0,.24))
-	if size.Y>=3 then
-		Kit.part(model,"RockCore",size*Vector3.new(.7,.7,.7),oldFrame,tint,collider)
-	end
-	Kit.wedge(model,"SlopingStoneFace",size*Vector3.new(.95,.76,.88),oldFrame,tint,stone)
+	-- Physical contact follows the visible facets. A hidden rectangular core
+	-- protruded through their slopes and stopped avatars in apparently empty air.
+	local rockSurface=if size.Y>=3 then {material=Enum.Material.Slate,collidable=true} else stone
+	Kit.wedge(model,"SlopingStoneFace",size*Vector3.new(.95,.76,.88),oldFrame,tint,rockSurface)
 	Kit.wedge(model,"BrokenStoneCrown",size*Vector3.new(.78,.66,.78),
-		oldFrame*CFrame.new(-size.X*.06,size.Y*.09,size.Z*.04)*CFrame.Angles(0,math.pi,0),tint:Lerp(C.Cliff,.2),stone)
+		oldFrame*CFrame.new(-size.X*.06,size.Y*.09,size.Z*.04)*CFrame.Angles(0,math.pi,0),tint:Lerp(C.Cliff,.2),rockSurface)
 	Kit.wedge(model,"ChippedRockShoulder",size*Vector3.new(.56,.48,.7),
-		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),stone)
+		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),rockSurface)
 	if moss then
 		-- The exposed first face rises by .76Y over .88Z. Attach this patch to
 		-- that actual plane; the old horizontal offset left moss in mid-air.

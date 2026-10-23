@@ -41,7 +41,8 @@ function Aquarium.start(world: Instance, callbacks: any)
 	assert(not world:FindFirstChild("AquariumGallery"), "Install one aquarium gallery only")
 	local gallery = Instance.new("Folder")
 	gallery.Name, gallery.Parent = "AquariumGallery", world
-	-- Only the thin walking plates persist, not glass, cases, plants or fish.
+	-- Visible structural decks persist with their collision, so streamed decoration
+	-- can never leave an invisible walkway over the harbor. Fish/cases remain Atomic.
 	local floors = Instance.new("Model")
 	floors.Name, floors.ModelStreamingMode, floors.Parent = "GallerySafetyFloors", Enum.ModelStreamingMode.Persistent, gallery
 	local scenery = Instance.new("Folder")
@@ -49,15 +50,13 @@ function Aquarium.start(world: Instance, callbacks: any)
 	local rowCount = 0
 	local plots: {[number]: any} = {}
 	local occupied: {[number]: number} = {}
-	local function floor(name: string, size: Vector3, position: Vector3)
-		Kit.part(floors, name, size, CFrame.new(position), C.Plank,
-			{collidable=true, transparency=1, shadow=false})
+	local function floor(name: string, size: Vector3, position: Vector3, tint: Color3?)
+		Kit.part(floors, name, size, CFrame.new(position), tint or C.Plank,
+			{material=Enum.Material.WoodPlanks,collidable=true})
 	end
-	local decking = { material = Enum.Material.WoodPlanks }
 	local timber = { material = Enum.Material.Wood }
 	-- Broad level access from existing harbor ground; clear of the main fishing route.
-	floor("GalleryAccessSafetyFloor", Vector3.new(36,.4,14), Vector3.new(-66,GROUND-.2,80))
-	Kit.part(scenery,"GalleryAccessDeck",Vector3.new(36,.16,14),CFrame.new(-66,GROUND-.1,80),C.Plank,decking)
+	floor("GalleryAccessDeck",Vector3.new(36,.4,14),Vector3.new(-66,GROUND-.2,80))
 	for _, side in {-1,1} do
 		Kit.part(scenery,"AccessEdge",Vector3.new(36,.65,.35),CFrame.new(-66,GROUND-.3,80+side*6.8),C.Wood,timber)
 		-- A support meets each fascia directly; no decorative brace hangs free.
@@ -75,17 +74,16 @@ function Aquarium.start(world: Instance, callbacks: any)
 		while rowCount <= row do
 			local index = rowCount
 			local centerZ = FIRST_Z + index*TILE_DEPTH
-			floor("GalleryRow"..index,Vector3.new(COLUMNS*TILE_WIDTH,.4,TILE_DEPTH),Vector3.new(FIRST_X-TILE_WIDTH,GROUND-.2,centerZ))
 			local deck=Kit.model(scenery,"GalleryRow"..index)
 			deck.ModelStreamingMode=Enum.ModelStreamingMode.Atomic
 			for column=0,COLUMNS-1 do
 				local x=FIRST_X-column*TILE_WIDTH
 				-- Broad native plank surfaces supply grain and seams without adding a
 				-- separate Part for every board. The lighter half is the walking lane.
-				Kit.part(deck,"GalleryPromenadeDeck",Vector3.new(TILE_WIDTH,.16,TILE_DEPTH/2),
-					CFrame.new(x,GROUND-.1,centerZ-TILE_DEPTH/4),C.Plank,decking)
-				Kit.part(deck,"GalleryDisplayApron",Vector3.new(TILE_WIDTH,.16,TILE_DEPTH/2),
-					CFrame.new(x,GROUND-.1,centerZ+TILE_DEPTH/4),C.Plank:Lerp(C.Wood,.23),decking)
+				floor("GalleryPromenadeDeck",Vector3.new(TILE_WIDTH,.4,TILE_DEPTH/2),
+					Vector3.new(x,GROUND-.2,centerZ-TILE_DEPTH/4))
+				floor("GalleryDisplayApron",Vector3.new(TILE_WIDTH,.4,TILE_DEPTH/2),
+					Vector3.new(x,GROUND-.2,centerZ+TILE_DEPTH/4),C.Plank:Lerp(C.Wood,.23))
 				Kit.beam(deck,"GalleryTimberPile",Vector3.new(x,GROUND-7.4,centerZ+6),
 					Vector3.new(x,GROUND-.4,centerZ+6),.65,C.Wood,timber)
 			end

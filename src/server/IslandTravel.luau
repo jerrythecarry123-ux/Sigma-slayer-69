@@ -24,8 +24,8 @@ function Travel.create(world: Instance): Folder
 	if existing and existing:IsA("Folder") then return existing end
 	local stations = Instance.new("Folder")
 	stations.Name = "IslandTravelStations"
-	-- Persistent plates cover the whole side bay: arriving players always have a
-	-- floor even while an Atomic portal and its neighboring pier finish streaming.
+	-- The actual visible landing decks persist. A separate invisible floor
+	-- could remain over water after the portal's decorative model streamed out.
 	local supports = Instance.new("Model")
 	supports.Name, supports.ModelStreamingMode = "TravelArrivalSupports", Enum.ModelStreamingMode.Persistent
 	for _, dock in Layout.Docks do
@@ -34,7 +34,7 @@ function Travel.create(world: Instance): Folder
 		local gate = basis * CFrame.new(bayX, 0, 8) * CFrame.Angles(0, math.pi / 2, 0)
 		Kit.part(supports, dock.Id .. "ArrivalFloor", Vector3.new(13, 0.2, 12),
 			basis * CFrame.new(bayX, -0.2, 8), CREAM,
-			{ collidable = true, transparency = 1, shadow = false })
+			{ material = Enum.Material.WoodPlanks, collidable = true })
 		local station = Instance.new("Model")
 		station.Name, station.ModelStreamingMode = dock.Id, Enum.ModelStreamingMode.Atomic
 		station:SetAttribute("TravelSourceId", dock.Id)
@@ -48,7 +48,6 @@ function Travel.create(world: Instance): Folder
 		end
 		-- Muted framing and transparent color identify a portal without a bright
 		-- light source, neon surface, flash, or effects obscuring the fishing view.
-		block("PortalBayDeck", Vector3.new(12, 0.16, 13), 0, -0.18, 0, CREAM, { material = Enum.Material.WoodPlanks })
 		for _, side in { -1, 1 } do
 			block("PortalStoneFoot", Vector3.new(1.6, 0.65, 2.1), side * 4.1, 0.225, 0, STONE, { material = Enum.Material.Limestone })
 			block("PortalUpright", Vector3.new(1, 8.9, 1.2), side * 4.1, 4.45, 0, STONE, { material = Enum.Material.Limestone })

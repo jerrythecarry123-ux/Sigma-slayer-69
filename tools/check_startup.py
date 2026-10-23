@@ -133,7 +133,11 @@ assert(gallery and gallery:IsA("Folder"),"startup: aquarium gallery was not inst
 local galleryFloors=gallery:FindFirstChild("GallerySafetyFloors")
 assert(galleryFloors and galleryFloors.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,
  "startup: gallery floors must persist before players arrive")
-assert(#galleryFloors:GetChildren()==2,"startup: empty gallery needs access and first-row support")
+assert(#galleryFloors:GetChildren()==7,"startup: empty gallery needs visible access and six first-row tiles")
+for _,floor in galleryFloors:GetChildren() do
+ assert(floor:IsA("BasePart") and floor.CanCollide and floor.Transparency==0,
+  "startup: persistent gallery support is invisible")
+end
 for _,child in gallery:GetChildren() do
  assert(not child:GetAttribute("AquariumPlot"),"startup: empty gallery created a fake player aquarium")
 end

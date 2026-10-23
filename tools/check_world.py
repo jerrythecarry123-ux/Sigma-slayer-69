@@ -172,7 +172,8 @@ def validate(scene):
         assert len(matching) == 1, destination+' needs its own persistent arrival floor'
         floor = matching[0]
         assert floor['anchored'] and floor['collide'] and floor.get('query') is True, floor['path']+' must be anchored, collidable and queryable'
-        assert floor['alpha'] == 0 and not floor['shadow'], floor['path']+' must remain invisible without casting a shadow'
+        assert floor['alpha'] == 1 and floor['shadow'], floor['path']+' must remain visible when portal decoration streams out'
+        assert floor['material'] == 'WoodPlanks', floor['path']+' lost its visible landing material'
         assert floor['shape'] == 'Block' and 0 < floor['size'][1] <= .3, floor['path']+' must remain a thin collision plate'
         support_by_id[destination] = floor
     config_source = (Path(__file__).resolve().parents[1]/'src/shared/FishingConfig.luau').read_text()
@@ -238,7 +239,7 @@ def validate(scene):
         'WeatheredDeckPlank': 'Wood', 'RearWall': 'Plaster',
         'IndividualSlateShingle': 'Slate', 'CanvasSail': 'Fabric',
         'SculptedLowerTrunk': 'Wood', 'SlopingStoneFace': 'Slate',
-        'GalleryPromenadeDeck': 'WoodPlanks', 'PortalBayDeck': 'WoodPlanks',
+        'GalleryPromenadeDeck': 'WoodPlanks', 'ContinuousWalkSurface': 'Wood',
         'PortalUpright': 'Limestone', 'WornFootpath': 'Sand', 'TownSquare': 'Limestone',
     }
     for name, material in surfaces.items():
@@ -248,6 +249,32 @@ def validate(scene):
             assert p['material'] == material, p['path']+' lost its authored surface'
             assert not any(p['studs'].values()), p['path']+' has studs masking its texture'
     assert not any('/PuffletPreview/' in p['path'] for p in parts), 'Prototype fish still floats above the pond'
+
+    assert not spawn_part['collide'] and not spawn_part['query'], 'Temporary joining pad still creates an invisible raised step'
+    visible_floors=0
+    for p in parts:
+        if '/FacetedShoreRock/' in p['path'] and p['collide']:
+            assert p['alpha']==1 and p['query'], p['path']+' rock collision extends beyond the visible facets'
+        if (p['collide'] and p['shape']=='Block' and p['size'][1]<=.5
+                and min(p['size'][0],p['size'][2])>3 and abs(p['rotation'][1][1])>.9):
+            assert p['alpha']==1, p['path']+' is an invisible walking plane'
+            visible_floors+=1
+    # A fixed target could still lie below an unseen plate or inside scenery.
+    # Keep the entire vertical space above all authoritative bobber lanes clear.
+    cast_samples=0
+    waters={water['Id']:water for water in layout['Waters']}
+    for dock in layout['Docks']:
+        water=waters[dock['Id']]
+        for lane in (-3,-1,1,3):
+            x=dock['Spot'][0]+math.cos(dock['Yaw'])*lane-math.sin(dock['Yaw'])*14
+            z=dock['Spot'][2]-math.sin(dock['Yaw'])*lane-math.cos(dock['Yaw'])*14
+            for dx,dz in ((0,0),(-.5,0),(.5,0),(0,-.5),(0,.5)):
+                for p,x0,x1,z0,z1 in colliders:
+                    if x0<=x+dx<=x1 and z0<=z+dz<=z1:
+                        hit=interval(p,x+dx,z+dz)
+                        assert not hit or hit[1]<water['Center'][1]+.05 or hit[0]>dock['Spot'][1]+5, \
+                            dock['Id']+' casting water is obstructed by '+p['path']
+                cast_samples+=1
 
     shore_samples = 0
     for water in layout['Waters']:
@@ -277,6 +304,7 @@ def validate(scene):
     print(f'PASS {arrival_samples} arrival-footprint rays, five persistent queryable floors, immediate fishing range and separate travel prompts')
     print(f'PASS {portal_samples} portal-approach rays through open side rails; arrivals clear of walk-in triggers')
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
+    print(f'PASS {visible_floors} visible physical walking surfaces; {cast_samples} clear bobber-lane samples; no raised spawn or hidden rock boxes')
     print(f'PASS authored materials without stud overrides; {shore_samples} visible waterfall samples reaching native water')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 

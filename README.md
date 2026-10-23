@@ -1,10 +1,31 @@
-# Cloud Anglers — v1.2
+# Cloud Anglers — v1.3
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.2.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.3.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.3 — visible surfaces and matching collision
+
+This is a correction pass on the existing map. In v1.2, hidden persistent floors
+could outlive the visible portal/gallery decks when decoration streamed out.
+The actual visible plank decks now supply persistent landing and walking support;
+the duplicate hidden underplates are removed. Pier/bridge subdecks are visible
+wood beneath their individual boards, with the same physical footprint.
+
+The temporary raised spawn pad loses collision after the finished world is
+parented, so it cannot make avatars hover above the pier. Large rocks use their
+visible facets for collision; the old hidden boxes protruded beyond the slopes.
+The existing skiff sits in the water throughout its gentle bob, and its bow floor
+is a fitted horizontal triangle rather than a ramp protruding through the hull.
+
+The initial map is **9,947 parts**. Walking routes, fishing, travel coordinates,
+lighting, audio and saving remain. New checks reject invisible walking planes,
+raised spawn collision and hidden rock boxes, and sample 100 positions above the
+server's bobber lanes. Portal/gallery tests also detach decoration and check the
+remaining visible support. This is an analytic/event-double check, not a claim
+that real Roblox streaming or physics has been tested here.
 
 ## New in v1.2 — refine the existing terrain and models
 
@@ -169,7 +190,7 @@ see [return-play design](docs/discovery-and-return-play.md).
 travel authorization and place export. All 34 production modules/scripts and six
 Luau suites compile. Separate checks execute unchanged production code for:
 
-- 28 portal/gallery server scenarios: authorization, streaming failure, concurrent
+- 29 portal/gallery server scenarios: authorization, streaming failure, concurrent
   requests, character replacement, departure and movement during loading.
 - Dark transitions, control restoration, stale callbacks, gamepad focus and
   timeouts with UI/event/tween doubles.
@@ -181,7 +202,8 @@ Luau suites compile. Separate checks execute unchanged production code for:
 - Existing residents: 1,498 finite animation steps, nearby-character reactions,
   greeting cooldown, stable jobs, fixed water endpoints, blinks and streamed recovery.
 - Scenery: fixed mooring anchors, sagging Beam control points, authored pivots,
-  bounded rotations, quiet flow wraps, distance limits and opacity ownership.
+  bounded rotations, quiet flow wraps, distance limits and opacity ownership;
+  27 extreme boat poses keep hull/water contact and the interior dry.
 - Normal generated-Folder startup, custom-map startup, and a regression mutation
   that restores the former broken Model-only travel guard.
 
@@ -189,9 +211,10 @@ Analytic rays through captured colliders check 3,681 walking-route points, 225 s
 points, 125 portal-arrival points and 429 portal approaches. Another 2,373 samples
 check that the visible trails still cover the walking corridors, and 81 verify waterfall visibility and their
 contact with native water. Representative captured material roles are checked for
-old Studs overrides. Initial scenery stays
+old Studs overrides. Another 100 bobber-lane samples check for obstructions,
+and thin physical walking surfaces must be visible. Initial scenery stays
 below 10,000 anchored parts; player tanks add streamed Atomic displays. Only thin
-portal landing plates and gallery walking floors are persistent. Walking speed is
+visible portal decks and gallery walking surfaces are persistent. Walking speed is
 22 studs/second; the first casting marker is about one second from spawn.
 
 Offline Blender previews inspect source geometry and placement. They do not
@@ -209,7 +232,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.2.rbxlx` and `artifacts/Cloud-Anglers-v1.2.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.3.rbxlx` and `artifacts/Cloud-Anglers-v1.3.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell

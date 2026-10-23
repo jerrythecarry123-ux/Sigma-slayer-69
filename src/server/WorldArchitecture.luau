@@ -36,7 +36,7 @@ use(Enum.Material.Wood, {
 	"PaintedShopSign", "RearDisplayShelf", "BackCounter", "CounterTop", "CafeServingCounter", "CreamCounterMoulding", "CafeHatchCountertop",
 	"WorkshopFishPlaque", "OutdoorRodRack", "DisplayFishingRod", "WorkshopJournalStand", "WorkshopRod",
 	"PorchBenchSeat", "PorchBenchBack", "BenchLeg", "WeatheredDeckPlank", "LongitudinalStringer", "DeepTimberPile", "PileWaterlineBand",
-	"RopeRailPost", "PostCap", "PortalEntrancePost", "PortalEntranceCap", "SpiralStairTread", "CentralStairMast",
+	"ContinuousWalkSurface", "RopeRailPost", "PostCap", "PortalEntrancePost", "PortalEntranceCap", "SpiralStairTread", "CentralStairMast",
 	"BrassTelescopeTripod", "MarketCounter", "CounterEdge", "StallAwningPost", "AwningBrace", "ProduceTray",
 	"PicnicTableTop", "PicnicBench", "BenchSupport", "TableTrestle", "RestingFishingRod",
 })
@@ -414,9 +414,10 @@ function Architecture.dock(parent, a, b, width, name, rails, portalOpening)
 	local function inOpening(side, z)
 		return portalOpening ~= nil and side == 1 and z > gapMin - 0.3 and z < gapMax + 0.3
 	end
-	-- One uninterrupted collider keeps small gaps between visible planks harmless.
+	-- A visible timber subdeck keeps the small board seams safe without an
+	-- invisible walking plane across the pond or the open bridge spans.
 	local floor = p(model, "ContinuousWalkSurface", Vector3.new(width, 0.42, length), basis - up * 0.21, C.Timber, PLASTIC, true)
-	floor.Transparency = 1
+	floor.Transparency = 0
 	local count = math.min(48, math.max(2, math.ceil(length / 2.25)))
 	for i = 0, count - 1 do
 		local plankCf = basis * CFrame.new(0, -0.02, -length / 2 + (i + 0.5) * length / count)
