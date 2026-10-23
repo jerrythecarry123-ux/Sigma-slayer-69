@@ -9,11 +9,10 @@ local Landscaping = {}
 local TAU = math.pi * 2
 local foliage = { material = Enum.Material.SmoothPlastic }
 local detail = { material = Enum.Material.Plastic, shadow = false }
-local wood = { material = Enum.Material.Plastic, studded = true }
-local cloth = { material = Enum.Material.Plastic, shadow = false }
+local wood = { material = Enum.Material.Wood }
+local cloth = { material = Enum.Material.Fabric, shadow = false }
 local flowerTints = {
-	Color3.fromRGB(255, 220, 0), Color3.fromRGB(255, 92, 28),
-	Color3.fromRGB(255, 251, 196), Color3.fromRGB(38, 143, 220),
+	C.Gold, C.Coral, C.Cream, C.Teal,
 }
 
 local function group(parent: Instance, name: string): Model
@@ -52,14 +51,13 @@ end
 local function planting(parent: Instance, pos: Vector3, scale: number, tint: Color3, seed: number): Model
 	local model = group(parent, "FloweringIslandBorder")
 	local random = Random.new(seed)
-	-- Shallow planted ovals soften the border without forming green boxes.
-	Kit.disk(model, "LowPlantedBorder", 6.8*scale, 4.2*scale, .32*scale,
-		pos+Vector3.yAxis*.18*scale, C.Leaf, foliage)
-	Kit.disk(model, "InnerLeafMound", 4.8*scale, 3.2*scale, .28*scale,
-		pos+Vector3.new(-.5,.42,.2)*scale, C.Leaf:Lerp(C.Lime,.08), foliage)
+	-- A shallow planted patch belongs to the ground, rather than sitting on it
+	-- as a stack of green disks. The flowers and their leaves provide the volume.
+	Kit.disk(model, "TendedGardenSoil", 6.8*scale, 4.2*scale, .07*scale,
+		pos+Vector3.yAxis*.04*scale, C.Bark:Lerp(C.Moss,.4), {shadow=false})
 	for i = 0, 2 do
 		local a = .35 + i * TAU / 3
-		flower(model, pos + Vector3.new(math.cos(a) * 2.1, .15, math.sin(a) * 1.4) * scale,
+		flower(model, pos + Vector3.new(math.cos(a) * 2.1, .065, math.sin(a) * 1.4) * scale,
 			(1.75 + i * .22) * scale, tint:Lerp(C.Cream, i * .12), random:NextNumber(0, TAU))
 	end
 	return model
@@ -138,13 +136,18 @@ local function umbrella(parent: Instance, pos: Vector3, tint: Color3, yaw: numbe
 	local model = group(parent, "StripedParasolSeating")
 	Kit.disk(model, "ParasolFoot", 2.2, 2.2, .22, pos + Vector3.yAxis * .11, C.Limestone, { material = Enum.Material.Limestone })
 	Kit.beam(model, "ParasolMast", pos, pos + Vector3.yAxis * 8.3, .2, C.Cream, wood)
-	Kit.ball(model, "BrassParasolFinial", Vector3.one * .4, pos + Vector3.yAxis * 8.55, C.Brass)
+	local canvas=Kit.model(model,"BreezyParasolCanvas")
+	local canvasOrigin=CFrame.new(pos+Vector3.yAxis*8.4)
+	canvas.WorldPivot=canvasOrigin
+	Kit.ball(canvas, "BrassParasolFinial", Vector3.one * .4, pos + Vector3.yAxis * 8.55, C.Brass)
 	for i = 0, 7 do
 		local a, b = yaw + i * TAU / 8, yaw + (i + 1) * TAU / 8
 		local left = pos + Vector3.new(math.cos(a) * 6, 6.55, math.sin(a) * 6)
 		local right = pos + Vector3.new(math.cos(b) * 6, 6.55, math.sin(b) * 6)
-		triangle(model, pos + Vector3.yAxis * 8.4, left, right, if i % 2 == 0 then tint else C.Cream)
+		triangle(canvas, pos + Vector3.yAxis * 8.4, left, right, if i % 2 == 0 then tint else C.Cream)
 	end
+	canvas:SetAttribute("SwayOrigin",canvasOrigin)
+	canvas:SetAttribute("SwayAmplitude",.007)
 	Kit.disk(model, "CafeRoundTable", 4.4, 4.4, .25, pos + Vector3.yAxis * 2.6, C.Plank, wood)
 	Kit.beam(model, "CafeTableLeg", pos + Vector3.yAxis * .2, pos + Vector3.yAxis * 2.5, .5, C.Wood, wood)
 	for _, x in {-3.8, 3.8} do
@@ -177,6 +180,7 @@ end
 local function skiff(parent: Instance)
 	local model = group(parent, "SundriftPaintedSkiff")
 	local cf = CFrame.new(22, 8.2, 144) * CFrame.Angles(0, -.22, 0)
+	model.WorldPivot=cf
 	Kit.part(model, "SkiffFloor", Vector3.new(4.6, .4, 12), cf * CFrame.new(0, .65, 0), C.Plank, wood)
 	for _, x in {-2.5, 2.5} do
 		local side = if x < 0 then -1 else 1
@@ -194,10 +198,24 @@ local function skiff(parent: Instance)
 		Kit.beam(model, "AshRowingOar", a, b, .15, C.Cream, wood)
 		Kit.part(model, "OarBlade", Vector3.new(.85, .12, 2.5), CFrame.lookAt(b, a), C.Plank, wood)
 	end
-	Kit.beam(model, "SkiffMooringLine", Vector3.new(11.3, 12, 132), Vector3.new(16, 10.2, 132), .1, C.Cream, detail)
-	Kit.beam(model, "SkiffMooringLine", Vector3.new(16, 10.2, 132), cf:PointToWorldSpace(Vector3.new(0, 2, -8)), .1, C.Cream, detail)
+	-- The dock end stays on the dock while the boat bobs. A rigid rope parented
+	-- to the boat made its landward anchor drift through the pier.
+	local dockAnchor=Kit.part(parent,"SkiffDockMooring",Vector3.one*.08,CFrame.new(11.3,12,132),C.Cream,
+		{transparency=1,shadow=false})
+	local bowAnchor=Kit.part(model,"SkiffBowMooring",Vector3.one*.08,cf*CFrame.new(0,2,-8),C.Cream,
+		{transparency=1,shadow=false})
+	local dockEye, bowEye=Instance.new("Attachment"),Instance.new("Attachment")
+	dockEye.Axis,bowEye.Axis=Vector3.yAxis,Vector3.yAxis
+	dockEye.Name,dockEye.Parent="DockEye",dockAnchor
+	bowEye.Name,bowEye.Parent="BowEye",bowAnchor
+	local mooring=Instance.new("Beam")
+	mooring.Name,mooring.Attachment0,mooring.Attachment1="SkiffMooringLine",dockEye,bowEye
+	mooring.Color,mooring.Transparency=ColorSequence.new(C.Cream),NumberSequence.new(.12)
+	mooring.Width0,mooring.Width1,mooring.Segments=.09,.09,10
+	mooring.CurveSize0,mooring.CurveSize1,mooring.FaceCamera=-1.1,1.1,true
+	mooring.LightInfluence,mooring.Parent=1,bowAnchor
 	model:SetAttribute("SceneryMotion", "Boat")
-	model:SetAttribute("DriftOrigin", model:GetPivot())
+	model:SetAttribute("DriftOrigin", cf)
 	return model
 end
 
@@ -221,10 +239,15 @@ local function beach(parent: Instance)
 	-- Navigation beacon is a physical landmark rather than a non-functional prompt.
 	local b = Vector3.new(-274, 4, -200)
 	Kit.beam(model, "CoveSignalPole", b, b + Vector3.yAxis * 8, .25, C.Wood, wood)
+	local pennants=Kit.model(model,"CoveWindPennants")
+	local pennantOrigin=CFrame.new(b+Vector3.yAxis*6.5)
+	pennants.WorldPivot=pennantOrigin
 	for _, side in {-1, 1} do
-		Kit.wedge(model, "CoralWindPennant", Vector3.new(.055, 1.3, 2.6), CFrame.new(b + Vector3.new(0, 6.5 + side * .7, 1)) * CFrame.Angles(0, math.pi / 2, 0),
+		Kit.wedge(pennants, "CoralWindPennant", Vector3.new(.055, 1.3, 2.6), CFrame.new(b + Vector3.new(0, 6.5 + side * .7, 1)) * CFrame.Angles(0, math.pi / 2, 0),
 			if side == 1 then C.Coral else C.Cream, cloth)
 	end
+	pennants:SetAttribute("SwayOrigin",pennantOrigin)
+	pennants:SetAttribute("SwayAmplitude",.038)
 	return model
 end
 
@@ -249,9 +272,10 @@ end
 
 function Landscaping.populate(_root: Instance, regions: {[string]: Model})
 	local borders: {{any}} = {
-		{"harbor", -14,12,-60,1.35,2}, {"harbor",20,12,-52,1.25,1},
-		{"harbor",-37,12,49,1.45,3}, {"harbor",47,12,22,1.25,2},
-		{"harbor",-58,12,64,1.4,1}, {"harbor",46,12,73,1.3,4},
+		-- The same six harbor beds now frame the cafe, workshop and seating.
+		{"harbor",-72,12,-7,1.35,2}, {"harbor",72,12,-6,1.25,1},
+		{"harbor",-58,12,22,1.45,3}, {"harbor",57,12,17,1.25,2},
+		{"harbor",-75,12,68,1.4,1}, {"harbor",44,12,82,1.3,4},
 		{"blossom",-226,28,-33,1.2,4}, {"blossom",-267,28,-10,1.35,3},
 		{"blossom",-270,28,65,1.4,2}, {"blossom",-194,28,-8,1.2,3},
 		{"forest",292,24,11,1.25,1}, {"forest",245,24,61,1.25,4},
@@ -290,7 +314,8 @@ function Landscaping.populate(_root: Instance, regions: {[string]: Model})
 			end
 		end
 	end
-	for i, p in {Vector3.new(239,24,-22), Vector3.new(292,24,22), Vector3.new(227,24,49), Vector3.new(285,24,-49)} do
+	-- Woodland groundcover belongs under the existing pine/oak crowns.
+	for i, p in {Vector3.new(239,24,-35), Vector3.new(302,24,23), Vector3.new(222,24,54), Vector3.new(289,24,-61)} do
 		if clearRoutes("forest", p, 4.5) then forestFloor(regions.forest, p, i * 39) end
 	end
 	blossomDrift(regions.blossom, Vector3.new(-282,28,-19), 718)

@@ -21,22 +21,59 @@ local C = {
 }
 local PLASTIC = Enum.Material.Plastic
 local SMOOTH = Enum.Material.SmoothPlastic
--- An occasional supply crate retains toy-like surface detail; broad buildings,
--- stonework and fitted deck planks use a calmer, continuous painted finish.
-local STUDDED_BLOCKS = {
-	CrateBody = true,
-}
+-- Authored material groups keep grain, plaster, slate and canvas consistent.
+-- Individual planks use Wood: WoodPlanks would draw a second set of boards
+-- inside every already-modelled plank. No legacy studs cover these textures.
+local MATERIALS = {}
+local function use(material, names)
+	for _, name in names do MATERIALS[name] = material end
+end
+use(Enum.Material.Wood, {
+	"CrateBody", "Binding", "CornerBinding", "DiagonalBrace", "StaveSeam", "LidCrossbar",
+	"DoorJamb", "ExposedCornerTimber", "LowerWallTimber", "PaintedSideWainscot", "PaintedRearWainscot", "RearWainscotCap",
+	"WindowJamb", "WindowLintel", "WindowMullion", "WindowTransom", "ShapedWindowCrown", "DeepWindowSill", "PaintedShutter",
+	"WindowFlowerBox", "CarvedGableTrim", "EaveTimber", "GableLattice", "GableCrossbeam", "PorchFrontRiser", "PorchPost", "PorchKneeBrace",
+	"PaintedShopSign", "RearDisplayShelf", "BackCounter", "CounterTop", "CafeServingCounter", "CreamCounterMoulding", "CafeHatchCountertop",
+	"WorkshopFishPlaque", "OutdoorRodRack", "DisplayFishingRod", "WorkshopJournalStand", "WorkshopRod",
+	"PorchBenchSeat", "PorchBenchBack", "BenchLeg", "WeatheredDeckPlank", "LongitudinalStringer", "DeepTimberPile", "PileWaterlineBand",
+	"RopeRailPost", "PostCap", "PortalEntrancePost", "PortalEntranceCap", "SpiralStairTread", "CentralStairMast",
+	"BrassTelescopeTripod", "MarketCounter", "CounterEdge", "StallAwningPost", "AwningBrace", "ProduceTray",
+	"PicnicTableTop", "PicnicBench", "BenchSupport", "TableTrestle", "RestingFishingRod",
+})
+use(Enum.Material.WoodPlanks, { "RaisedTimberFloor", "PorchFloor" })
+use(Enum.Material.Plaster, {
+	"RearWall", "SideWall", "FrontWallBay", "DoorwayHeadWall", "DoorwayUpperWall", "WindowLowerWall", "WindowUpperWall",
+	"LimewashedTowerWall", "MarinerBlueBand",
+})
+use(Enum.Material.Limestone, {
+	"FoundationStones", "TowerStoneFooting", "AccessibleLookoutBalcony", "ColumnPedestal", "RadialArchVoussoir", "ObservatoryBench", "BenchStoneLeg",
+})
+use(Enum.Material.Slate, { "RoofUnderlay", "IndividualSlateShingle", "ChimneyCap", "BrokenMasonry" })
+use(Enum.Material.Brick, { "ChimneyStack" })
+use(Enum.Material.Fabric, {
+	"PorchCanopy", "PaintedCanvasStripe", "WovenInteriorRug", "CafeHatchCanvas", "CafeHatchStripe", "StripedCanvasAwning",
+	"SaggingHempRail", "CoiledMooringRope",
+})
+use(Enum.Material.Metal, {
+	"ShutterHinge", "IronDeckNail", "RidgeCap", "HatchCanopyBracket", "InnerStairBaluster", "LookoutRailingPost", "ContinuousBalconyHandrail",
+	"BalconyLowerRail", "LanternRoomUpright", "CopperDomeRib", "LensPedestal", "WeatherVaneMast", "WeatherVaneArrow",
+	"ArchKeystoneCarving", "TelescopeBrassBody", "TelescopeObjectiveRim", "TelescopeEyepiece", "PailHandle",
+})
+
+local function surface(name, fallback)
+	if fallback == Enum.Material.Glass or fallback == Enum.Material.Neon then return fallback end
+	return MATERIALS[name] or fallback or SMOOTH
+end
 
 local function p(parent, name, size, cf, color, material, collidable)
 	return Kit.part(parent, name, size, cf, color, {
-		material = if STUDDED_BLOCKS[name] then PLASTIC else material or SMOOTH,
-		studded = STUDDED_BLOCKS[name] == true,
+		material = surface(name, material),
 		collidable = collidable == true,
 	})
 end
 
 local function beam(parent, name, a, b, thickness, color, material)
-	return Kit.beam(parent, name, a, b, thickness, color, { material = material or SMOOTH })
+	return Kit.beam(parent, name, a, b, thickness, color, { material = surface(name, material) })
 end
 
 local function localBeam(parent, cf, name, a, b, thickness, color, material)
@@ -54,7 +91,7 @@ local function canvasHem(parent, cf, width, height, color)
 	for _, side in { -1, 1 } do
 		Kit.wedge(parent, "DrapedCanvasHem", Vector3.new(0.12, height, width / 2),
 			cf * CFrame.new(side * width / 4, 0, 0) * CFrame.Angles(0, side * math.pi / 2, 0)
-				* CFrame.Angles(math.pi, 0, 0), color, { material = SMOOTH })
+				* CFrame.Angles(math.pi, 0, 0), color, { material = Enum.Material.Fabric })
 	end
 end
 
@@ -62,9 +99,9 @@ local function barrel(parent, cf, scale)
 	local model = Kit.model(parent, "CooperedBarrel")
 	local s = scale or 1
 	local center = cf * CFrame.new(0, 1.1 * s, 0)
-	Kit.disk(model, "OakStaves", 1.9 * s, 1.9 * s, 2.2 * s, center.Position, C.Wood, { material = PLASTIC })
+	Kit.disk(model, "OakStaves", 1.9 * s, 1.9 * s, 2.2 * s, center.Position, C.Wood, { material = Enum.Material.Wood })
 	for _, y in { 0.25, 0.65, 1.75, 2.05 } do
-		Kit.disk(model, "IronHoop", 1.99 * s, 1.99 * s, 0.11 * s, (cf * CFrame.new(0, y * s, 0)).Position, C.Dark, { material = SMOOTH })
+		Kit.disk(model, "IronHoop", 1.99 * s, 1.99 * s, 0.11 * s, (cf * CFrame.new(0, y * s, 0)).Position, C.Dark, { material = Enum.Material.Metal })
 	end
 	for i = 0, 7 do
 		local angle = i * math.pi / 4
@@ -136,9 +173,9 @@ local function flowerBox(parent, cf, width, tint)
 	for _, side in { -1, 1 } do
 		Kit.wedge(parent, "TaperedPlanterEnd", Vector3.new(0.7, 0.65, 0.24),
 			cf * CFrame.new(side * (width / 2 - 0.12), 0, 0) * CFrame.Angles(0, side * math.pi / 2, 0), C.Wood,
-			{ material = SMOOTH })
+			{ material = Enum.Material.Wood })
 	end
-	p(parent, "Soil", Vector3.new(width - 0.16, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, SMOOTH)
+	p(parent, "Soil", Vector3.new(width - 0.16, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, Enum.Material.Ground)
 	for i = -1, 1 do
 		local x = i * width / 3.5
 		Kit.wedge(parent, "PointedWindowLeaf", Vector3.new(0.1, 0.45, 0.65),
@@ -221,7 +258,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		for _, side in { -1, 1 } do
 			Kit.wedge(model, "FittedPlasterGable", Vector3.new(0.18, rise, roofHalf),
 				cf * CFrame.new(side * roofHalf / 2, h + rise / 2, z) * CFrame.Angles(0, -side * math.pi / 2, 0),
-				tint, { material = SMOOTH })
+				tint, { material = Enum.Material.Plaster })
 		end
 		for i = -3, 3 do
 			local x = i * half / 4
@@ -230,9 +267,9 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		end
 		p(model, "GableCrossbeam", Vector3.new(w + 0.5, 0.26, 0.4), cf * CFrame.new(0, h, z), C.Timber)
 		local outside = z < 0 and -0.2 or 0.2
-		local ring = Kit.disk(model, "RoundAtticWindowFrame", 2.1, 2.1, 0.2, (cf * CFrame.new(0, h + 1.75, z + outside)).Position, C.Cream, { material = PLASTIC })
+		local ring = Kit.disk(model, "RoundAtticWindowFrame", 2.1, 2.1, 0.2, (cf * CFrame.new(0, h + 1.75, z + outside)).Position, C.Cream, { material = Enum.Material.Wood })
 		ring.CFrame = cf * CFrame.new(0, h + 1.75, z + outside) * CFrame.Angles(0, math.pi / 2, 0)
-		local glass = Kit.disk(model, "RoundAtticWindow", 1.65, 1.65, 0.22, ring.Position, C.Glass, { material = Enum.Material.Glass, reflectance = 0.1 })
+		local glass = Kit.disk(model, "RoundAtticWindow", 1.65, 1.65, 0.22, ring.Position, C.Glass, { material = Enum.Material.Glass, reflectance = 0.02 })
 		glass.CFrame = ring.CFrame
 	end
 	-- The sheltered porch is a visual landmark and a usable place to stand.
@@ -312,7 +349,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		for i = -1, 1 do
 			local x = w * 0.34 + i * 0.82
 			localBeam(model, rearCf, "DisplayFishingRod", Vector3.new(x, 0.7, -0.71), Vector3.new(x + 0.16, 6.5, -0.71), 0.11, i == 0 and C.Gold or C.Roof)
-			local reel = Kit.disk(model, "DisplayRodReel", 0.48, 0.48, 0.17, (rearCf * CFrame.new(x, 1.65, -0.9)).Position, C.Gold, { material = SMOOTH })
+			local reel = Kit.disk(model, "DisplayRodReel", 0.48, 0.48, 0.17, (rearCf * CFrame.new(x, 1.65, -0.9)).Position, C.Gold, { material = Enum.Material.Metal })
 			reel.CFrame = rearCf * CFrame.new(x, 1.65, -0.9) * CFrame.Angles(0, math.pi / 2, 0)
 		end
 	end
@@ -430,7 +467,7 @@ function Architecture.lighthouse(parent, cf)
 	local model = Kit.model(parent, "WayfarerLighthouse")
 	local n, r = 12, 6
 	local tangentWidth = 2 * r * math.tan(math.pi / n) + 0.04
-	Kit.disk(model, "OctagonalFoundation", 16, 16, 0.7, cf:PointToWorldSpace(Vector3.new(0, -0.35, 0)), C.Stone, { material = PLASTIC, collidable = true })
+	Kit.disk(model, "OctagonalFoundation", 16, 16, 0.7, cf:PointToWorldSpace(Vector3.new(0, -0.35, 0)), C.Stone, { material = Enum.Material.Limestone, collidable = true })
 	for i = 0, n - 1 do
 		local angle = i * math.pi * 2 / n
 		local face = cf * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -r)
@@ -476,7 +513,7 @@ function Architecture.lighthouse(parent, cf)
 		localBeam(model, cf, "BalconyLowerRail", a - Vector3.new(0, 1.5, 0), b - Vector3.new(0, 1.5, 0), 0.1, C.Dark, SMOOTH)
 		if i ~= 0 then
 			Kit.part(model, "LanternRoomGlazing", Vector3.new(2.4, 5.8, 0.12), ring * CFrame.new(0, 31.6, -4.45), C.Glass,
-				{ material = Enum.Material.Glass, transparency = 0.58, reflectance = 0.1 })
+				{ material = Enum.Material.Glass, transparency = 0.58, reflectance = 0.02 })
 		end
 		p(model, "LanternRoomUpright", Vector3.new(0.14, 6.3, 0.14), ring * CFrame.new(0, 31.6, -4.5), C.Dark, SMOOTH)
 		localBeam(model, cf, "CopperDomeRib", Vector3.new(math.sin(angle) * 5.3, 34.5, -math.cos(angle) * 5.3), Vector3.new(0, 37.7, 0), 0.14, C.Dark, SMOOTH)
@@ -503,16 +540,16 @@ end
 function Architecture.ruins(parent, cf)
 	local model = Kit.model(parent, "OldCloudObservatory")
 	Kit.disk(model, "WeatheredObservatoryFloor", 29, 25, 0.45, cf:PointToWorldSpace(Vector3.new(0, -0.165, 0)), C.Stone,
-		{ material = PLASTIC, collidable = true })
+		{ material = Enum.Material.Limestone, collidable = true })
 	for _, side in { -1, 1 } do
 		local x = side * 6.4
 		p(model, "ColumnPedestal", Vector3.new(3.5, 0.8, 3.5), cf * CFrame.new(x, 0.4, -1), C.Stone, PLASTIC, true)
 		for segment = 0, 2 do
 			Kit.disk(model, "AgedColumnDrum", 2.45 - segment * 0.08, 2.45 - segment * 0.08, 2.2,
 				cf:PointToWorldSpace(Vector3.new(x + (segment == 1 and side * 0.08 or 0), 1.9 + segment * 2.2, -1)), C.Stone:Lerp(C.Cream, segment * 0.04),
-				{ material = PLASTIC, collidable = true })
+				{ material = Enum.Material.Limestone, collidable = true })
 		end
-		Kit.disk(model, "ColumnCapital", 3, 3, 0.55, cf:PointToWorldSpace(Vector3.new(x, 7.55, -1)), C.Stone, { material = SMOOTH })
+		Kit.disk(model, "ColumnCapital", 3, 3, 0.55, cf:PointToWorldSpace(Vector3.new(x, 7.55, -1)), C.Stone, { material = Enum.Material.Limestone })
 		localBall(model, cf, "MossOnCapital", Vector3.new(2.2, 0.15, 1.4), Vector3.new(x, 7.87, -1.4), C.Moss, Enum.Material.SmoothPlastic)
 	end
 	for i = 0, 10 do
@@ -594,7 +631,7 @@ function Architecture.props(parent, cf, kind)
 		crate(model, cf * CFrame.new(-1.3, 1.94, 0.1) * CFrame.Angles(0, math.rad(12), 0), Vector3.new(2, 1.3, 1.7))
 		barrel(model, cf * CFrame.new(1.6, 0, 0.6), 0.9)
 		ropeCoil(model, cf * CFrame.new(0.7, 0, -1.6), 0.75)
-		Kit.disk(model, "BaitPail", 1, 1, 1.15, cf:PointToWorldSpace(Vector3.new(2.9, 0.58, -1.1)), C.Dark, { material = SMOOTH })
+		Kit.disk(model, "BaitPail", 1, 1, 1.15, cf:PointToWorldSpace(Vector3.new(2.9, 0.58, -1.1)), C.Dark, { material = Enum.Material.Metal })
 		Kit.disk(model, "PailOpenTop", 0.83, 0.83, 0.035, cf:PointToWorldSpace(Vector3.new(2.9, 1.16, -1.1)), C.Timber, { material = SMOOTH })
 		localBeam(model, cf, "PailHandle", Vector3.new(2.42, 0.9, -1.1), Vector3.new(2.9, 1.8, -1.1), 0.065, C.Dark, SMOOTH)
 		localBeam(model, cf, "PailHandle", Vector3.new(2.9, 1.8, -1.1), Vector3.new(3.38, 0.9, -1.1), 0.065, C.Dark, SMOOTH)

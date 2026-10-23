@@ -46,7 +46,7 @@ for _,p in workspace:GetDescendants() do
   if p.CanCollide then collisions+=1 end
   local parentNames={}; local cursor=p; while cursor and cursor~=workspace do table.insert(parentNames,1,cursor.Name); cursor=cursor.Parent end
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
-   color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,
+   color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,reflectance=p.Reflectance or 0,
    collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/"),
    studs={top=p.TopSurface==Enum.SurfaceType.Studs,bottom=p.BottomSurface==Enum.SurfaceType.Studs,left=p.LeftSurface==Enum.SurfaceType.Studs,right=p.RightSurface==Enum.SurfaceType.Studs,front=p.FrontSurface==Enum.SurfaceType.Studs,back=p.BackSurface==Enum.SurfaceType.Studs}})
  end

@@ -1,10 +1,51 @@
-# Cloud Anglers — v1.0
+# Cloud Anglers — v1.1
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.0.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.1.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.1 — materials and a more inhabited world
+
+The existing five islands and seven residents are refined. There are no new zones,
+paid systems or sounds. Initial scenery falls from 9,584 to **9,332 parts**.
+
+| Surface | Native Roblox material |
+| --- | --- |
+| Pier boards, timber, trunks, crates and painted woodwork | Wood; WoodPlanks on broad floors |
+| House and lighthouse walls | Plaster |
+| Roofs, cliffs and faceted rocks | Slate; Limestone on dressed stone |
+| Grass, sandy coast and paths, pot soil | Grass, Sand and Ground |
+| Awnings, flags, cushions, rope and resident clothing | Fabric |
+| Small fittings and aquarium frames | Metal; transparent Glass stays separate |
+
+Most legacy studs are removed where they masked wood or stone textures. Painted
+ceramics, leaves and fish intentionally keep quieter smooth surfaces. Existing
+subtle plank/roof/rock color variation remains. Exposure, low reflections and
+shadow settings stay subdued. These are Roblox's built-in materials; no external
+texture uploads, asset IDs or extra texture-overlay Parts are required.
+
+Residents glance at nearby characters and offer brief greetings before returning
+to work. Their existing jobs now use a real repair bench, a planted watering patch,
+a level serving tray and a fishing line with a fixed water endpoint. Walking leg
+cadence follows travel speed; blinks and wildlife banking add restrained motion.
+The café server is moved out of the wall and onto the porch.
+
+The same ponds have lower, distinct shorelines and fewer rock masses, replacing
+repeated high walls. Visible rock now owns collision, without taller invisible
+copies. Waterfalls have connected source channels, clear drops and edges inside
+native water. Wrapped streaks fade instead of visibly jumping.
+
+The boat's dock anchor stays fixed while its bow moves; its native Beam rope sags
+between the ends. Parasol canvas and pennants sway gently. Nearby planting is
+recomposed around working/seating scenes; trail pots, book, shells, bench supports
+and the lifebuoy attachment are corrected. The aquarium promenade gains timber
+support and framing. The old floating prototype fish is removed, and an existing
+tree moves clear of the first gallery's viewing corridor.
+
+Native materials must be judged in Roblox Studio. Offline previews show geometry
+and color only; they do not emulate Roblox material texture maps or normal maps.
 
 ## Your first session
 
@@ -107,11 +148,17 @@ Luau suites compile. Separate checks execute unchanged production code for:
   rewards, cancelled reveals and repeat-catch dismissal.
 - Player aquariums: independent owners, profile caching, theme changes, plot reuse,
   dynamic rows, supported arrivals, swim bounds, local animation and streaming rebind.
+- Existing residents: 1,498 finite animation steps, nearby-character reactions,
+  greeting cooldown, stable jobs, fixed water endpoints, blinks and streamed recovery.
+- Scenery: fixed mooring anchors, sagging Beam control points, authored pivots,
+  bounded rotations, quiet flow wraps, distance limits and opacity ownership.
 - Normal generated-Folder startup, custom-map startup, and a regression mutation
   that restores the former broken Model-only travel guard.
 
 Analytic rays through captured colliders check 3,681 walking-route points, 225 spawn
-points, 125 portal-arrival points and 429 portal approaches. Initial scenery stays
+points, 125 portal-arrival points and 429 portal approaches. Another 81 samples verify waterfall visibility and their
+contact with native water. Representative captured material roles are checked for
+old Studs overrides. Initial scenery stays
 below 10,000 anchored parts; player tanks add streamed Atomic displays. Only thin
 portal landing plates and gallery walking floors are persistent. Walking speed is
 22 studs/second; the first casting marker is about one second from spawn.
@@ -131,7 +178,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.0.rbxlx` and `artifacts/Cloud-Anglers-v1.0.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.1.rbxlx` and `artifacts/Cloud-Anglers-v1.1.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell
@@ -142,6 +189,7 @@ python tools/check_fishing_interface.py --luau /path/to/luau
 python tools/check_fish_models.py --luau /path/to/luau
 python tools/check_aquarium.py --luau /path/to/luau
 python tools/check_residents.py --luau /path/to/luau
+python tools/check_scenery.py --luau /path/to/luau
 python tools/preview_world.py --luau /path/to/luau --output /tmp/world.json
 python tools/check_world.py /tmp/world.json
 ```

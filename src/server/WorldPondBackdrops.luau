@@ -1,119 +1,105 @@
 --!strict
--- Layered rock terraces frame the fishing view while the arrival shore stays
--- open. Tapered rock faces break up the original safe, continuous collision cores.
+-- Low, individual shorelines frame each existing pond. Visible rock owns collision;
+-- there are no taller, invisible copies of the scenery to run into.
 local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local Layout = require(script.Parent:WaitForChild("WorldLayout"))
-
 local Backdrops = {}
-local GRAY = Color3.fromRGB(89, 117, 132)
-local GRAY_UPPER = Color3.fromRGB(98, 126, 139)
-local GREEN = Color3.fromRGB(28, 151, 49)
-local CYAN = Color3.fromRGB(56, 153, 181)
-local WHITE_WATER = Color3.fromRGB(160, 199, 208)
-local OFFSETS = { -.87, -.62, -.37, -.12, .12, .37, .62, .87 }
-local HEIGHTS = { 38, 54, 43, 34, 37, 47, 58, 43 }
-local ROCK_SKIN = { material = Enum.Material.Slate }
+local C = Kit.palette
+local WATER = Color3.fromRGB(56,153,181)
+local FOAM = Color3.fromRGB(160,199,208)
+local BASE = -5.4
+local ROCK = {material=Enum.Material.Slate,collidable=true}
 
-local function block(parent: Model, name: string, size: Vector3, cf: CFrame, color: Color3): Part
-	return Kit.part(parent, name, size, cf, color, {
-		material = Enum.Material.SmoothPlastic,
-		collidable = true,
-	})
-end
+-- Low gaps preserve a view beyond the water. Different heights, widths and
+-- setbacks give every island its own silhouette without extra land or props.
+local SHORES: {[string]: any} = {
+ harbor={x={-.86,-.56,-.26,.05,.36,.65,.90},h={15,23,19,11,17,26,14},
+  w={.34,.37,.36,.33,.36,.34,.29},d={1,3,-1,1,0,3,-1},falls={2,6},warmth=.07},
+ blossom={x={-.87,-.55,-.23,.12,.46,.78},h={14,22,16,11,24,17},
+  w={.36,.37,.39,.39,.36,.35},d={0,2,0,3,-1,1},falls={2,5},warmth=.15},
+ forest={x={-.88,-.57,-.24,.09,.43,.77},h={18,26,21,13,29,17},
+  w={.35,.37,.39,.39,.37,.35},d={2,-1,3,0,2,0},falls={3,5},warmth=.02},
+ cove={x={-.89,-.56,-.23,.13,.46,.79},h={9,18,13,8,15,10},
+  w={.37,.40,.39,.39,.37,.35},d={0,2,0,3,-1,1},falls={2},warmth=.23},
+ summit={x={-.84,-.43,.01,.43,.84},h={10,21,13,24,12},
+  w={.42,.46,.46,.45,.41},d={1,3,0,2,0},falls={2,4},warmth=.04},
+}
 
-local function waterfall(parent: Model, frame: CFrame, x: number, z: number, width: number, top: number, phase: number)
-	-- The lip reaches across the upper setback; the curtain runs just outside
-	-- the lower wall face and meets the pond, facing its fishing pier.
-	block(parent, "WaterfallSourceLip", Vector3.new(width + .8, .6, 4.8),
-		frame * CFrame.new(x, top - .25, z + 5.1), GRAY_UPPER)
-	local fallHeight = top - .1
-	local curtain = Kit.part(parent, "PondWaterfallCurtain", Vector3.new(width, fallHeight, .24),
-		frame * CFrame.new(x, .1 + fallHeight / 2, z + 7.35), CYAN,
-		{ material = Enum.Material.SmoothPlastic, transparency = .38, shadow = false })
-	for streakIndex = 1, 3 do
-		local streak = Kit.part(parent, "PondWaterfallStreak", Vector3.new(.13, 4.2, .09),
-			curtain.CFrame * CFrame.new((streakIndex - 2) * width * .31, 0, .19), WHITE_WATER,
-			{ material = Enum.Material.SmoothPlastic, transparency = .34, shadow = false })
-		streak:SetAttribute("FlowStart", streak.CFrame)
-		streak:SetAttribute("FlowPhase", phase + streakIndex * .29)
-		streak:SetAttribute("FlowDistance", fallHeight - 4.2)
-		streak:SetAttribute("FlowSpeed", 12)
-	end
-	for foamIndex = 1, 3 do
-		local foam=Kit.wedge(parent, "PondWaterfallFoam", Vector3.new(width * .45, .18 + (foamIndex % 2) * .08, 1.8),
-			frame * CFrame.new(x + (foamIndex - 2) * width * .32, .14, z + 7.9 + (foamIndex % 2) * .8)
-				* CFrame.Angles(0, math.rad((foamIndex - 2) * 11), 0), WHITE_WATER,
-			{ material = Enum.Material.SmoothPlastic, transparency = .34, shadow = false })
-		-- Reuse the existing low-rate shimmer for a little life at the fall's foot.
-		foam:SetAttribute("GlintPhase",phase+foamIndex*.43)
-	end
+local function waterfall(parent: Model,frame: CFrame,x: number,z: number,width: number,top: number,phase: number)
+ -- The lip overlaps its rock crown. Water crosses the ledge to its actual edge.
+ Kit.part(parent,"WaterfallSourceLip",Vector3.new(width+.7,.5,5.8),
+  frame*CFrame.new(x,top-.25,z+5.1),C.Stone,ROCK)
+ local channel=Kit.part(parent,"WaterfallSourceChannel",Vector3.new(width,.055,5.7),
+  frame*CFrame.new(x,top+.03,z+5.1),WATER,
+  {material=Enum.Material.SmoothPlastic,transparency=.34,shadow=false})
+ channel:SetAttribute("GlintPhase",phase)
+ local height=top-.12
+ local curtain=Kit.part(parent,"PondWaterfallCurtain",Vector3.new(width,height,.19),
+  frame*CFrame.new(x,.12+height/2,z+8),WATER,
+  {material=Enum.Material.SmoothPlastic,transparency=.42,shadow=false})
+ for index=1,3 do
+  local streak=Kit.part(parent,"PondWaterfallStreak",Vector3.new(.10,3.6,.07),
+   curtain.CFrame*CFrame.new((index-2)*width*.29,0,.14),FOAM,
+   {material=Enum.Material.SmoothPlastic,transparency=.48,shadow=false})
+  streak:SetAttribute("FlowStart",streak.CFrame)
+  streak:SetAttribute("FlowPhase",phase+index*.29)
+  streak:SetAttribute("FlowDistance",height-streak.Size.Y)
+  streak:SetAttribute("FlowSpeed",9+index*.7)
+ end
+ for index=1,3 do
+  local foam=Kit.wedge(parent,"PondWaterfallFoam",Vector3.new(width*.45,.12,1.65),
+   frame*CFrame.new(x+(index-2)*width*.3,.15,z+8.55+index%2*.6)*CFrame.Angles(0,(index-2)*.16,0),FOAM,
+   {material=Enum.Material.SmoothPlastic,transparency=.45,shadow=false})
+  foam:SetAttribute("GlintPhase",phase+index*.43)
+ end
 end
 
 function Backdrops.populate(parent: Instance)
-	for _, water in Layout.Waters do
-		local yaw = 0
-		for _, dock in Layout.Docks do
-			if dock.Id == water.Id then yaw = dock.Yaw; break end
-		end
-		local model = Kit.model(parent, water.Id .. "PondTerraces")
-		model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
-		local frame = CFrame.new(table.unpack(water.Center)) * CFrame.Angles(0, yaw, 0)
-		local sideways = math.abs(math.sin(yaw)) > .5
-		local radiusX = if sideways then water.Radius[2] else water.Radius[1]
-		local radiusZ = if sideways then water.Radius[1] else water.Radius[2]
-		local width = radiusX * .25 + .3
-		local heightScale = if water.Id == "harbor" then 1 else .77
-		for index, offset in OFFSETS do
-			local x = offset * radiusX
-			local z = -(radiusZ * math.sqrt(1 - offset * offset) + 6)
-			local height = HEIGHTS[index] * heightScale
-			local lowerTop = height * .48
-			local lowerTint = GRAY:Lerp(Kit.palette.DeepStone, (index % 3) * .08)
-			local upperTint = GRAY_UPPER:Lerp(Kit.palette.Stone, (index % 4) * .055)
-			block(model, "LowerPondCliffBrick", Vector3.new(width, lowerTop + 5, 14),
-				frame * CFrame.new(x, (lowerTop - 5) / 2, z), lowerTint).Transparency = 1
-			block(model, "LowerPondGrassRim", Vector3.new(width + .12, 1.4, 14.2),
-				frame * CFrame.new(x, lowerTop + .7, z), GREEN).Transparency = 1
-			block(model, "UpperPondCliffBrick", Vector3.new(width, height - lowerTop, 10),
-				frame * CFrame.new(x, (height + lowerTop) / 2, z - 2), upperTint).Transparency = 1
-			block(model, "UpperPondGrassRim", Vector3.new(width + .12, 1.4, 10.2),
-				frame * CFrame.new(x, height + .7, z - 2), GREEN).Transparency = 1
-			-- The original 170 colliders remain unchanged and invisible. Broad
-			-- rock faces and tapered shoulders form a cohesive, beveled shoreline;
-			-- the upper outcrops extend down behind the lower ones, never floating.
-			local lean = if index % 2 == 0 then -1 else 1
-			local crownHeight = height + (if index == 2 or index == 7 then 1.4 else 0)
-			Kit.part(model, "LowerShoreRockFace", Vector3.new(width * .68, lowerTop + 5, 14.4),
-				frame * CFrame.new(x, (lowerTop - 5) / 2, z + .45), lowerTint, ROCK_SKIN)
-			Kit.part(model, "UpperShoreRockFace", Vector3.new(width * .68, crownHeight + 5, 10.4),
-				frame * CFrame.new(x, (crownHeight - 5) / 2, z - 1.9), upperTint, ROCK_SKIN)
-			for _, side in {-1, 1} do
-				local lowerHeight = lowerTop + 5
-				Kit.wedge(model, "TaperedShoreButtress", Vector3.new(14.4, lowerHeight, width * .24),
-					frame * CFrame.new(x + side * width * .46, -5 + lowerHeight / 2, z + .45)
-						* CFrame.Angles(0, -side * math.pi / 2, 0),
-					lowerTint:Lerp(Kit.palette.DeepStone, if side == lean then .13 else .04), ROCK_SKIN)
-				local upperHeight = crownHeight + 5
-				Kit.wedge(model, "UpperShoreRockFacet", Vector3.new(10.4, upperHeight, width * .24),
-					frame * CFrame.new(x + side * width * .46, -5 + upperHeight / 2, z - 1.9)
-						* CFrame.Angles(0, -side * math.pi / 2, 0),
-					upperTint:Lerp(Kit.palette.Limestone, if side == lean then .055 else .015), ROCK_SKIN)
-			end
-			if index==3 or index==6 then
-				-- A few planted cracks make the exposed ledges read as places,
-				-- rather than a repeating wall. These never own collision.
-				for blade=1,3 do
-					local h=.6+blade*.22
-					Kit.wedge(model,"LedgeGrassSprout",Vector3.new(.12,h,.75),
-						frame*CFrame.new(x+(blade-2)*.55,lowerTop+h/2,z+5.3),
-						Kit.palette.Leaf,{shadow=false})
-				end
-			end
-			if index == 2 or index == 7 then
-				waterfall(model, frame, x, z, width * .54, height + 1.4, index * .17)
-			end
-		end
-	end
+ for _,water in Layout.Waters do
+  local shore=SHORES[water.Id]
+  local yaw=0
+  for _,dock in Layout.Docks do if dock.Id==water.Id then yaw=dock.Yaw;break end end
+  local model=Kit.model(parent,water.Id.."PondTerraces")
+  model.ModelStreamingMode=Enum.ModelStreamingMode.Atomic
+  model:SetAttribute("ShoreZoneId",water.Id)
+  local frame=CFrame.new(table.unpack(water.Center))*CFrame.Angles(0,yaw,0)
+  local sideways=math.abs(math.sin(yaw))>.5
+  local radiusX=if sideways then water.Radius[2] else water.Radius[1]
+  local radiusZ=if sideways then water.Radius[1] else water.Radius[2]
+  for index,offset in shore.x do
+   local x=offset*radiusX
+   local width,height=radiusX*shore.w[index],shore.h[index]
+   local isFall=table.find(shore.falls,index)~=nil
+   -- Keep the entire cascade inside the elliptical water surface, including
+   -- its outer edge; a centered check alone leaves the sides falling onto land.
+   local outerX=if isFall then math.min(.99,math.abs(offset)+width*.31*.55/radiusX) else math.abs(offset)
+   local setback=if isFall then math.min(.4,shore.d[index]) else shore.d[index]
+   local z=-(radiusZ*math.sqrt(1-outerX*outerX)+6+setback)
+   local ledge=height*(.44+index%3*.045)
+   local lowerTint=C.Cliff:Lerp(C.DeepStone,.08+index%3*.035)
+   local upperTint=C.Stone:Lerp(C.Limestone,shore.warmth+index%3*.018)
+   -- Physical cores and their sloped shoulders match the visible coastline.
+   Kit.part(model,"LowerShoreRockFace",Vector3.new(width*.72,ledge-BASE,15.2),
+    frame*CFrame.new(x,(ledge+BASE)/2,z),lowerTint,ROCK)
+   Kit.part(model,"UpperShoreRockFace",Vector3.new(width*.70,height-ledge+.08,10),
+    frame*CFrame.new(x,(height+ledge)/2,z-2),upperTint,ROCK)
+   for _,side in {-1,1} do
+    Kit.wedge(model,"TaperedShoreButtress",Vector3.new(15.2,ledge-BASE,width*.24),
+     frame*CFrame.new(x+side*width*.47,(ledge+BASE)/2,z)*CFrame.Angles(0,-side*math.pi/2,0),lowerTint,ROCK)
+    Kit.wedge(model,"UpperShoreRockFacet",Vector3.new(10,height-ledge+.08,width*.24),
+     frame*CFrame.new(x+side*width*.46,(height+ledge)/2,z-2)*CFrame.Angles(0,-side*math.pi/2,0),upperTint,ROCK)
+   end
+   if index==2 or index==#shore.x-1 then
+    for leaf=1,2 do
+     Kit.wedge(model,"ShoreLedgeLeaf",Vector3.new(.12,.65,1.1),
+      frame*CFrame.new(x+(leaf-1.5)*.65,ledge+.32,z+5.1)*CFrame.Angles(0,leaf*.8,.15),C.Leaf,{shadow=false})
+    end
+   end
+   for _,fallIndex in shore.falls do
+    if fallIndex==index then waterfall(model,frame,x,z,width*.31,height,index*.17) end
+   end
+  end
+ end
 end
 
 return Backdrops

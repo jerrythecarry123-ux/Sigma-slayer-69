@@ -17,14 +17,14 @@ PREPARE = r'''
 local world=Instance.new("Folder"); world.Name="MolnfiskarnaPrototype"; world.Parent=workspace
 local group=modules.WorldResidents.populate(world)
 local count, shadows=0,0
-for _,part in group:GetDescendants() do
+for _,part in world:GetDescendants() do
  if part:IsA("BasePart") then
   count+=1
   if part.CastShadow then shadows+=1 end
   assert(part.Anchored and not part.CanCollide and not part.CanTouch and not part.CanQuery,"actor physics enabled")
  end
 end
-assert(count<=450,"resident scenery exceeds part budget")
+assert(count<=414,"resident scenery exceeds the existing cast plus small job-prop budget")
 assert(shadows>30 and shadows<100,"missing body contact shadows or excessive small shadow casters")
 local residentCount, birdCount, butterflyCount, schoolCount=0,0,0,0
 for _,actor in group:GetChildren() do
@@ -80,12 +80,26 @@ function methods:PivotTo(cf)
  capturePivot(self,cf)
  if self.PrimaryPart then self.PrimaryPart.CFrame=cf end
 end
+function methods:FindFirstChildOfClass(class)
+ for _,child in self.children do if child:IsA(class) then return child end end
+ return nil
+end
+local players=Instance.new("Players")
+local localPlayer=Instance.new("Player")
+players.LocalPlayer=localPlayer
+local character=Instance.new("Model")
+local root=Instance.new("Part"); root.Name="HumanoidRootPart"; root.Parent=character
+local humanoid=Instance.new("Humanoid"); humanoid.Health=100; humanoid.Parent=character
 local now=0
 function methods:GetServerTimeNow() return now end
 local heartbeat=signal()
 local run={Heartbeat=heartbeat}
 local previousService=game.GetService
-game.GetService=function(self,name) if name=="RunService" then return run end; return previousService(self,name) end
+game.GetService=function(self,name)
+ if name=="RunService" then return run end
+ if name=="Players" then return players end
+ return previousService(self,name)
+end
 workspace.CurrentCamera={CFrame=CFrame.new(0,20,0)}
 local lateActor=group:FindFirstChild("Resident_Milo")
 lateActor:SetAttribute("AmbientKind",nil)
@@ -115,7 +129,13 @@ lateActor:SetAttribute("AmbientKind","Resident"); lateActor.AttributeChanged:Fir
 lateJoint:SetAttribute("AmbientRest",savedRest); lateJoint.AttributeChanged:Fire("AmbientRest")
 for i=1,600 do step(i*0.05) end
 local relativeArm=lateActor:GetPivot():Inverse()*lateJoint:GetPivot()
-assert(math.abs(relativeArm.r[2][3])>0.15,"late joint failed to acquire working pose")
+assert(math.abs(relativeArm.r[2][3])>.015,"late joint failed to acquire its restrained working pose")
+local workspaces=world:FindFirstChild("ResidentWorkspaces")
+local hull=workspaces:FindFirstChild("MiloWorkspace"):FindFirstChild("HalfPaintedHull")
+local bristles=lateJoint:FindFirstChild("BrushBristles")
+assert(math.abs(bristles.Position.Y-hull.Position.Y)<.2 and (bristles.Position-hull.Position).Magnitude<.7,"Milo paints empty air instead of his workpiece")
+local juniper=group:FindFirstChild("Resident_Juniper")
+assert(juniper:GetAttribute("AmbientOrigin").Position.Z>-6 and juniper:GetAttribute("AmbientOrigin").Position.Y==12.15,"server remains inside the cafe wall or below its porch")
 local animatedHand=lateJoint:FindFirstChild("MittenHand")
 local handOffset=animatedHand.Position-lateJoint:GetPivot().Position
 assert(handOffset.Magnitude>0.9 and handOffset.Magnitude<1.1,"joint geometry drift")
@@ -158,7 +178,117 @@ assert(lateActor.AttributeChanged:Count()==0,"world unbind retained actor listen
 world.Parent=workspace; workspace.ChildAdded:Fire(world)
 step(55)
 assert((lateActor:GetPivot().Position-worldFrozen).Magnitude>0.001,"returning world failed to resume")
-print("Production animation:",steps,"finite steps; late attributes, joint stability, routes, ground contact, camera LOD, streaming cleanup/rebind passed")
+-- Reactions follow a living local character, not a free camera. A short greeting
+-- uses the empty hand and has both a cooldown and a leave/re-enter requirement.
+local function roll(joint,actor)
+ local localCf=actor:GetPivot():Inverse()*joint:GetPivot()
+ return math.atan2(localCf.r[2][1],localCf.r[1][1])
+end
+local freeHand=lateActor:FindFirstChild("ArmLeft")
+workspace.CurrentCamera.CFrame=CFrame.new(45,18,-6)
+localPlayer.Character=character
+root.Position=Vector3.new(1000,15,1000)
+for index=1,12 do step(55+index*.05) end
+assert(math.abs(roll(freeHand,lateActor))<.3,"free camera provoked a visitor greeting")
+root.Position=lateActor:GetAttribute("AmbientOrigin"):PointToWorldSpace(Vector3.new(4,3,-7))
+for index=1,17 do step(55.6+index*.05) end
+assert(math.abs(roll(freeHand,lateActor))>1.5,"nearby visitor did not receive a brief free-hand greeting")
+local head=lateActor:FindFirstChild("HeadPose")
+local look=lateActor:GetPivot():Inverse()*head:GetPivot()
+local yaw=math.atan2(-look.LookVector.X,-look.LookVector.Z)
+assert(yaw<-.3 and yaw>-.55,"head does not smoothly turn toward the real visitor")
+lateActor.AttributeChanged:Fire("AmbientPeriod")
+step(56.5)
+assert(math.abs(roll(freeHand,lateActor))>1.2,"a streamed refresh reset a greeting in progress")
+for index=1,40 do step(56.5+index*.1) end
+assert(math.abs(roll(freeHand,lateActor))<.3,"greeting never returned to the work pose")
+root.Position=Vector3.new(1000,15,1000);step(60.6)
+root.Position=lateActor:GetAttribute("AmbientOrigin"):PointToWorldSpace(Vector3.new(4,3,-7));step(60.7)
+assert(math.abs(roll(freeHand,lateActor))<.3,"quick re-entry bypassed the greeting cooldown")
+for index=1,25 do step(60.7+index*.5) end
+assert(math.abs(roll(freeHand,lateActor))<.3,"standing beside a resident retriggered repeated waving")
+root.Position=Vector3.new(1000,15,1000);step(74)
+root.Position=lateActor:GetAttribute("AmbientOrigin"):PointToWorldSpace(Vector3.new(4,3,-7))
+for index=1,17 do step(74+index*.05) end
+assert(math.abs(roll(freeHand,lateActor))>1.5,"a later visit could not trigger another greeting")
+humanoid.Health=0
+for index=1,50 do step(75+index*.05) end
+assert(math.abs(roll(freeHand,lateActor))<.3,"dead local character kept a greeting alive")
+localPlayer.Character=nil
+-- Blinks restore authored dimensions even if attributes arrive mid-blink.
+local eye=head:FindFirstChild("Eye")
+local openSize=eye:GetAttribute("AmbientEyeSize")
+local blinkTime=(4.6+.2*.13)*20-.2+.08
+step(blinkTime)
+assert(eye.Size.Y<openSize.Y*.2,"eyes never close during a blink")
+lateActor.AttributeChanged:Fire("AmbientPeriod");step(blinkTime+.02)
+step(blinkTime+.2)
+assert(math.abs(eye.Size.Y-openSize.Y)<1e-6,"blink refresh adopted a squashed eye as its new rest size")
+-- Captain Pip's rod moves, but its line end is tied to the bobber on native water.
+local captain=group:FindFirstChild("Resident_CaptainPip")
+local line=captain:FindFirstChild("FineFishingLine")
+local bobber=captain:FindFirstChild("ResidentBobber")
+local rod=captain:FindFirstChild("ArmRight"):FindFirstChild("BambooFishingRod")
+workspace.CurrentCamera.CFrame=CFrame.new(8,18,127)
+for index=1,100 do
+ step(100+index*.05)
+ local endPoint=line.Position+line.CFrame.RightVector*line.Size.X*.5
+ local startPoint=line.Position-line.CFrame.RightVector*line.Size.X*.5
+ local tip=rod.Position+rod.CFrame.RightVector*rod.Size.X*.5
+ assert((endPoint-bobber.Position).Magnitude<.0001 and (startPoint-tip).Magnitude<.0001,"fishing line detached from its rod or water bobber")
+ assert(math.abs(bobber.Position.Y-8.2)<=.026,"resident bobber hangs above or below the lagoon")
+end
+-- Juniper's loaded tray remains level while the empty hand acknowledges a customer.
+humanoid.Health=100;localPlayer.Character=character
+workspace.CurrentCamera.CFrame=CFrame.new(-44,18,-3)
+root.Position=juniper:GetAttribute("AmbientOrigin"):PointToWorldSpace(Vector3.new(3,3,-6))
+for index=1,20 do step(106+index*.05) end
+local tray=juniper:FindFirstChild("ArmRight"):FindFirstChild("LemonadeTray")
+assert(math.abs(tray.CFrame.RightVector:Dot(Vector3.yAxis))>.999,"server tips the loaded tray during a greeting")
+assert(math.abs(roll(juniper:FindFirstChild("ArmLeft"),juniper))>1.2,"server greeted with the tray hand or did not greet")
+localPlayer.Character=nil
+-- Gardener pours into the actual authored patch, and stops between tending cycles.
+workspace.CurrentCamera.CFrame=CFrame.new(-229,32,30)
+local gardener=group:FindFirstChild("Resident_Petal")
+local visible,dry=0,0
+for index=1,200 do
+ step(115+index*.05)
+ local drop=gardener:FindFirstChild("WateringDrop1")
+ if drop.Transparency<1 then
+  visible+=1
+  assert(drop.Position.Y>=28.45 and drop.Position.Y<31,"watering droplets miss the planted ground")
+ else dry+=1 end
+end
+assert(visible>10 and dry>30,"gardener waters forever or never waters its patch")
+-- Client startup, death and camera replacement can temporarily remove either
+-- source of attention. Neither case may crash or animate against a stale root.
+local savedCamera=workspace.CurrentCamera
+local still=lateActor:GetPivot().Position
+workspace.CurrentCamera=nil
+step(126)
+assert((lateActor:GetPivot().Position-still).Magnitude==0,"missing camera did not pause resident animation")
+workspace.CurrentCamera=savedCamera
+players.LocalPlayer=nil
+step(126.1)
+players.LocalPlayer=localPlayer
+workspace.CurrentCamera.CFrame=CFrame.new(45,18,-6)
+-- An individual actor root may leave before the rest of an Atomic model. Its
+-- readiness listener must stop movement and recover when that root returns.
+local actorRoot=lateActor.PrimaryPart
+lateActor.PrimaryPart=nil
+lateActor:GetPropertyChangedSignal("PrimaryPart"):Fire()
+world.DescendantRemoving:Fire(actorRoot)
+actorRoot.Parent=nil
+local rootFrozen=actorRoot.CFrame.Position
+step(127)
+assert((actorRoot.CFrame.Position-rootFrozen).Magnitude==0,"unloaded actor root was still moved")
+actorRoot.Parent=lateActor
+lateActor.PrimaryPart=actorRoot
+lateActor:GetPropertyChangedSignal("PrimaryPart"):Fire()
+world.DescendantAdded:Fire(actorRoot)
+step(128)
+assert((actorRoot.Position-rootFrozen).Magnitude>.001,"individual actor root did not resume after streaming")
+print("Production animation:",steps,"finite steps; late attributes, stable jobs, real-character greetings/cooldown, blinks, water endpoints, ground contact, LOD and streaming recovery passed")
 print("These are geometry/event-double checks; Roblox rendering and engine behavior require Studio.")
 '''
 

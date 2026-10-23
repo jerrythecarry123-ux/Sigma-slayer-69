@@ -48,17 +48,17 @@ function Travel.create(world: Instance): Folder
 		end
 		-- Muted framing and transparent color identify a portal without a bright
 		-- light source, neon surface, flash, or effects obscuring the fishing view.
-		block("PortalBayDeck", Vector3.new(12, 0.16, 13), 0, -0.18, 0, CREAM, { studded = true })
+		block("PortalBayDeck", Vector3.new(12, 0.16, 13), 0, -0.18, 0, CREAM, { material = Enum.Material.WoodPlanks })
 		for _, side in { -1, 1 } do
-			block("PortalStoneFoot", Vector3.new(1.6, 0.65, 2.1), side * 4.1, 0.225, 0, STONE, { studded = true })
-			block("PortalUpright", Vector3.new(1, 8.9, 1.2), side * 4.1, 4.45, 0, STONE, { studded = true })
+			block("PortalStoneFoot", Vector3.new(1.6, 0.65, 2.1), side * 4.1, 0.225, 0, STONE, { material = Enum.Material.Limestone })
+			block("PortalUpright", Vector3.new(1, 8.9, 1.2), side * 4.1, 4.45, 0, STONE, { material = Enum.Material.Limestone })
 			block("PortalInsetStripe", Vector3.new(0.16, 7.3, 0.12), side * 3.53, 4.6, -0.67, BLUE)
 			for _, height in { 1.1, 8.4 } do
 				block("PortalBrassCollar", Vector3.new(1.15, 0.22, 1.34), side * 4.1, height, 0, GOLD)
 			end
 			block("PortalThresholdMarker", Vector3.new(0.4, 0.04, 2.4), side * 2.5, -0.075, -2.6, BLUE)
 		end
-		block("PortalLintel", Vector3.new(9.6, 1.1, 1.5), 0, 9.25, 0, STONE, { studded = true })
+		block("PortalLintel", Vector3.new(9.6, 1.1, 1.5), 0, 9.25, 0, STONE, { material = Enum.Material.Limestone })
 		block("PortalCrown", Vector3.new(6.2, 0.25, 1.65), 0, 9.94, 0, GOLD)
 		block("PortalVeil", Vector3.new(6.8, 8.6, 0.08), 0, 4.3, 0, BLUE,
 			{ transparency = 0.83, shadow = false })

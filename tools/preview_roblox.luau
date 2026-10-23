@@ -76,6 +76,9 @@ local Color3 = {}
 function Color3.new(r,g,b) return setmetatable({R=r,G=g,B=b},Color) end
 function Color3.fromRGB(r,g,b) return Color3.new(r/255,g/255,b/255) end
 function Color:Lerp(b,t) return Color3.new(self.R+(b.R-self.R)*t,self.G+(b.G-self.G)*t,self.B+(b.B-self.B)*t) end
+-- Sequence values are retained as data; this geometry-only shim does not render Beams.
+local ColorSequence = {new=function(value) return {Value=value} end}
+local NumberSequence = {new=function(value) return {Value=value} end}
 local Region3={}
 local regionMt={}
 regionMt.__index=regionMt

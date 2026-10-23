@@ -84,8 +84,8 @@ local function path(parent: Instance, points: {{number}}, width: number, materia
 		left[i],right[i]=point+normal*width/2,point-normal*width/2
 	end
 	for i=1,#points-1 do
-		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.SmoothPlastic,false,false,false)
-		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.SmoothPlastic,false,false,false)
+		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.Sand,false,false,false)
+		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.Sand,false,false,false)
 	end
 end
 local function waypost(parent: Instance, pos: Vector3, title: string, subtitle: string, yaw: number?)
@@ -122,7 +122,7 @@ local function water(parent: Instance, data: any)
 	workspace.Terrain:WriteVoxels(region,4,materials,occupancy)
 	-- Lower basin, exposed stone collar, reeds and a small cascade over the rim.
 	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true}
-	local model = island(parent,basin,C.Sand,Enum.Material.Plastic)
+	local model = island(parent,basin,C.Sand,Enum.Material.Sand)
 	for i = 1, 12 do
 		local a=i*math.pi/6
 		local p=center+Vector3.new(math.cos(a)*(data.Radius[1]+2),-.8,math.sin(a)*(data.Radius[2]+2))
@@ -138,16 +138,16 @@ local function water(parent: Instance, data: any)
 	for i = -1,1 do
 		Kit.part(model,"WaterfallCurtain",Vector3.new(2.8,55,0.2),CFrame.new(fallPos+Vector3.new(i*2.6,-27.5,0)),C.Water,
 			{material=Enum.Material.Glass,transparency=.33,shadow=false})
-		local streak=Kit.part(model,"FlowStreak",Vector3.new(.14,8,0.1),CFrame.new(fallPos+Vector3.new(i*2.5,-27,0.2)),C.Cream,{shadow=false,transparency=.58})
+		local streak=Kit.part(model,"FlowStreak",Vector3.new(.14,8,0.1),CFrame.new(fallPos+Vector3.new(i*2.5,-27.5,0.2)),C.Cream,{shadow=false,transparency=.58})
 		streak:SetAttribute("FlowStart",streak.CFrame)
 		streak:SetAttribute("FlowPhase",i*.27)
-		streak:SetAttribute("FlowDistance",48)
+		streak:SetAttribute("FlowDistance",47)
 		streak:SetAttribute("FlowSpeed",12)
 	end
 	Nature.cloud(model,fallPos-Vector3.yAxis*55,Vector3.new(21,8,14),83)
 end
 local function plaza(parent: Instance)
-	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.SmoothPlastic})
+	Kit.disk(parent,"TownSquare",45,45,.2,Vector3.new(-8,12.11,-2),C.Limestone,{material=Enum.Material.Limestone})
 	-- Small koi fountain: clear routes pass either side, not through its bowl.
 	local f=Kit.model(parent,"CloudKoiFountain")
 	Kit.disk(f,"FountainBase",11,11,.4,Vector3.new(-17,12.4,-14),C.Stone,{material=Enum.Material.Marble,collidable=true})
@@ -169,9 +169,9 @@ local function dockWorkshop(parent: Instance)
 	for _,x in {-3.5,3.5} do
 		Kit.beam(model,"WorkshopCanopyPost",cf:PointToWorldSpace(Vector3.new(x,0,1.5)),cf:PointToWorldSpace(Vector3.new(x,7,1.5)),.22,C.Wood,wood)
 	end
-	Kit.part(model,"SunnyCanopy",Vector3.new(8,.3,5),cf*CFrame.new(0,7,0),C.Gold)
+	Kit.part(model,"SunnyCanopy",Vector3.new(8,.3,5),cf*CFrame.new(0,7,0),C.Gold,{material=Enum.Material.Fabric})
 	for _,x in {-2,0,2} do
-		Kit.part(model,"CreamCanopyStripe",Vector3.new(.85,.02,5),cf*CFrame.new(x,7.16,0),C.Cream,{shadow=false})
+		Kit.part(model,"CreamCanopyStripe",Vector3.new(.85,.02,5),cf*CFrame.new(x,7.16,0),C.Cream,{material=Enum.Material.Fabric,shadow=false})
 	end
 	local board=Kit.part(model,"RodWorkshopSign",Vector3.new(7,1.2,.16),cf*CFrame.new(0,5.7,-2),C.Teal)
 	Kit.sign(board,"ROD UPGRADES","Fish · upgrade · cast again")
@@ -215,7 +215,7 @@ local function hill(parent: Instance, pos: Vector3, width: number, depth: number
 	for i=1,10 do
 		local a,b=i*math.pi/5,(i+1)*math.pi/5
 		triangle(parent,"GrassyKnoll",peak,pos+Vector3.new(math.cos(a)*width/2,.04,math.sin(a)*depth/2),
-			pos+Vector3.new(math.cos(b)*width/2,.04,math.sin(b)*depth/2),C.Grass,Enum.Material.Plastic,true,true,true)
+			pos+Vector3.new(math.cos(b)*width/2,.04,math.sin(b)*depth/2),C.Grass,Enum.Material.Grass,true,true,false)
 	end
 end
 local function townDetails(parent: Instance)
@@ -259,7 +259,7 @@ local function grotto(parent: Instance, cf: CFrame)
 	for i=1,6 do
 		local x=(i-3.5)*1.4
 		local crystal=Kit.wedge(model,"TideglassCrystal",Vector3.new(.8,2+i%3,1),cf*CFrame.new(x,1.1,3.6)*CFrame.Angles(0,i*.6,-.12+x*.03),
-			if i%2==0 then C.Water else C.Lavender,{material=Enum.Material.Neon,shadow=false})
+			if i%2==0 then C.Water else C.Lavender,{material=Enum.Material.Glass,shadow=false})
 		crystal.Transparency=.12
 	end
 	local sign=Kit.part(model,"GrottoPlaque",Vector3.new(5.4,1.6,.2),cf*CFrame.new(9,2,-6.3),C.Teal)
@@ -268,6 +268,7 @@ end
 local function skyship(parent: Instance)
 	local model=Kit.model(parent,"SkySail")
 	local o=Vector3.new(15,91,266)
+	model.WorldPivot=CFrame.new(o)
 	Kit.ball(model,"LinenEnvelope",Vector3.new(25,19,48),o,C.Cream,{material=Enum.Material.Fabric})
 	for _,z in {-12,0,12} do
 		Kit.ball(model,"EnvelopeBand",Vector3.new(25.25,19.25,2.6),o+Vector3.new(0,0,z),C.Coral,{material=Enum.Material.Fabric})
@@ -277,7 +278,7 @@ local function skyship(parent: Instance)
 		for _,z in {-7,7} do Kit.beam(model,"AirshipRigging",o+Vector3.new(x,-15,z),o+Vector3.new(x,-7,z*1.5),.13,C.Iron) end
 	end
 	Kit.wedge(model,"TailFin",Vector3.new(.4,10,12),CFrame.new(o+Vector3.new(0,1,26)),C.Teal,{material=Enum.Material.Fabric})
-	model:SetAttribute("DriftOrigin",model:GetPivot())
+	model:SetAttribute("DriftOrigin",CFrame.new(o))
 end
 function World.create(): BasePart
 	assert(not workspace:FindFirstChild("MolnfiskarnaPrototype"),"World already exists. Disable CreatePrototypeWorld to use a custom map.")
@@ -315,7 +316,7 @@ function World.create(): BasePart
 	workspace.Terrain.WaterWaveSize,workspace.Terrain.WaterWaveSpeed=.08,4
 	for _,data in Layout.Islands do
 		local tint=if data.Kind=="Cove" then C.Sand elseif data.Kind=="Summit" then C.Moss else C.Grass
-		regions[data.Id]=island(root,data,tint,Enum.Material.Plastic)
+		regions[data.Id]=island(root,data,tint,if data.Kind=="Cove" then Enum.Material.Sand else Enum.Material.Grass)
 	end
 	for i,data in Layout.Paths do path(regions[data.Island],data.Points,data.Width,nil,nil,i*.012) end
 	-- The fountain has a broad walkable ring; the main trail goes around its center.
@@ -362,7 +363,7 @@ function World.create(): BasePart
 	end
 	-- Deliberate clearings keep the paths, entrances and vistas open.
 	local trees: {{any}}={
-		{"harbor",-92,12,-25,1.25,"Oak"},{"harbor",90,12,34,1.35,"Oak"},{"harbor",-87,12,65,1.2,"Oak"},
+		{"harbor",-92,12,-25,1.25,"Oak"},{"harbor",90,12,34,1.35,"Oak"},{"harbor",-100,12,55,1.2,"Oak"},
 		{"harbor",45,12,-72,1.05,"Blossom"},{"harbor",-75,12,-72,1.15,"Oak"},{"harbor",86,12,-17,1.0,"Oak"},
 		{"blossom",-283,28,-23,1.25,"Blossom"},{"blossom",-211,28,-20,1.2,"Blossom"},{"blossom",-290,28,64,1.1,"Blossom"},
 		{"blossom",-223,28,55,1,"Blossom"},{"blossom",-268,28,-35,1.15,"Blossom"},
@@ -390,10 +391,6 @@ function World.create(): BasePart
 	waypost(root,Vector3.new(274,24,-67),"STARFALL LOOKOUT","Follow the rising bridge")
 	waypost(root,Vector3.new(-261,28,-33),"TIDEGLASS COVE","Palm shade / Quiet water")
 	spawn.Parent=root
-	local preview=Fish.create(root,"PuffletPreview","pufflet")
-	local display=CFrame.new(0,12,162)
-	preview:PivotTo(display)
-	preview:SetAttribute("DisplayOrigin",display)
 	skyship(root)
 	-- Distant cloud banks frame the playable islands rather than covering walkways.
 	for i=1,14 do

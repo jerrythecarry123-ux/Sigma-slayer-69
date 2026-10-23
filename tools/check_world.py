@@ -204,12 +204,51 @@ def validate(scene):
     for p in parts:
         if p['name'] in shade_names:
             assert p['shadow'],p['path']+' loses required shade'
+    # Check the generated result, so an old Studs override cannot silently turn
+    # a newly authored wood/plaster material back into Plastic during construction.
+    surfaces = {
+        'WeatheredDeckPlank': 'Wood', 'RearWall': 'Plaster',
+        'IndividualSlateShingle': 'Slate', 'CanvasSail': 'Fabric',
+        'SculptedLowerTrunk': 'Wood', 'SlopingStoneFace': 'Slate',
+        'GalleryPromenadeDeck': 'WoodPlanks', 'PortalBayDeck': 'WoodPlanks',
+        'PortalUpright': 'Limestone', 'WornFootpath': 'Sand', 'TownSquare': 'Limestone',
+    }
+    for name, material in surfaces.items():
+        matched = [p for p in parts if p['name'] == name]
+        assert matched, 'Missing representative surface: '+name
+        for p in matched:
+            assert p['material'] == material, p['path']+' lost its authored surface'
+            assert not any(p['studs'].values()), p['path']+' has studs masking its texture'
+    assert not any('/PuffletPreview/' in p['path'] for p in parts), 'Prototype fish still floats above the pond'
+
+    shore_samples = 0
+    for water in layout['Waters']:
+        shore = [p for p in parts if '/'+water['Id']+'PondTerraces/' in p['path']]
+        solid = [p for p in shore if p['collide']]
+        assert shore and solid, water['Id']+' has no physical shoreline'
+        assert all(p['alpha'] > 0 and p['query'] for p in solid), 'Invisible, full-height shore collision returned'
+        assert all(p['position'][1]+p['size'][1]/2 <= water['Center'][1]+32 for p in shore), 'Scenic walls overwhelm the low shoreline'
+        for p in shore:
+            if p['name'] != 'PondWaterfallCurtain':
+                continue
+            assert abs(p['position'][1]-p['size'][1]/2-water['Center'][1]-.12) < .01, 'Waterfall ends above or below its water'
+            for across in (-.49, 0, .49):
+                x = p['position'][0]+p['rotation'][0][0]*p['size'][0]*across
+                z = p['position'][2]+p['rotation'][2][0]*p['size'][0]*across
+                assert ((x-water['Center'][0])/water['Radius'][0])**2+((z-water['Center'][2])/water['Radius'][1])**2 < 1, 'Waterfall edge falls onto land instead of water'
+                for vertical in (-.4, 0, .4):
+                    y = p['position'][1]+p['size'][1]*vertical
+                    for rock in solid:
+                        hit = interval(rock, x, z)
+                        assert not hit or not hit[0]+.01 < y < hit[1]-.01, p['path']+' runs inside '+rock['name']
+                    shore_samples += 1
     print(f'PASS {len(parts)} bounded, anchored source parts; {len(colliders)} colliders incl. invisible floors/rails')
     print(f'PASS {sampled} route rays with continuous support and six-stud headroom across a 2.6-stud corridor')
     print(f'PASS {spawn_samples} spawn-footprint rays supported by the underlying world with six-stud headroom')
     print(f'PASS {arrival_samples} arrival-footprint rays, five persistent queryable floors, immediate fishing range and separate travel prompts')
     print(f'PASS {portal_samples} portal-approach rays through open side rails; arrivals clear of walk-in triggers')
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
+    print(f'PASS authored materials without stud overrides; {shore_samples} visible waterfall samples reaching native water')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 
 

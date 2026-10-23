@@ -6,21 +6,44 @@ local Layout = require(script.Parent:WaitForChild("WorldLayout"))
 local C = Kit.palette
 local Details = {}
 
+-- A handful of readable surface families; tiny painted/ceramic objects stay
+-- smooth rather than receiving the same coarse pattern as the timber pier.
+local WOOD = {
+	PaintedTackleBox=true, CreamTackleLid=true, OpenLureTray=true, CreelBottom=true,
+	RodRackPost=true, RodRackCrosspiece=true, RestingSpareRod=true, PaintedPierNameplate=true,
+	PicnicTeaTray=true, NeatlyStackedFirewood=true, FirewoodCutEnd=true,
+	FoundShellTray=true, BeachPennantPole=true,
+}
+local METAL = {
+	TackleBoxHinge=true, BrassTackleLatch=true, TackleCarryingHandle=true,
+	BucketCarryHandle=true, MooringCleatFoot=true, MooringCleatHorn=true, SafetyRingHanger=true,
+	ExplorerCompassCase=true, CompassRedNeedle=true, WeatherVaneMast=true,
+	WeatherVaneEastWest=true, WeatherVaneNorthSouth=true, StarVaneGoldCore=true,
+	StarVaneLongArms=true, StarVaneCrossArms=true,
+}
+local function material(name: string): Enum.Material
+	if WOOD[name] then return Enum.Material.Wood end
+	if METAL[name] then return Enum.Material.Metal end
+	if name=="PaintedRoundCreel" or name=="SegmentedLifeBuoy" then return Enum.Material.Fabric end
+	if name=="WeatherVaneFoot" or name=="CoralShellRidge" then return Enum.Material.Limestone end
+	return Enum.Material.SmoothPlastic
+end
+
 local LABELS = {
 	harbor = "SUNDRIFT HARBOR", blossom = "PETALWIND GROVE", forest = "EVERGREEN REACH",
 	cove = "TIDEGLASS COVE", summit = "STARFALL LOOKOUT",
 }
 
-local function part(parent: Model, name: string, size: Vector3, cf: CFrame, color: Color3, studded: boolean?): Part
+local function part(parent: Model, name: string, size: Vector3, cf: CFrame, color: Color3, _studded: boolean?): Part
 	return Kit.part(parent, name, size, cf, color, {
-		material = Enum.Material.Plastic, studded = studded == true,
+		material = material(name),
 		shadow = math.max(size.X, size.Y, size.Z) >= 1.2,
 	})
 end
 
 local function beam(parent: Model, name: string, cf: CFrame, a: Vector3, b: Vector3, width: number, color: Color3)
 	Kit.beam(parent, name, cf:PointToWorldSpace(a), cf:PointToWorldSpace(b), width, color,
-		{ material = Enum.Material.Plastic, shadow = (b-a).Magnitude >= 1.2 })
+		{ material = material(name), shadow = (b-a).Magnitude >= 1.2 })
 end
 
 local function cylinder(parent: Model, name: string, diameter: number, depth: number, height: number, cf: CFrame, color: Color3): Part
@@ -43,7 +66,7 @@ local function tackle(parent: Model, cf: CFrame, accent: Color3)
 		Kit.wedge(parent, "PaintedFishingLure", Vector3.new(.22,.18,.54),
 			cf*CFrame.new(x,.28,-1.22)*CFrame.Angles(0,math.pi/2,0), tint, {shadow=false})
 		Kit.wedge(parent, "LureSilverTail", Vector3.new(.08,.18,.24),
-			cf*CFrame.new(x+.28,.25,-1.22)*CFrame.Angles(0,-math.pi/2,0), C.Cream, {shadow=false})
+			cf*CFrame.new(x+.28,.25,-1.22)*CFrame.Angles(0,-math.pi/2,0), C.Cream, {material=Enum.Material.Metal,shadow=false})
 	end
 end
 
@@ -51,9 +74,9 @@ local function bucket(parent: Model, cf: CFrame, accent: Color3)
 	cylinder(parent, "CreelBottom", 1.12, 1.12, .12, cf*CFrame.new(0,.1,0), C.Wood)
 	cylinder(parent, "PaintedRoundCreel", 1.05, 1.05, 1, cf*CFrame.new(0,.65,0), accent)
 	cylinder(parent, "CreelOpenInterior", .86, .86, .025, cf*CFrame.new(0,1.158,0), C.DeepStone)
-	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.51,1.04,.35), Vector3.new(-.36,1.55,.35), .085, C.Iron)
-	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.36,1.55,.35), Vector3.new(.36,1.55,.35), .085, C.Iron)
-	beam(parent, "BucketCarryHandle", cf, Vector3.new(.36,1.55,.35), Vector3.new(.51,1.04,.35), .085, C.Iron)
+	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.39,1.04,.28), Vector3.new(-.28,1.55,.28), .085, C.Iron)
+	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.28,1.55,.28), Vector3.new(.28,1.55,.28), .085, C.Iron)
+	beam(parent, "BucketCarryHandle", cf, Vector3.new(.28,1.55,.28), Vector3.new(.39,1.04,.28), .085, C.Iron)
 	cylinder(parent, "CreamFishingFloat", .28, .28, .72, cf*CFrame.new(.17,.91,-.03)*CFrame.Angles(.18,0,-.22), C.Cream)
 	cylinder(parent, "CoralFloatTip", .29, .29, .23, cf*CFrame.new(.23,1.17,-.08)*CFrame.Angles(.18,0,-.22), C.Coral)
 end
@@ -65,7 +88,7 @@ local function rodRack(parent: Model, cf: CFrame)
 	part(parent, "RodRackCrosspiece", Vector3.new(.23,.23,1.7), cf*CFrame.new(0,1.55,0), C.Plank)
 	beam(parent, "RestingSpareRod", cf, Vector3.new(.12,.18,-.46), Vector3.new(-.17,3.72,.43), .07, C.Gold)
 	local reel=Kit.disk(parent, "SpareRodReel", .29,.29,.16, cf:PointToWorldSpace(Vector3.new(.1,.76,-.31)), C.Teal,
-		{ material = Enum.Material.Plastic, shadow = false })
+		{ material = Enum.Material.Metal, shadow = false })
 	reel.CFrame=cf*CFrame.new(.1,.76,-.31)
 end
 
@@ -124,13 +147,14 @@ local function beachKeepsake(parent: Model, cf: CFrame)
 	part(parent,"FoundShellTray",Vector3.new(1.7,.1,1.2),cf*CFrame.new(0,.12,0),C.Plank,true)
 	for index=0,2 do
 		local x=(index-1)*.48
-		local shell=cf*CFrame.new(x,.3,(index%2)*.25-.1)*CFrame.Angles(0,index*.5,0)
+		local shell=cf*CFrame.new(x,.265,(index%2)*.25-.1)*CFrame.Angles(0,index*.5,0)
 		Kit.wedge(parent,"TaperedBeachShell",Vector3.new(.43,.19,.56),shell,C.Cream,{shadow=false})
-		part(parent,"CoralShellRidge",Vector3.new(.055,.045,.48),shell*CFrame.new(0,.115,0),C.Coral)
+		part(parent,"CoralShellRidge",Vector3.new(.055,.045,.48),shell*CFrame.new(0,.025,0)
+			*CFrame.Angles(-math.atan2(.19,.56),0,0),C.Coral)
 	end
 	beam(parent,"BeachPennantPole",cf,Vector3.new(.88,0,.4),Vector3.new(.88,2.85,.4),.09,C.Wood)
-	Kit.wedge(parent,"BlueBeachPennant",Vector3.new(.05,.62,.95),cf*CFrame.new(.88,2.4,-.1),C.Teal,{shadow=false})
-	Kit.wedge(parent,"GoldPennantTip",Vector3.new(.06,.25,.31),cf*CFrame.new(.88,2.55,-.66),C.Gold,{shadow=false})
+	Kit.wedge(parent,"BlueBeachPennant",Vector3.new(.05,.62,.95),cf*CFrame.new(.88,2.4,-.1),C.Teal,{material=Enum.Material.Fabric,shadow=false})
+	Kit.wedge(parent,"GoldPennantTip",Vector3.new(.06,.25,.31),cf*CFrame.new(.88,2.55,-.66),C.Gold,{material=Enum.Material.Fabric,shadow=false})
 end
 
 local function skyKeepsake(parent: Model, cf: CFrame)
@@ -161,7 +185,8 @@ function Details.populate(root: Instance)
 		railTrim(model,basis,dock.Width,length,index,LABELS[dock.Id])
 		local keepsake=basis*CFrame.new(edge-.35,0,-16)
 		if dock.Id=="harbor" then
-			lifeRing(model,keepsake*CFrame.Angles(0,math.pi/2,0))
+			-- The hanger's .12-stud depth reaches the actual rail upright.
+			lifeRing(model,basis*CFrame.new(-dock.Width/2+.13,0,-16)*CFrame.Angles(0,math.pi/2,0))
 		elseif dock.Id=="blossom" then teaBreak(model,keepsake)
 		elseif dock.Id=="forest" then forestKeepsake(model,keepsake)
 		elseif dock.Id=="cove" then beachKeepsake(model,keepsake)

@@ -19,13 +19,21 @@ local BODY_SHADOWS = {
 	SoftHair = true, SunHatCrown = true, CanvasCap = true, KnittedCap = true,
 	CanvasBackpack = true,
 }
+local CLOTH = {
+	LinenShirt=true, TrouserLeg=true, RolledSleeve=true, ApronBib=true, ApronStrap=true,
+	CanvasBackpack=true, BackpackPocket=true, CanvasCap=true, KnittedCap=true,
+	WovenSunBrim=true, SunHatCrown=true, HatRibbon=true,
+}
 
 local function ball(parent: Instance, name: string, size: Vector3, position: Vector3, color: Color3): Part
 	return Kit.ball(parent, name, size, position, color, { shadow = BODY_SHADOWS[name] == true })
 end
 
 local function block(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
-	return Kit.part(parent, name, size, cf, color, { shadow = BODY_SHADOWS[name] == true })
+	return Kit.part(parent, name, size, cf, color, {
+		material=if CLOTH[name] then Enum.Material.Fabric else Enum.Material.SmoothPlastic,
+		shadow = BODY_SHADOWS[name] == true,
+	})
 end
 
 local function brick(parent: Instance, name: string, size: Vector3, position: Vector3, color: Color3): Part
@@ -60,8 +68,10 @@ local function face(actor: Model, skin: Color3, hair: Color3, hat: string, accen
 	brick(head, "CheerfulFace", Vector3.new(2.04, 2.08, 1.72), at + Vector3.new(0, 0.36, 0), skin)
 	brick(head, "SoftHair", Vector3.new(2.09, 1.0, 1.58), at + Vector3.new(0, 1.0, 0.19), hair)
 	for _, side in { -1, 1 } do
-		ball(head, "Eye", Vector3.new(0.17, 0.24, 0.1), at + Vector3.new(side * 0.35, 0.51, -0.91), COLORS.Ink)
-		ball(head, "EyeSpark", Vector3.new(0.055, 0.065, 0.035), at + Vector3.new(side * 0.35 - 0.025, 0.56, -0.965), COLORS.White)
+		local eye = ball(head, "Eye", Vector3.new(0.17, 0.24, 0.1), at + Vector3.new(side * 0.35, 0.51, -0.91), COLORS.Ink)
+		eye:SetAttribute("AmbientEyeSize", eye.Size)
+		local spark = ball(head, "EyeSpark", Vector3.new(0.055, 0.065, 0.035), at + Vector3.new(side * 0.35 - 0.025, 0.56, -0.965), COLORS.White)
+		spark:SetAttribute("AmbientEyeSize", spark.Size)
 		ball(head, "Blush", Vector3.new(0.27, 0.13, 0.055), at + Vector3.new(side * 0.61, 0.27, -0.895), COLORS.Pink)
 		block(head, "Eyebrow", Vector3.new(0.27, 0.07, 0.075), CFrame.new(at + Vector3.new(side * 0.35, 0.80, -0.91))
 			* CFrame.Angles(0, 0, side * -0.12), hair)
@@ -102,23 +112,33 @@ local function resident(parent: Model, data: any): Model
 	limb(actor, "LegRight", 0.40, data.apron, data.skin, true)
 	face(actor, data.skin, data.hair or COLORS.Hair, data.hat, data.accent)
 	if data.style == "Repair" then
-		Kit.beam(right, "RepairBrush", Vector3.new(0.97, 1.96, -0.2), Vector3.new(0.97, 2.70, -0.2), 0.12, COLORS.Gold, { shadow = false })
-		ball(right, "BrushBristles", Vector3.new(0.34, 0.38, 0.24), Vector3.new(0.97, 2.85, -0.2), COLORS.White)
+		Kit.beam(right, "RepairBrush", Vector3.new(0.97, 2.14, -0.25), Vector3.new(0.97, 2.18, -1), 0.12, COLORS.Gold, { shadow = false })
+		ball(right, "BrushBristles", Vector3.new(0.28, 0.13, 0.30), Vector3.new(0.97, 2.16, -1.10), COLORS.White)
 	elseif data.style == "Fish" then
 		local handle = Vector3.new(0.97, 2.12, -0.18)
 		local tip = Vector3.new(0.97, 4.35, -4.3)
 		Kit.beam(right, "BambooFishingRod", handle, tip, 0.075, COLORS.Gold, { shadow = false })
 		ball(right, "Reel", Vector3.new(0.35, 0.35, 0.25), Vector3.new(0.97, 2.46, -0.52), COLORS.Teal)
-		Kit.beam(right, "FineFishingLine", tip, Vector3.new(0.97, -4, -10), 0.025, COLORS.White,
+		local lineEnd = Vector3.new(0.97, -3.8, -10)
+		-- The line lives outside the animated arm, so its bobber stays on real
+		-- water while the rod tip and free hand move independently.
+		Kit.beam(actor, "FineFishingLine", tip, lineEnd, 0.025, COLORS.White,
 			{ shadow = false, transparency = 0.35 })
+		ball(actor, "ResidentBobber", Vector3.new(.18,.23,.18), lineEnd, COLORS.Coral)
+		actor:SetAttribute("AmbientLineEnd", data.cf:PointToWorldSpace(lineEnd))
 	elseif data.style == "Serve" then
 		Kit.disk(right, "LemonadeTray", 1.7, 1.1, 0.12, Vector3.new(0.97, 1.94, -0.32), COLORS.White, { shadow = false })
 		for _, x in { 0.59, 1.33 } do
-			ball(right, "LemonadeCup", Vector3.new(0.37, 0.49, 0.37), Vector3.new(x, 2.22, -0.32), COLORS.Gold)
+			Kit.disk(right, "LemonadeCup", .37, .37, .49, Vector3.new(x, 2.22, -0.32), COLORS.Gold, {shadow=false})
 		end
 	elseif data.style == "Garden" then
 		ball(right, "WateringCan", Vector3.new(0.88, 0.76, 0.72), Vector3.new(1.0, 1.99, -0.2), COLORS.Teal)
 		Kit.beam(right, "WateringSpout", Vector3.new(1.0, 2.03, -0.2), Vector3.new(1.0, 2.15, -1.06), 0.19, COLORS.Teal, { shadow = false })
+		actor:SetAttribute("AmbientWaterTarget", data.cf:PointToWorldSpace(Vector3.new(1,.48,-1.65)))
+		for index=1,3 do
+			local drop=ball(actor,"WateringDrop"..index,Vector3.new(.055,.14,.055),Vector3.new(1,1.6-index*.3,-1.4),COLORS.Lilac)
+			drop.Transparency=.35
+		end
 	elseif data.style == "Lookout" then
 		brick(actor, "CanvasBackpack", Vector3.new(1.27, 1.48, 0.71), Vector3.new(0, 2.67, 0.70), COLORS.Gold)
 		block(actor, "BackpackPocket", Vector3.new(0.86, 0.61, 0.18), CFrame.new(0, 2.4, 1.05), data.accent)
@@ -135,6 +155,36 @@ local function resident(parent: Model, data: any): Model
 	actor:PivotTo(data.cf)
 	actor.Parent = parent
 	return actor
+end
+
+local function workspaces(parent: Instance, cast: {any})
+	local folder=Instance.new("Folder")
+	folder.Name,folder.Parent="ResidentWorkspaces",parent
+	for _,data in cast do
+		if data.style~="Repair" and data.style~="Garden" then continue end
+		local scene=Kit.model(folder,data.name.."Workspace")
+		scene.ModelStreamingMode=Enum.ModelStreamingMode.Atomic
+		local function part(name: string,size: Vector3,pos: Vector3,tint: Color3): Part
+			return Kit.part(scene,name,size,data.cf*CFrame.new(pos),tint,{material=Enum.Material.Wood,shadow=false})
+		end
+		if data.style=="Repair" then
+			part("RepairWorktop",Vector3.new(2.8,.16,1.2),Vector3.new(.7,2.08,-1.3),COLORS.Brown)
+			for _,x in {-.45,1.85} do
+				part("WorkbenchTrestle",Vector3.new(.18,2,.8),Vector3.new(x,1,-1.3),COLORS.Brown)
+			end
+			Kit.wedge(scene,"HalfPaintedHull",Vector3.new(1.8,.25,.65),data.cf*CFrame.new(.75,2.25,-1.12),COLORS.Teal,{material=Enum.Material.Wood,shadow=false})
+			Kit.disk(scene,"OpenPaintPot",.34,.34,.3,data.cf:PointToWorldSpace(Vector3.new(-.3,2.31,-1.35)),COLORS.Coral,{shadow=false})
+		else
+			Kit.disk(scene,"TendedSoilPatch",2.2,1.7,.12,data.cf:PointToWorldSpace(Vector3.new(1,.08,-1.65)),COLORS.Brown,{material=Enum.Material.Ground,shadow=false})
+			for index=-1,1 do
+				local x=1+index*.65
+				Kit.beam(scene,"TendedFlowerStem",data.cf:PointToWorldSpace(Vector3.new(x,.16,-1.65)),
+					data.cf:PointToWorldSpace(Vector3.new(x,.7+index%2*.15,-1.65)),.07,COLORS.Green,{shadow=false})
+				Kit.wedge(scene,"TendedFlowerLeaf",Vector3.new(.12,.3,.6),data.cf*CFrame.new(x,.4,-1.65)*CFrame.Angles(0,index*.6,math.pi/2),COLORS.Green,{shadow=false})
+				Kit.disk(scene,"TendedFlowerBloom",.38,.38,.09,data.cf:PointToWorldSpace(Vector3.new(x,.74+index%2*.15,-1.65)),COLORS.Pink,{shadow=false})
+			end
+		end
+	end
 end
 
 local function gull(parent: Model, index: number, origin: Vector3, radius: Vector3, phase: number)
@@ -209,9 +259,9 @@ function Residents.populate(parent: Instance): Model
 	local group = Instance.new("Model")
 	group.Name = "IslandResidents"
 	local cast = {
-		{ name = "Milo", cf = CFrame.new(45, 12, -6) * CFrame.Angles(0, 0.35, 0), shirt = COLORS.White,
+		{ name = "Milo", cf = CFrame.new(45, 12.15, -6) * CFrame.Angles(0, 0.35, 0), shirt = COLORS.White,
 			apron = COLORS.Teal, skin = COLORS.Tan, hat = "Cap", accent = COLORS.Coral, style = "Repair", phase = 0.2 },
-		{ name = "Juniper", cf = CFrame.new(-44, 12, -9) * CFrame.Angles(0, -0.4, 0), shirt = COLORS.Coral,
+		{ name = "Juniper", cf = CFrame.new(-45, 12.15, -5.1) * CFrame.Angles(0, math.pi + .35, 0), shirt = COLORS.Coral,
 			apron = COLORS.White, skin = COLORS.Peach, hat = "Beanie", accent = COLORS.Lilac, style = "Serve", phase = 1.7 },
 		{ name = "CaptainPip", cf = CFrame.new(8, 12, 127) * CFrame.Angles(0, -math.pi / 2, 0), shirt = COLORS.White,
 			apron = COLORS.Blue, skin = COLORS.Brown, hat = "Cap", accent = COLORS.Gold, style = "Fish", phase = 3.5 },
@@ -226,6 +276,7 @@ function Residents.populate(parent: Instance): Model
 			apron = COLORS.Coral, skin = COLORS.Peach, hat = "Straw", hair = COLORS.Blonde, accent = COLORS.Blue,
 			style = "Lookout", phase = 5.4 },
 	}
+	workspaces(parent,cast)
 	for _, data in cast do resident(group, data) end
 	local flock = {
 		{ Vector3.new(4, 31, 122), Vector3.new(20, 2.0, 13) },

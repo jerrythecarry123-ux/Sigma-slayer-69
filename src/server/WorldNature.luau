@@ -5,8 +5,13 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 local C = Kit.palette
 local Nature = {}
 
+-- Large natural forms have their own surface character. Tiny foliage stays
+-- quiet so distant crowns do not turn into noisy, repeating grass textures.
 local foliage = { material = Enum.Material.SmoothPlastic }
-local detail = { material = Enum.Material.Plastic, shadow = false }
+local bark = { material = Enum.Material.Wood }
+local stone = { material = Enum.Material.Slate }
+local detail = { material = Enum.Material.SmoothPlastic, shadow = false }
+local mossSurface = { material = Enum.Material.Grass, shadow = false }
 local collider = { material = Enum.Material.Plastic, collidable = true, transparency = 1, shadow = false }
 
 -- Two thin mirrored wedges form a single tapered leaf, with its tip at b.
@@ -43,8 +48,8 @@ local function broadleaf(parent: Instance, pos: Vector3, scale: number, blossom:
 	-- Established invisible collision cores stay in exactly the same positions.
 	Kit.beam(parent, "LowerTrunk", foot, bend, 1.8 * scale, C.Bark, collider)
 	Kit.beam(parent, "UpperTrunk", bend, top, 1.25 * scale, C.BarkLight, collider)
-	Kit.beam(parent,"SculptedLowerTrunk",foot,bend,1.81*scale,C.Bark,foliage)
-	Kit.beam(parent,"TaperedUpperTrunk",bend,top,1.26*scale,C.Bark,foliage)
+	Kit.beam(parent,"SculptedLowerTrunk",foot,bend,1.81*scale,C.Bark,bark)
+	Kit.beam(parent,"TaperedUpperTrunk",bend,top,1.26*scale,C.Bark,bark)
 	local canopy=swaying(parent,"BreezyBroadleafCanopy",top,.018)
 	local tint=if blossom then C.Blossom else C.Leaf
 	local light=if blossom then C.BlossomLight else C.Lime
@@ -54,7 +59,7 @@ local function broadleaf(parent: Instance, pos: Vector3, scale: number, blossom:
 		local angle=turn+index*math.pi*2/3
 		local branchStart=pos+Vector3.yAxis*(6.4+index*.6)*scale
 		local branchEnd=pos+Vector3.new(math.cos(angle)*3.9,10.1+index*.5,math.sin(angle)*3.9)*scale
-		Kit.beam(parent,"TaperedCrownBranch",branchStart,branchEnd,(.64-index*.1)*scale,C.BarkLight,foliage)
+		Kit.beam(parent,"TaperedCrownBranch",branchStart,branchEnd,(.64-index*.1)*scale,C.BarkLight,bark)
 	end
 	crown(canopy,basis:PointToWorldSpace(Vector3.new(0,12.2,0)*scale),6.7*scale,4.3*scale,tint,turn,"FacetedLeafCrown")
 	crown(canopy,basis:PointToWorldSpace(Vector3.new(-2.8,10.6,1.4)*scale),4.2*scale,3.2*scale,tint:Lerp(light,.18),turn+.35,"LeafShoulder")
@@ -69,7 +74,7 @@ end
 local function pine(parent: Instance, pos: Vector3, scale: number, random: Random)
 	local top = pos + Vector3.yAxis * 22.8 * scale
 	Kit.beam(parent,"PineTrunk",pos,top,1.15*scale,C.Bark,collider)
-	Kit.beam(parent,"TaperedPineTrunk",pos,top,1.16*scale,C.Bark,foliage)
+	Kit.beam(parent,"TaperedPineTrunk",pos,top,1.16*scale,C.Bark,bark)
 	local needles=swaying(parent,"BreezyNeedleCanopy",pos,.009)
 	local turn=random:NextNumber(0,math.pi*2)
 	for tier=0,2 do
@@ -83,7 +88,7 @@ local function pine(parent: Instance, pos: Vector3, scale: number, random: Rando
 	for branch=0,1 do
 		local angle=turn+branch*math.pi
 		Kit.beam(parent,"ExposedPineBranch",pos+Vector3.yAxis*5.7*scale,
-			pos+Vector3.new(math.cos(angle)*2.8,6.7,math.sin(angle)*2.8)*scale,.35*scale,C.BarkLight,foliage)
+			pos+Vector3.new(math.cos(angle)*2.8,6.7,math.sin(angle)*2.8)*scale,.35*scale,C.BarkLight,bark)
 	end
 end
 
@@ -96,7 +101,7 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 		local width = (1.1 - t * .45) * scale
 		local tint = if segment % 2 == 0 then C.BarkLight else C.Wood
 		Kit.beam(parent,"CurvedPalmTrunk",previous,nextPos,width,tint,collider)
-		Kit.beam(parent,"SculptedPalmTrunk",previous,nextPos,width*1.01,tint,foliage)
+		Kit.beam(parent,"SculptedPalmTrunk",previous,nextPos,width*1.01,tint,bark)
 		previous=nextPos
 	end
 	local fronds=swaying(parent,"BreezyPalmCanopy",previous,.022)
@@ -112,7 +117,7 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 	for nut=1,2 do
 		local angle=nut*math.pi
 		Kit.ball(fronds,"Coconut",Vector3.new(.76,1,.7)*scale,
-			previous+Vector3.new(math.cos(angle)*.65,-.6,math.sin(angle)*.65)*scale,C.Bark,foliage)
+			previous+Vector3.new(math.cos(angle)*.65,-.6,math.sin(angle)*.65)*scale,C.Bark,bark)
 	end
 end
 
@@ -134,14 +139,14 @@ function Nature.rock(parent: Instance, pos: Vector3, size: Vector3, seed: number
 	if size.Y>=3 then
 		Kit.part(model,"RockCore",size*Vector3.new(.7,.7,.7),oldFrame,tint,collider)
 	end
-	Kit.wedge(model,"SlopingStoneFace",size*Vector3.new(.95,.76,.88),oldFrame,tint,foliage)
+	Kit.wedge(model,"SlopingStoneFace",size*Vector3.new(.95,.76,.88),oldFrame,tint,stone)
 	Kit.wedge(model,"BrokenStoneCrown",size*Vector3.new(.78,.66,.78),
-		oldFrame*CFrame.new(-size.X*.06,size.Y*.09,size.Z*.04)*CFrame.Angles(0,math.pi,0),tint:Lerp(C.Cliff,.2),foliage)
+		oldFrame*CFrame.new(-size.X*.06,size.Y*.09,size.Z*.04)*CFrame.Angles(0,math.pi,0),tint:Lerp(C.Cliff,.2),stone)
 	Kit.wedge(model,"ChippedRockShoulder",size*Vector3.new(.56,.48,.7),
-		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),foliage)
+		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),stone)
 	if moss then
 		Kit.wedge(model,"SlopingMossPatch",size*Vector3.new(.48,.025,.48),
-			oldFrame*CFrame.new(-size.X*.1,size.Y*.425,size.Z*.12)*CFrame.Angles(.12,.2,0),C.Moss,detail)
+			oldFrame*CFrame.new(-size.X*.1,size.Y*.425,size.Z*.12)*CFrame.Angles(.12,.2,0),C.Moss,mossSurface)
 	end
 	return model
 end
@@ -207,7 +212,7 @@ function Nature.islandUnderside(parent: Instance, center: Vector3, width: number
 		local radius=1/math.sqrt(math.sin(angle)^2/(width*.47)^2+math.cos(angle)^2/(depth*.47)^2)
 		local h=height*(.9+math.sin(seed+face*1.7)*.08)
 		local frame=CFrame.new(center)*CFrame.Angles(0,angle,0)*CFrame.new(0,-h*.49,-radius/2)*CFrame.Angles(0,0,math.pi)
-		Kit.wedge(model,"DescendingIslandFacet",Vector3.new(radius*.88,h,radius),frame,C.Cliff:Lerp(C.DeepStone,(face%3)*.06),foliage)
+		Kit.wedge(model,"DescendingIslandFacet",Vector3.new(radius*.88,h,radius),frame,C.Cliff:Lerp(C.DeepStone,(face%3)*.06),stone)
 	end
 	return model
 end

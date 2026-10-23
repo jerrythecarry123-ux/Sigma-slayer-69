@@ -347,3 +347,36 @@ ljuduppspelning, streaming, fysik och enhetsprestanda måste kontrolleras här.
 - [ ] Testa offlinegåvan i publicerad privat testversion med riktiga Roblox-klienten.
 - [ ] Kontrollera UI i 320 px porträtt, kort landskap, iPad och dator.
 - [ ] Mät faktisk FPS/minne och inläsning på riktig telefon/iPad före publik release.
+
+
+## v1.1 — material och vardagsliv, ännu okört i Roblox
+
+Molnkontrollerna mäter exporterad geometri och kör produktionskod med dubblar.
+De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
+
+- [ ] Öppna Cloud-Anglers-v1.1.rbxlx, tryck Play och kontrollera Output.
+- [ ] Granska träådring på bryggor, stolpar, bänkar, lådor och stammar nära kameran.
+- [ ] Husens puts, takens skiffer och stenarnas struktur känns sammanhängande i skala.
+- [ ] Gräs/sand skiljer sig tydligt från trä/sten utan skarpa, slumpmässiga färgfläckar.
+- [ ] Markiser, vimplar, rep och invånarnas kläder har tygstruktur; fiskar/löv hålls lugnare.
+- [ ] Inga gamla knoppar täcker trä, puts, skiffer eller portalgolv.
+- [ ] Jämför material på låg, medel och hög grafik på dator, telefon och iPad.
+- [ ] Ljuset är fortsatt dämpat; metall/glasyta bländar inte. Inga nya ljud.
+- [ ] Gå fram till en invånare: kort blick/hälsning följs av återgång till sysslan.
+- [ ] Kamerarörelse utan närliggande avatar får inte invånaren att hälsa på tom luft.
+- [ ] Cafévärden står på verandan, med fri kropp och vågrät bricka.
+- [ ] Reparationen sker över arbetsbänken och vattenkannan vattnar sin riktiga plantering.
+- [ ] Captain Pips lina slutar vid flötet på vattenytan när handen rör sig.
+- [ ] Gång, blinkningar och fåglars svängar känns lugna och varierade.
+- [ ] Dammarnas silhuetter skiljer sig åt och låter blicken se bortom vattnet.
+- [ ] Vattenfall har stöd under källan, faller framför berget och når vattenytan över hela bredden.
+- [ ] Vattenränder tonar mjukt vid omlopp; inget hoppar ovanför/bredvid gardinen.
+- [ ] Båten gungar men förtöjningens bryggände sitter fast; repet hänger ned mellan ändarna.
+- [ ] Luftskeppet, väderkvarnen och portalrunorna återkommer med rätt pivot efter streaming.
+- [ ] Parasollets tyg rör sig svagt medan stolpar, bord och stolar står stilla.
+- [ ] Livbojen sitter på räcket; böcker, musselskal, krukor och bänkar har synligt stöd.
+- [ ] Akvariepromenaden känns som en sammanhängande träbrygga, inte svävande plattor.
+- [ ] Inget träd skymmer den normala kameravyn framför första akvariet.
+- [ ] Ingen stor prototypfisk svävar längre ovanför hamnens damm.
+- [ ] Samma fiske, spön, sparning, akvarier och resor fungerar efter ändringarna.
+- [ ] Mät FPS/minne och kontrollera att rörelser återupptas efter avståndsstopp/streaming.
