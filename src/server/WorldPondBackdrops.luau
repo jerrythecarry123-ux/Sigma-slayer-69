@@ -78,21 +78,37 @@ function Backdrops.populate(parent: Instance)
    local ledge=height*(.44+index%3*.045)
    local lowerTint=C.Cliff:Lerp(C.DeepStone,.08+index%3*.035)
    local upperTint=C.Stone:Lerp(C.Limestone,shore.warmth+index%3*.018)
-   -- Physical cores and their sloped shoulders match the visible coastline.
-   Kit.part(model,"LowerShoreRockFace",Vector3.new(width*.72,ledge-BASE,15.2),
+   -- The crown is seated inside the lower face's flat top. Former upper
+   -- shoulders overhung that top, leaving conspicuous dangling triangles.
+   local crownWidth=width*(.44+index%3*.015)
+   local crownShift=if isFall then 0 else width*math.sin(index*1.7)*.015
+   local crownDepth=if isFall then 10 else 6.2+index%2*.5
+   local crownFront=if isFall then 3 else -.8
+   local crownZ=z+crownFront-crownDepth/2
+   local crownHeight=height-ledge+.08
+   local crownHalf=crownWidth/2
+   local shoulderWidth=width*.13
+   Kit.part(model,"LowerShoreRockFace",Vector3.new(width*.76,ledge-BASE,15.2),
     frame*CFrame.new(x,(ledge+BASE)/2,z),lowerTint,ROCK)
-   Kit.part(model,"UpperShoreRockFace",Vector3.new(width*.70,height-ledge+.08,10),
-    frame*CFrame.new(x,(height+ledge)/2,z-2),upperTint,ROCK)
+   Kit.part(model,"UpperShoreRockFace",Vector3.new(crownWidth,crownHeight,crownDepth),
+    frame*CFrame.new(x+crownShift,(height+ledge)/2,crownZ),upperTint,ROCK)
    for _,side in {-1,1} do
-    Kit.wedge(model,"TaperedShoreButtress",Vector3.new(15.2,ledge-BASE,width*.24),
-     frame*CFrame.new(x+side*width*.47,(ledge+BASE)/2,z)*CFrame.Angles(0,-side*math.pi/2,0),lowerTint,ROCK)
-    Kit.wedge(model,"UpperShoreRockFacet",Vector3.new(10,height-ledge+.08,width*.24),
-     frame*CFrame.new(x+side*width*.46,(height+ledge)/2,z-2)*CFrame.Angles(0,-side*math.pi/2,0),upperTint,ROCK)
+    Kit.wedge(model,"TaperedShoreButtress",Vector3.new(15.2,ledge-BASE,width*.22),
+     frame*CFrame.new(x+side*width*.48,(ledge+BASE)/2,z)*CFrame.Angles(0,-side*math.pi/2,0),lowerTint,ROCK)
+    Kit.wedge(model,"UpperShoreRockFacet",Vector3.new(crownDepth,crownHeight,shoulderWidth),
+     frame*CFrame.new(x+crownShift+side*(crownHalf+shoulderWidth*.48),(height+ledge)/2,crownZ)
+      *CFrame.Angles(0,-side*math.pi/2,0),upperTint:Lerp(lowerTint,.08),ROCK)
    end
+   -- A sloping, water-facing plane softens the second terrace's square front.
+   -- Its full base rests on the visible lower rock; falls retain their exact lip.
+   local apronDepth=if isFall then 2.5 else 3.8
+   Kit.wedge(model,"WeatheredShoreApron",Vector3.new(crownWidth,crownHeight,apronDepth),
+    frame*CFrame.new(x+crownShift,(height+ledge)/2,z+crownFront+apronDepth/2)
+     *CFrame.Angles(0,math.pi,0),upperTint:Lerp(lowerTint,.13),ROCK)
    if index==2 or index==#shore.x-1 then
     for leaf=1,2 do
      Kit.wedge(model,"ShoreLedgeLeaf",Vector3.new(.12,.65,1.1),
-      frame*CFrame.new(x+(leaf-1.5)*.65,ledge+.32,z+5.1)*CFrame.Angles(0,leaf*.8,.15),C.Leaf,{shadow=false})
+      frame*CFrame.new(x+(leaf-1.5)*.65,ledge+.32,z+6.2)*CFrame.Angles(0,leaf*.8,.15),C.Leaf,{shadow=false})
     end
    end
    for _,fallIndex in shore.falls do

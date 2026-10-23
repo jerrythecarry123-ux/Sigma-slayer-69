@@ -5,19 +5,19 @@ local Kit = require(script.Parent:WaitForChild("WorldPrimitives"))
 
 local Architecture = {}
 local C = {
-	Timber = Color3.fromRGB(143, 102, 61),
-	Wood = Color3.fromRGB(169, 122, 71),
-	Plank = Color3.fromRGB(207, 187, 133),
+	Timber = Color3.fromRGB(132, 99, 69),
+	Wood = Color3.fromRGB(164, 124, 83),
+	Plank = Color3.fromRGB(199, 181, 139),
 	Dark = Color3.fromRGB(59, 83, 99),
-	Cream = Color3.fromRGB(222, 215, 175),
+	Cream = Color3.fromRGB(229, 222, 195),
 	Stone = Color3.fromRGB(89, 117, 132),
 	Moss = Color3.fromRGB(28, 140, 47),
-	Glass = Color3.fromRGB(94, 171, 202),
-	Gold = Color3.fromRGB(221, 180, 47),
+	Glass = Color3.fromRGB(102, 163, 181),
+	Gold = Color3.fromRGB(214, 174, 66),
 	Rope = Color3.fromRGB(204, 187, 138),
-	Roof = Color3.fromRGB(42, 128, 183),
-	Coral = Color3.fromRGB(204, 89, 62),
-	Sky = Color3.fromRGB(42, 128, 183),
+	Roof = Color3.fromRGB(52, 108, 128),
+	Coral = Color3.fromRGB(190, 105, 83),
+	Sky = Color3.fromRGB(76, 126, 142),
 }
 local PLASTIC = Enum.Material.Plastic
 local SMOOTH = Enum.Material.SmoothPlastic
@@ -98,18 +98,34 @@ end
 local function barrel(parent, cf, scale)
 	local model = Kit.model(parent, "CooperedBarrel")
 	local s = scale or 1
-	local center = cf * CFrame.new(0, 1.1 * s, 0)
-	Kit.disk(model, "OakStaves", 1.9 * s, 1.9 * s, 2.2 * s, center.Position, C.Wood, { material = Enum.Material.Wood })
-	for _, y in { 0.25, 0.65, 1.75, 2.05 } do
-		Kit.disk(model, "IronHoop", 1.99 * s, 1.99 * s, 0.11 * s, (cf * CFrame.new(0, y * s, 0)).Position, C.Dark, { material = Enum.Material.Metal })
+	-- Eight broad staves bow gently at the waist. Two sloping halves replace
+	-- the straight cylinder and its thin floating seam rods with one closed form.
+	local endRadius, bellyRadius = .78 * s, .95 * s
+	local halfHeight = 1.05 * s
+	local pitch = math.atan2(bellyRadius - endRadius, halfHeight)
+	local staveLength = math.sqrt(halfHeight ^ 2 + (bellyRadius - endRadius) ^ 2)
+	local staveWidth = 2 * bellyRadius * math.tan(math.pi / 8) + .035 * s
+	for index = 0, 7 do
+		local angle = index * math.pi / 4
+		local tint = C.Wood:Lerp(C.Timber, (index % 3) * .055)
+		for half = 0, 1 do
+			local frame = cf * CFrame.Angles(0, angle, 0)
+				* CFrame.new(0, (.575 + half * 1.05) * s, -(endRadius + bellyRadius) / 2)
+				* CFrame.Angles(if half == 0 then -pitch else pitch, 0, 0)
+			p(model, "OakStaves", Vector3.new(staveWidth, staveLength + .025 * s, .13 * s), frame,
+				tint, Enum.Material.Wood)
+		end
 	end
-	for i = 0, 7 do
-		local angle = i * math.pi / 4
-		p(model, "StaveSeam", Vector3.new(0.035 * s, 1.85 * s, 0.035 * s),
-			cf * CFrame.new(math.sin(angle) * 0.94 * s, 1.1 * s, math.cos(angle) * 0.94 * s),
-			C.Timber, PLASTIC)
+	for _, y in { .56, 1.64 } do
+		Kit.disk(model, "IronHoop", 2.16 * s, 2.16 * s, .11 * s,
+			(cf * CFrame.new(0, y * s, 0)).Position, C.Dark, { material = Enum.Material.Metal })
 	end
-	p(model, "LidCrossbar", Vector3.new(1.5 * s, 0.1 * s, 0.18 * s), cf * CFrame.new(0, 2.24 * s, 0), C.Timber)
+	for _, y in { .06, 2.14 } do
+		Kit.disk(model, "OakEndCap", 1.8 * s, 1.8 * s, .1 * s,
+			(cf * CFrame.new(0, y * s, 0)).Position, C.Wood, { material = Enum.Material.Wood })
+	end
+	p(model, "LidCrossbar", Vector3.new(1.5 * s, .1 * s, .18 * s),
+		cf * CFrame.new(0, 2.24 * s, 0), C.Timber)
 	return model
 end
 
@@ -194,9 +210,9 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	local half, front = w / 2, -d / 2
 	local roofColor = buildingKind == "Workshop" and C.Roof
 		or (buildingKind == "Cafe" and C.Coral or C.Sky)
-	-- A shared pale brick keeps buildings readable beside the vivid grass and
-	-- blue-gray cliffs. Roof color identifies the workshop and cafe.
-	tint = C.Cream
+	-- Warm plaster is the quiet base; small painted bands identify each house.
+	-- Keep a little of the authored wall tint instead of bleaching every facade.
+	tint = (tint or C.Cream):Lerp(C.Cream, .72)
 	-- Block footings and a continuous floor keep the porch explorable.
 	p(model, "RaisedTimberFloor", Vector3.new(w, 0.4, d), cf * CFrame.new(0, 0, 0), C.Plank, PLASTIC, true)
 	p(model, "RearWall", Vector3.new(w, h, 0.5), cf * CFrame.new(0, h / 2, d / 2), tint, Enum.Material.SmoothPlastic, true)
@@ -225,23 +241,25 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	window(model, cf * CFrame.new(0, 5.45, rear) * CFrame.Angles(0, math.pi, 0), w * 0.37, 3.25, true)
 	p(model, "DoorLintel", Vector3.new(4.2, 0.3, 0.7), cf * CFrame.new(0, 7.15, front - 0.12), C.Timber)
 	p(model, "DoorwayHeadWall", Vector3.new(3.8, h - 7.25, 0.5), cf * CFrame.new(0, (h + 7.25) / 2, front), tint, Enum.Material.SmoothPlastic, true)
-	-- Fitted painted slate follows the existing roof slope.
-	local overhang, rise = 1.25, 4.3
+	-- A stronger roof pitch and broad aligned slate courses clarify the silhouette.
+	local overhang, rise = 1.25, math.clamp(w * .22, 4.7, 5.8)
 	local roofHalf = half + overhang
 	local pitch = math.atan2(rise, roofHalf)
 	local slope = math.sqrt(roofHalf ^ 2 + rise ^ 2)
 	local roofDepth = d + 2.6
-	local cols = math.max(4, math.floor(roofDepth / 2.5))
+	local cols = math.max(4, math.floor(roofDepth / 3.1))
+	local courses = 3
 	for _, side in { -1, 1 } do
 		local roofCf = cf * CFrame.new(side * roofHalf / 2, h + rise / 2, 0) * CFrame.Angles(0, 0, -side * pitch)
 		p(model, "RoofUnderlay", Vector3.new(slope + 0.2, 0.35, roofDepth), roofCf, roofColor, Enum.Material.SmoothPlastic, true)
-		for row = 0, 3 do
+		for row = 0, courses - 1 do
 			for col = 0, cols - 1 do
-				local shift = (row % 2 == 1 and 0.12 or -0.12)
-				local tileCf = roofCf * CFrame.new(-slope / 2 + (row + 0.5) * slope / 4, 0.24 + row * 0.008,
-					-roofDepth / 2 + (col + 0.5) * roofDepth / cols + shift)
-				local shade = ((row * 7 + col * 3) % 5) * 0.012
-				p(model, "IndividualSlateShingle", Vector3.new(slope / 4 + 0.12, 0.12, roofDepth / cols - 0.09), tileCf,
+				-- Courses end together at the verge. Small color changes carry the
+				-- slate texture without a sawtooth roof edge or checkerboard noise.
+				local tileCf = roofCf * CFrame.new(-slope / 2 + (row + .5) * slope / courses,
+					.24 + row * .008, -roofDepth / 2 + (col + .5) * roofDepth / cols)
+				local shade = ((row * 7 + col * 3) % 5) * .006
+				p(model, "IndividualSlateShingle", Vector3.new(slope / courses + .09, .12, roofDepth / cols - .045), tileCf,
 					roofColor:Lerp(C.Cream, shade), Enum.Material.SmoothPlastic)
 			end
 		end
@@ -260,8 +278,8 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 				cf * CFrame.new(side * roofHalf / 2, h + rise / 2, z) * CFrame.Angles(0, -side * math.pi / 2, 0),
 				tint, { material = Enum.Material.Plaster })
 		end
-		for i = -3, 3 do
-			local x = i * half / 4
+		for _, i in { -1, 0, 1 } do
+			local x = i * half * .52
 			local beamHeight = rise * (1 - math.abs(x) / roofHalf)
 			p(model, "GableLattice", Vector3.new(0.19, beamHeight, 0.2), cf * CFrame.new(x, h + beamHeight / 2, z), C.Timber)
 		end

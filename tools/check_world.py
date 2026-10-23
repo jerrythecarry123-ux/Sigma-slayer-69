@@ -116,6 +116,34 @@ def validate(scene):
                     sampled+=1
     assert not failures, '\n'.join(failures[:15]) + f'\n{len(failures)} failed samples of {sampled}'
 
+    # Visual fillets must still guide the avatar along the authored route. A
+    # sound collider floor alone would not catch a hole in the visible trail.
+    trails=[]
+    for p in parts:
+        if p['name'] != 'WornFootpath':
+            continue
+        assert not p['collide'] and not p['query'], p['path']+' visual trail became a physical obstacle'
+        radii=[sum(abs(p['rotation'][i][j])*p['size'][j]/2 for j in range(3)) for i in range(3)]
+        trails.append((p,p['position'][0]-radii[0],p['position'][0]+radii[0],p['position'][2]-radii[2],p['position'][2]+radii[2]))
+    trail_samples=0
+    for route in layout['Paths']:
+        for a,b in zip(route['Points'],route['Points'][1:]):
+            length=math.dist(a,b)
+            for step in range(math.ceil(length/1.5)+1):
+                t=min(1,step*1.5/length)
+                for offset in (-1.3,0,1.3):
+                    x,y,z=[a[i]+(b[i]-a[i])*t for i in range(3)]
+                    x,z=x-(b[2]-a[2])/length*offset,z+(b[0]-a[0])/length*offset
+                    covered=False
+                    for p,x0,x1,z0,z1 in trails:
+                        if x0-EPS<=x<=x1+EPS and z0-EPS<=z<=z1+EPS:
+                            hit=interval(p,x,z)
+                            if hit and y-.3<=hit[1]<=y+.35:
+                                covered=True
+                                break
+                    assert covered, f'Visible trail gap at ({x:.2f},{y:.2f},{z:.2f})'
+                    trail_samples+=1
+
     spawn = layout['Spawn']
     spawn_parts = [p for p in parts if p['name'] == 'HarborSpawn']
     assert len(spawn_parts) == 1, 'Exactly one harbor spawn must be captured'
@@ -244,6 +272,7 @@ def validate(scene):
                     shore_samples += 1
     print(f'PASS {len(parts)} bounded, anchored source parts; {len(colliders)} colliders incl. invisible floors/rails')
     print(f'PASS {sampled} route rays with continuous support and six-stud headroom across a 2.6-stud corridor')
+    print(f'PASS {trail_samples} visible-trail samples covering the existing walking corridors')
     print(f'PASS {spawn_samples} spawn-footprint rays supported by the underlying world with six-stud headroom')
     print(f'PASS {arrival_samples} arrival-footprint rays, five persistent queryable floors, immediate fishing range and separate travel prompts')
     print(f'PASS {portal_samples} portal-approach rays through open side rails; arrivals clear of walk-in triggers')

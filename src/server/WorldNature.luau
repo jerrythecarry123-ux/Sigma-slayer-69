@@ -23,14 +23,69 @@ local function leaf(parent: Instance, name: string, a: Vector3, b: Vector3, widt
 	end
 end
 
--- Radial sloping panels overlap into one cohesive crown, rather than separate cubes.
-local function crown(parent: Instance, center: Vector3, radius: number, height: number, tint: Color3, turn: number, name: string)
-	for face=0,5 do
-		local angle=turn+face*math.pi/3
-		local frame=CFrame.new(center)*CFrame.Angles(0,angle,0)*CFrame.new(0,0,-radius/2)
-		Kit.wedge(parent,name,Vector3.new(radius*1.05,height,radius),frame,
-			tint:Lerp(C.Lime,face%3*.025),foliage)
+-- Joined triangular faces produce a closed foliage volume. Radial rectangular
+-- wedge fans used to leave six sharp fins and deep gaps around the crown.
+local function facet(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, tint: Color3)
+	local ab, ac, bc = b-a, c-a, c-b
+	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
+	if abd > acd and abd > bcd then c, a = a, c
+	elseif acd > bcd and acd > abd then a, b = b, a end
+	ab, ac, bc = b-a, c-a, c-b
+	if ac:Cross(ab).Magnitude < .001 then return end
+	local right, back = ac:Cross(ab).Unit, bc.Unit
+	local up = bc:Cross(right).Unit
+	local height = math.abs(ab:Dot(up))
+	local l1, l2 = math.abs(ab:Dot(back)), math.abs(ac:Dot(back))
+	if l1 > .01 then
+		Kit.wedge(parent,name,Vector3.new(.055,height,l1),CFrame.fromMatrix((a+b)/2,right,up,back),tint,foliage)
 	end
+	if l2 > .01 then
+		Kit.wedge(parent,name,Vector3.new(.055,height,l2),CFrame.fromMatrix((a+c)/2,-right,up,-back),tint,foliage)
+	end
+end
+
+local function broadCrown(parent: Instance, pos: Vector3, scale: number, tint: Color3, light: Color3, turn: number)
+	local basis=CFrame.new(pos)*CFrame.Angles(0,turn,0)
+	local lower, upper={},{}
+	-- Broad, slightly irregular shoulders replace the single pointed roof.
+	-- A small flat cap, broad shoulders and tapered underside make a beveled dome.
+	for face=0,4 do
+		local angle=face*math.pi*2/5
+		local radial=1+math.sin(face*2.4)*.045
+		lower[face+1]=basis:PointToWorldSpace(Vector3.new(
+			math.cos(angle)*6.15*radial-.25,11.9+math.sin(face*1.7)*.18,math.sin(angle)*5.65*radial+.15)*scale)
+		upper[face+1]=basis:PointToWorldSpace(Vector3.new(
+			math.cos(angle+.06)*3.0*radial+.55,15.2+math.sin(face*2.1)*.25,math.sin(angle+.06)*2.75*radial-.45)*scale)
+	end
+	for face=1,5 do
+		local nextFace=face%5+1
+		local tone=tint:Lerp(light,.045+(face%3)*.025)
+		facet(parent,"FacetedLeafCrown",lower[face],lower[nextFace],upper[face],tone)
+		facet(parent,"FacetedLeafCrown",lower[nextFace],upper[nextFace],upper[face],tone)
+	end
+	for face=2,4 do
+		facet(parent,"FacetedLeafCrown",upper[1],upper[face],upper[face+1],tint:Lerp(light,.15))
+
+	end
+	local underside=basis:PointToWorldSpace(Vector3.new(-.4,8.5,.2)*scale)
+	for face=1,5 do
+		facet(parent,"LeafShoulder",lower[face%5+1],lower[face],underside,tint:Lerp(C.DeepStone,.16))
+	end
+end
+
+local function pineCrown(parent: Instance, center: Vector3, radius: number, height: number, tint: Color3, turn: number)
+	local rim={}
+	local top=center+Vector3.yAxis*height
+	for face=0,3 do
+		local angle=turn+face*math.pi/2
+		rim[face+1]=center+Vector3.new(math.cos(angle)*radius,0,math.sin(angle)*radius)
+	end
+	for face=1,4 do
+		facet(parent,"EvergreenBough",rim[face],rim[face%4+1],top,tint:Lerp(C.PineLight,(face%2)*.045))
+	end
+	-- The two base triangles close the underside when players look up.
+	facet(parent,"EvergreenBough",rim[1],rim[3],rim[2],tint:Lerp(C.Pine,.12))
+	facet(parent,"EvergreenBough",rim[1],rim[4],rim[3],tint:Lerp(C.Pine,.12))
 end
 
 local function swaying(parent: Instance, name: string, pos: Vector3, amplitude: number): Model
@@ -54,21 +109,13 @@ local function broadleaf(parent: Instance, pos: Vector3, scale: number, blossom:
 	local tint=if blossom then C.Blossom else C.Leaf
 	local light=if blossom then C.BlossomLight else C.Lime
 	local turn=random:NextNumber(0,math.pi*2)
-	local basis=CFrame.new(pos)*CFrame.Angles(0,turn,0)
 	for index=0,2 do
 		local angle=turn+index*math.pi*2/3
 		local branchStart=pos+Vector3.yAxis*(6.4+index*.6)*scale
-		local branchEnd=pos+Vector3.new(math.cos(angle)*3.9,10.1+index*.5,math.sin(angle)*3.9)*scale
+		local branchEnd=pos+Vector3.new(math.cos(angle)*3.9,10.8+index*.35,math.sin(angle)*3.9)*scale
 		Kit.beam(parent,"TaperedCrownBranch",branchStart,branchEnd,(.64-index*.1)*scale,C.BarkLight,bark)
 	end
-	crown(canopy,basis:PointToWorldSpace(Vector3.new(0,12.2,0)*scale),6.7*scale,4.3*scale,tint,turn,"FacetedLeafCrown")
-	crown(canopy,basis:PointToWorldSpace(Vector3.new(-2.8,10.6,1.4)*scale),4.2*scale,3.2*scale,tint:Lerp(light,.18),turn+.35,"LeafShoulder")
-	for index=0,2 do
-		local angle=turn+index*math.pi*2/3
-		local start=pos+Vector3.new(math.cos(angle)*4.5,12.4,math.sin(angle)*4.5)*scale
-		local tip=pos+Vector3.new(math.cos(angle)*7.1,11.6,math.sin(angle)*7.1)*scale
-		leaf(canopy,"PointedCanopyLeaf",start,tip,1.9*scale,tint:Lerp(light,.24))
-	end
+	broadCrown(canopy,pos,scale,tint,light,turn)
 end
 
 local function pine(parent: Instance, pos: Vector3, scale: number, random: Random)
@@ -77,14 +124,11 @@ local function pine(parent: Instance, pos: Vector3, scale: number, random: Rando
 	Kit.beam(parent,"TaperedPineTrunk",pos,top,1.16*scale,C.Bark,bark)
 	local needles=swaying(parent,"BreezyNeedleCanopy",pos,.009)
 	local turn=random:NextNumber(0,math.pi*2)
-	for tier=0,2 do
-		local radius=(7.3-tier*2.1)*scale
-		local center=pos+Vector3.yAxis*(9.2+tier*5)*scale
-		crown(needles,center,radius,(8.8-tier*.8)*scale,C.Pine:Lerp(C.PineLight,tier*.13),turn+tier*.27,"EvergreenBough")
-	end
-	-- A slender terminal shoot closes the crown above the preserved trunk core.
-	crown(needles,pos+Vector3.yAxis*22.75*scale,.65*scale,3.4*scale,
-		C.Pine:Lerp(C.PineLight,.28),turn+.54,"PineNeedleTip")
+	-- Two overlapping closed skirts keep a clear evergreen silhouette without
+	-- the former exposed wedge blades. Their peak covers the existing trunk.
+	pineCrown(needles,pos+Vector3.yAxis*4.8*scale,7.3*scale,11*scale,C.Pine,turn)
+	pineCrown(needles,pos+Vector3.yAxis*11.4*scale,4.9*scale,13.1*scale,
+		C.Pine:Lerp(C.PineLight,.15),turn+.22)
 	for branch=0,1 do
 		local angle=turn+branch*math.pi
 		Kit.beam(parent,"ExposedPineBranch",pos+Vector3.yAxis*5.7*scale,
@@ -145,8 +189,14 @@ function Nature.rock(parent: Instance, pos: Vector3, size: Vector3, seed: number
 	Kit.wedge(model,"ChippedRockShoulder",size*Vector3.new(.56,.48,.7),
 		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),stone)
 	if moss then
-		Kit.wedge(model,"SlopingMossPatch",size*Vector3.new(.48,.025,.48),
-			oldFrame*CFrame.new(-size.X*.1,size.Y*.425,size.Z*.12)*CFrame.Angles(.12,.2,0),C.Moss,mossSurface)
+		-- The exposed first face rises by .76Y over .88Z. Attach this patch to
+		-- that actual plane; the old horizontal offset left moss in mid-air.
+		local slope=math.atan2(size.Y*.76,size.Z*.88)
+		local z=size.Z*.22
+		local y=(size.Y*.76)/(size.Z*.88)*z
+		local surface=oldFrame*CFrame.new(-size.X*.1,y,z)*CFrame.Angles(-slope,0,0)
+		Kit.wedge(model,"SlopingMossPatch",Vector3.new(size.X*.38,.035,size.Z*.30/math.cos(slope)),
+			surface*CFrame.Angles(0,.12,0)*CFrame.new(0,.025,0),C.Moss,mossSurface)
 	end
 	return model
 end

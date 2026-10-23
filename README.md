@@ -1,10 +1,40 @@
-# Cloud Anglers — v1.1
+# Cloud Anglers — v1.2
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.1.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.2.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.2 — refine the existing terrain and models
+
+The same five islands, paths, residents, buildings and fishing content remain.
+The focus is shape, proportion and how existing surfaces meet:
+
+- Sand paths have filleted corners, subtle width variation and a warmer worn
+  surface. Their destinations and the level walking floor are unchanged.
+- Existing grassy knolls have rounded shoulders, while island undersides have
+  less uniform strata and a restrained exposed-earth collar.
+- Tree crowns are closed foliage volumes, with softer silhouettes instead of
+  open star-shaped wedge fans. Existing moss follows the actual stone slope.
+- Pond cliffs have supported, narrower upper masses and sloped water-facing
+  shoulders. Dangling cap wedges are removed; the same nine waterfalls remain.
+- Cottage roofs have a stronger pitch, broader aligned slate courses and less
+  busy gables. Deep teal and muted coral accents sit against warm plaster.
+- Existing barrels have bowed staves and fitted hoops rather than straight
+  cylinders with floating seam rods.
+
+Art direction takes cues from readable low-poly forms and a clear fishing
+waterfront in [Fisch](https://www.roblox.com/games/16732694052/Fisch) and
+[Fish It](https://www.roblox.com/games/121864768012064/Fish-It), alongside the
+user-provided Duck Pond image. Their public pages were blocked in this environment;
+this is a style reference, not a review of their current releases or rankings.
+No models or textures were copied from those games.
+
+The lighting, audio, progression, travel coordinates and save format are retained.
+Extra geometry is confined to shaping existing terrain/models, not scattering
+more scenery. Initial source geometry is 9,960 parts, within the existing 10,000-part
+budget. Native materials and actual device performance still need Studio.
 
 ## New in v1.1 — materials and a more inhabited world
 
@@ -156,7 +186,8 @@ Luau suites compile. Separate checks execute unchanged production code for:
   that restores the former broken Model-only travel guard.
 
 Analytic rays through captured colliders check 3,681 walking-route points, 225 spawn
-points, 125 portal-arrival points and 429 portal approaches. Another 81 samples verify waterfall visibility and their
+points, 125 portal-arrival points and 429 portal approaches. Another 2,373 samples
+check that the visible trails still cover the walking corridors, and 81 verify waterfall visibility and their
 contact with native water. Representative captured material roles are checked for
 old Studs overrides. Initial scenery stays
 below 10,000 anchored parts; player tanks add streamed Atomic displays. Only thin
@@ -178,7 +209,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.1.rbxlx` and `artifacts/Cloud-Anglers-v1.1.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.2.rbxlx` and `artifacts/Cloud-Anglers-v1.2.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell

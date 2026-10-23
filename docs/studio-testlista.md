@@ -1,18 +1,16 @@
-# Cloud Anglers v0.8 — testprotokoll
+# Cloud Anglers — testprotokoll
 
 ## Automatiskt verifierat i molnmiljön
 
-- 19 tester av fiskets tillståndsmaskin, 12 tester av fiskeplatser och 18 tester av progression/sparregler passerade.
-- 9 tester av kartans kustlinjer, vägar, broar, kajer, kastmål och gångavstånd passerade.
-- 15 tester av snabbresornas destinationer, avstånd, tidsgränser och samtidiga anrop passerade.
-- 4 layoutkontroller för porträttmobil, liggande mobil, surfplatta och dator passerade.
-- 3 Python-tester för korrekt inbäddade källfiler, sparade ljus/streaming-inställningar och repeterbar platsbyggnad
-  passerade.
-- Alla 32 Luau-produktionsfiler samt de sex Luau-testfilerna accepterades av den
-  officiella Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
-- Typkontrollen passerade för konfiguration, fiskeregler, katalog, motor,
-  progression, sparregler, fiskeplatser, reseregler, världsdata, layoutberäkning och de sex Luau-testsviterna. Roblox-beroende filer behöver fortfarande kontrolleras i Studio.
-- `.rbxlx`-filen har byggts med de aktuella källfilerna.
+- 99 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
+  5 layout, 15 reseregler, 9 världsdata och 3 Python-tester för platsbyggnad.
+- Alla 34 produktionsfiler och de sex Luau-sviterna accepteras av den officiella
+  Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
+- Separata kontroller kör produktionskod med geometri-/händelsedubblar för
+  uppstart, resor, gränssnitt, fiskmodeller, akvarier, invånare och miljörörelser.
+- Gångvägar, spawn, portalankomster och synliga stigar kontrolleras analytiskt.
+  Dessa kontroller ersätter inte Roblox fysik, rendering eller enhetsprestanda.
+- `.rbxlx`-filen byggs från de aktuella källfilerna och kontrolleras mot dem.
 
 Luau-verktygen byggdes från den officiella källan `luau-lang/luau`, commit
 `9d7748a4f324213a18cb8283fa2a77c330225fa0`. Inga externa körbara verktyg eller
@@ -380,3 +378,22 @@ De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
 - [ ] Ingen stor prototypfisk svävar längre ovanför hamnens damm.
 - [ ] Samma fiske, spön, sparning, akvarier och resor fungerar efter ändringarna.
 - [ ] Mät FPS/minne och kontrollera att rörelser återupptas efter avståndsstopp/streaming.
+
+
+## v1.2 — befintlig terräng och modeller, ännu okörda i Studio
+
+- [ ] Öppna **Cloud-Anglers-v1.2.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Följ de befintliga stigarna: rundade hörn ska vara sammanhängande och
+  ligga mot marken utan flimmer, hål eller hinder för avataren.
+- [ ] Titta på gräskullarna och öarnas sidor från broarna: rundade axlar,
+  sammanhängande klippytor och en lugn jordkant under gräset.
+- [ ] Titta upp genom lövträd och granar: sammanhängande kronor, naturlig
+  volym och fortsatt mjuk vajning. Grenar ska möta kronan.
+- [ ] Kontrollera mossan på stenarna och dammarnas klippavsatser: inga svävande
+  partier eller övre klippdelar som hänger fritt. Vattenfallen når vattnet.
+- [ ] Se taken från nära håll: tät anslutning mot gavlar, raka takpannskanter,
+  genomtänkt färgskillnad mellan kafé, verkstad och stugor.
+- [ ] Kontrollera de omformade tunnorna nära bryggan: stavar och band möts.
+- [ ] Prova låg/hög grafikkvalitet och riktig mobil/iPad. Notera texturutseende,
+  skuggor, minne och bildfrekvens; molnkontrollerna mäter inte detta.
+- [ ] Fiska och använd varje portal; jämför befintlig progression och sparning.

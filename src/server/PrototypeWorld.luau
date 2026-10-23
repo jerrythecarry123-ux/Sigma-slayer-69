@@ -18,7 +18,7 @@ local World = {}
 local function v(p: {number}): Vector3 return Vector3.new(p[1], p[2], p[3]) end
 
 -- Two thin solid wedges form an exact triangle, including irregular coastlines.
-local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, color: Color3, material: Enum.Material, solid: boolean, shadow: boolean?, studded: boolean?)
+local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, color: Color3, material: Enum.Material, solid: boolean, shadow: boolean?, studded: boolean?, surfaceThickness: number?)
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	if abd > acd and abd > bcd then c, a = a, c
@@ -30,7 +30,7 @@ local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, 
 	local up = bc:Cross(right).Unit
 	local height = math.abs(ab:Dot(up))
 	local options = {material = material, collidable = solid, shadow = shadow ~= false,studded=studded==true}
-	local thickness = if solid then 0.7 else 0.45
+	local thickness = surfaceThickness or (if solid then 0.7 else 0.45)
 	local l1, l2 = math.abs(ab:Dot(back)), math.abs(ac:Dot(back))
 	if l1 > 0.01 then Kit.wedge(parent, name, Vector3.new(thickness, height, l1), CFrame.fromMatrix((a+b)/2, right, up, back), color, options) end
 	if l2 > 0.01 then Kit.wedge(parent, name, Vector3.new(thickness, height, l2), CFrame.fromMatrix((a+c)/2, -right, up, -back), color, options) end
@@ -53,15 +53,22 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 		for tier = 1, #tiers - 1 do
 			local top, bottom = tiers[tier], tiers[tier+1]
 			local function ring(k: number, t: {number}): Vector3
-				local offset = (v(edge[k]) - center) * t[1]
-				return center + offset + Vector3.yAxis * t[2]
+				local a=(k-1)*math.pi/10
+				-- Shared ring vertices keep the cliff watertight while breaking the
+				-- repeated cone profile. The level meadow and collar stay fixed.
+				local taper=if t[1]==.42 then 1+math.sin(a*3+data.Seed)*.16+math.cos(a*5)*.06 else 1
+				local offset=(v(edge[k])-center)*t[1]*taper
+				local y=if t[1]==.42 then t[2]*(.9+math.sin(a*2+data.Seed)*.09) else t[2]
+				local lean=if t[1]==0 then Vector3.new(math.sin(data.Seed)*3,0,math.cos(data.Seed)*2) else Vector3.zero
+				return center+offset+lean+Vector3.yAxis*y
 			end
 			local a,b,c,d = ring(i,top),ring(j,top),ring(i,bottom),ring(j,bottom)
-			local tint = if tier == 1 then color else (if (i+tier)%3 == 0 then C.Stone else C.Cliff)
+			local tint=if tier==1 then C.Bark:Lerp(C.Stone,.48)
+				else C.Cliff:Lerp(C.Limestone,.08+math.sin(i*.8+data.Seed)*.025):Lerp(C.DeepStone,if tier==3 then .19 else .03)
 			if top[1]==bottom[1] then
 				-- A straight collar needs one panel, rather than four hidden wedge faces.
 				Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
-					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Slate})
+					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Ground})
 			elseif bottom[1]==0 then
 				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
 			else
@@ -73,19 +80,44 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 	return model
 end
 local function path(parent: Instance, points: {{number}}, width: number, material: Enum.Material?, tint: Color3?, lift: number?)
-	-- A joined miter strip avoids coplanar disks/rectangles flickering at every bend.
-	local left,right={},{}
-	for i,p in points do
-		local before=v(points[math.max(1,i-1)])
-		local after=v(points[math.min(#points,i+1)])
-		local direction=(after-before).Unit
-		local normal=Vector3.new(-direction.Z,0,direction.X)
-		local point=v(p)+Vector3.yAxis*(-.135+(lift or 0))
-		left[i],right[i]=point+normal*width/2,point-normal*width/2
+	-- Round the existing corners in place; no route, destination or collision
+	-- changes. Wide, gently worn strips read as paths rather than a street grid.
+	local line={v(points[1])}
+	for i=2,#points-1 do
+		local previous,point,following=v(points[i-1]),v(points[i]),v(points[i+1])
+		local incoming,outgoing=point-previous,following-point
+		if incoming.Unit:Dot(outgoing.Unit)>.997 then table.insert(line,point);continue end
+		local cut=math.min(incoming.Magnitude*.24,outgoing.Magnitude*.24,width*.65)
+		local entry,exit=point-incoming.Unit*cut,point+outgoing.Unit*cut
+		table.insert(line,entry)
+		for sample=1,3 do
+			local t=sample/3
+			table.insert(line,entry*(1-t)^2+point*(2*(1-t)*t)+exit*t*t)
+		end
 	end
-	for i=1,#points-1 do
-		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],tint or C.Sand,material or Enum.Material.Sand,false,false,false)
-		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],tint or C.Sand,material or Enum.Material.Sand,false,false,false)
+	table.insert(line,v(points[#points]))
+	local left,right={},{}
+	local distance=0
+	for i,p in line do
+		local incoming=(p-line[math.max(1,i-1)])
+		local outgoing=(line[math.min(#line,i+1)]-p)
+		if incoming.Magnitude<.001 then incoming=outgoing end
+		if outgoing.Magnitude<.001 then outgoing=incoming end
+		if i>1 then distance+=(p-line[i-1]).Magnitude end
+		local direction=(incoming.Unit+outgoing.Unit).Unit
+		local normal=Vector3.new(-direction.Z,0,direction.X)
+		local side=Vector3.new(-outgoing.Unit.Z,0,outgoing.Unit.X)
+		local miter=1/math.max(.8,math.abs(normal:Dot(side)))
+		local edgeWidth=width*(.97+.035*math.sin(distance*.11))
+		local point=p+Vector3.yAxis*(-.135+(lift or 0))
+		left[i],right[i]=point+normal*edgeWidth*miter/2,point-normal*edgeWidth*miter/2
+	end
+	local base=tint or C.Sand:Lerp(C.Wood,.16)
+	for i=1,#line-1 do
+		-- A very small, continuous color drift avoids bright per-triangle patches.
+		local color=base:Lerp(C.Plank,.045+.025*math.sin(i*.6))
+		triangle(parent,"WornFootpath",left[i],right[i],left[i+1],color,material or Enum.Material.Sand,false,false,false)
+		triangle(parent,"WornFootpath",right[i],right[i+1],left[i+1],color,material or Enum.Material.Sand,false,false,false)
 	end
 end
 local function waypost(parent: Instance, pos: Vector3, title: string, subtitle: string, yaw: number?)
@@ -211,11 +243,22 @@ local function windmill(parent: Instance, pos: Vector3)
 	rotor:SetAttribute("SpinRate",.13)
 end
 local function hill(parent: Instance, pos: Vector3, width: number, depth: number, height: number)
+	-- Re-sculpt the two existing knolls with rounded shoulders and a gentler
+	-- crown, preserving the summit under their existing tree roots.
 	local peak=pos+Vector3.yAxis*height
+	local function ring(index: number, inner: boolean): Vector3
+		local a=index*math.pi/5
+		local radius=if inner then .46 else 1
+		return pos+Vector3.new(math.cos(a)*width/2*radius,
+			if inner then height*.77 else .04,math.sin(a)*depth/2*radius)
+	end
 	for i=1,10 do
-		local a,b=i*math.pi/5,(i+1)*math.pi/5
-		triangle(parent,"GrassyKnoll",peak,pos+Vector3.new(math.cos(a)*width/2,.04,math.sin(a)*depth/2),
-			pos+Vector3.new(math.cos(b)*width/2,.04,math.sin(b)*depth/2),C.Grass,Enum.Material.Grass,true,true,false)
+		local a,b=ring(i,true),ring(i+1,true)
+		local c,d=ring(i,false),ring(i+1,false)
+		local tint=C.Grass:Lerp(C.Moss,.018+.018*math.sin(i*.6))
+		triangle(parent,"GrassyKnoll",peak,a,b,tint,Enum.Material.Grass,true,true,false,.08)
+		triangle(parent,"GrassyKnoll",a,c,b,tint,Enum.Material.Grass,true,true,false,.08)
+		triangle(parent,"GrassyKnoll",c,d,b,tint,Enum.Material.Grass,true,true,false,.08)
 	end
 end
 local function townDetails(parent: Instance)
