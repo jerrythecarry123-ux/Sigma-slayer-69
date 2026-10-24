@@ -193,11 +193,24 @@ local function gull(parent: Model, index: number, origin: Vector3, radius: Vecto
 	local body = ball(model, "GullBody", Vector3.new(0.72, 0.65, 1.45), Vector3.zero, COLORS.White)
 	model.PrimaryPart = body
 	ball(model, "GullHead", Vector3.new(0.56, 0.55, 0.62), Vector3.new(0, 0.30, -0.60), COLORS.White)
-	ball(model, "GoldenBeak", Vector3.new(0.17, 0.17, 0.45), Vector3.new(0, 0.24, -1.0), COLORS.Gold)
+	Kit.wedge(model, "GoldenBeak", Vector3.new(0.18, 0.17, 0.46), CFrame.new(0, 0.25, -1.03), COLORS.Gold, { shadow = false })
+	local mantle = Color3.fromRGB(155, 170, 182)
+	local primary = Color3.fromRGB(43, 51, 60)
 	for _, side in { -1, 1 } do
+		ball(model, "GullEye", Vector3.new(0.065, 0.10, 0.11), Vector3.new(side * 0.25, 0.37, -0.77), primary)
+		local tail = ball(model, "TailFeather", Vector3.new(0.26, 0.10, 0.67), Vector3.new(side * 0.12, -0.025, 0.79), COLORS.White)
+		tail.CFrame *= CFrame.Angles(0, side * 0.14, 0)
+		ball(model, "TuckedFoot", Vector3.new(0.10, 0.075, 0.30), Vector3.new(side * 0.14, -0.28, 0.36), COLORS.Gold)
 		local wing = pivot(model, if side < 0 then "WingLeft" else "WingRight", Vector3.new(side * 0.26, 0.11, 0))
 		ball(wing, "SweptWing", Vector3.new(1.75, 0.15, 0.77), Vector3.new(side * 1.05, 0.11, 0.11), COLORS.White)
-		ball(wing, "InkWingtip", Vector3.new(0.47, 0.13, 0.62), Vector3.new(side * 1.78, 0.11, 0.20), COLORS.Ink)
+		-- The coverts sit above the white flight feathers. Every layer belongs
+		-- to the wing pivot, so the silhouette stays joined throughout a flap.
+		local coverts = ball(wing, "GrayCoverts", Vector3.new(1.55, 0.12, 0.57), Vector3.new(side * 1.04, 0.17, 0.075), mantle)
+		coverts.CFrame *= CFrame.Angles(0, side * -0.12, 0)
+		local tip = ball(wing, "InkWingtip", Vector3.new(0.48, 0.13, 0.51), Vector3.new(side * 1.78, 0.12, 0.25), primary)
+		tip.CFrame *= CFrame.Angles(0, side * -0.28, 0)
+		local feather = ball(wing, "TrailingPrimary", Vector3.new(0.61, 0.10, 0.20), Vector3.new(side * 1.65, 0.12, 0.46), primary)
+		feather.CFrame *= CFrame.Angles(0, side * -0.22, 0)
 	end
 	local cf = CFrame.new(origin)
 	model:SetAttribute("AmbientKind", "Gull")

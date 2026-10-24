@@ -51,12 +51,14 @@ function Aquarium.start(world: Instance, callbacks: any)
 	local plots: {[number]: any} = {}
 	local occupied: {[number]: number} = {}
 	local function floor(name: string, size: Vector3, position: Vector3, tint: Color3?)
-		Kit.part(floors, name, size, CFrame.new(position), tint or C.Plank,
+		-- Keep the bottom seated on its bearers while lifting the visible top
+		-- clear of the meadow. Coplanar grass/deck faces shimmered at the entry.
+		Kit.part(floors, name, size+Vector3.yAxis*.06, CFrame.new(position+Vector3.yAxis*.03), tint or C.Plank,
 			{material=Enum.Material.WoodPlanks,collidable=true})
 	end
 	local timber = { material = Enum.Material.Wood }
 	-- Broad level access from existing harbor ground; clear of the main fishing route.
-	floor("GalleryAccessDeck",Vector3.new(36,.4,14),Vector3.new(-66,GROUND-.2,80))
+	floor("GalleryAccessDeck",Vector3.new(30,.4,14),Vector3.new(-63,GROUND-.2,80))
 	for _, side in {-1,1} do
 		Kit.part(scenery,"AccessEdge",Vector3.new(36,.65,.35),CFrame.new(-66,GROUND-.3,80+side*6.8),C.Wood,timber)
 		-- A support meets each fascia directly; no decorative brace hangs free.

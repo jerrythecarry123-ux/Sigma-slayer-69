@@ -417,3 +417,23 @@ De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
 - [ ] Fiska i samtliga fem dammar; flötena ska hamna i fritt vatten.
 - [ ] Prova riktig mobil/iPad och klientens streaming. Molnkontrollerna kör
   inte Roblox fysik eller nätverksladdning på en verklig enhet.
+
+
+## v1.4 — fisk-, mås- och stranddetaljer, ännu okörda i Studio
+
+- [ ] Öppna **Cloud-Anglers-v1.4.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Jämför alla 15 arter i journal, fångst och akvarier. Konturer och mönster
+  ska skilja även arter med samma grundform, inte enbart deras färger.
+- [ ] Se Normal, Golden och Prismatic. Ögon, mörka markeringar och ljusa detaljer
+  ska behålla läsbar kontrast. Upprepade byten får inte flytta eller förstora delarna.
+- [ ] Se största registrerade vikten för varje art i alla tre akvarieplatser:
+  fenor, spröt och korallkronor hålls innanför glaset under hela simningen.
+- [ ] Följ de sex måsarna genom glidflykt och fulla vingslag. Grå täckfjädrar
+  och mörka vingpennor ska följa vingen utan glapp. Se ögon, näbb, stjärt och fötter.
+- [ ] Kontrollera alla fem lagunernas staket från bryggan och sidostigar.
+  Stenfoten möter bassängen, stolparna sitter fast och repen är förankrade.
+- [ ] Använd varje portal och fiska. Staketet ska lämna gångvägar, kastmål,
+  båtens tillfart och samtliga vattenfallsutlopp fria.
+- [ ] Gå till akvarierna: däcket ska möta gräset utan blinkande överlappande ytor.
+- [ ] Prova en riktig telefon och iPad. Anteckna bildfrekvens och minne;
+  molnkontroller och offlinebilder bevisar inte Roblox-rendering eller prestanda.

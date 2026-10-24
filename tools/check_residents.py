@@ -24,14 +24,31 @@ for _,part in world:GetDescendants() do
   assert(part.Anchored and not part.CanCollide and not part.CanTouch and not part.CanQuery,"actor physics enabled")
  end
 end
-assert(count<=414,"resident scenery exceeds the existing cast plus small job-prop budget")
+-- Preserve the 414-part cast/job-prop allowance, with at most ten additional
+-- cosmetic pieces on each of the six existing gulls.
+assert(count<=414+6*10,"resident scenery exceeds the cast, job-prop and bounded gull-detail budget")
 assert(shadows>30 and shadows<100,"missing body contact shadows or excessive small shadow casters")
 local residentCount, birdCount, butterflyCount, schoolCount=0,0,0,0
+local gullWings={}
 for _,actor in group:GetChildren() do
  local kind=actor:GetAttribute("AmbientKind")
  assert(actor.ModelStreamingMode=="Atomic" and actor.PrimaryPart,"incomplete streamed actor")
  if kind=="Resident" then residentCount+=1 end
- if kind=="Gull" then birdCount+=1 end
+ if kind=="Gull" then
+  birdCount+=1
+  local parts=0
+  for _,part in actor:GetDescendants() do if part:IsA("BasePart") then parts+=1 end end
+  assert(parts<=19,"a gull exceeds its original nine parts plus ten detail pieces")
+  for _,name in {"WingLeft","WingRight"} do
+   local wing=actor:FindFirstChild(name)
+   assert(wing and wing.PrimaryPart,"missing gull wing pivot")
+   for _,detail in {"SweptWing","GrayCoverts","InkWingtip","TrailingPrimary"} do
+    local part=wing:FindFirstChild(detail)
+    assert(part and part:IsA("BasePart"),"gull feather layer is detached from its wing joint")
+    table.insert(gullWings,{actor=actor,wing=wing,part=part,rest=wing:GetPivot():PointToObjectSpace(part.Position)})
+   end
+  end
+ end
  if kind=="Butterfly" then butterflyCount+=1 end
  if kind=="FishSchool" then schoolCount+=1 end
 end
@@ -113,12 +130,22 @@ animation.start()
 animation.start()
 assert(heartbeat:Count()==1,"duplicate animation subscriptions")
 local steps=0
+local gullMinRoll,gullMaxRoll=math.huge,-math.huge
 local function step(time)
  now=time; heartbeat:Fire(0.05); steps+=1
  for _,part in group:GetDescendants() do
   if part:IsA("BasePart") then
    local p=part.CFrame.Position
    assert(p.X==p.X and p.Y==p.Y and p.Z==p.Z and math.abs(p.X)<10000 and math.abs(p.Y)<10000 and math.abs(p.Z)<10000,"nonfinite pose")
+  end
+ end
+ for _,sample in gullWings do
+  local offset=sample.wing:GetPivot():PointToObjectSpace(sample.part.Position)
+  assert((offset-sample.rest).Magnitude<.00001,"gull feather geometry drifted during a flap")
+  if sample.wing.Name=="WingRight" then
+   local localCf=sample.actor:GetPivot():Inverse()*sample.wing:GetPivot()
+   local angle=math.atan2(localCf.r[2][1],localCf.r[1][1])
+   gullMinRoll=math.min(gullMinRoll,angle);gullMaxRoll=math.max(gullMaxRoll,angle)
   end
  end
 end
@@ -288,7 +315,9 @@ lateActor:GetPropertyChangedSignal("PrimaryPart"):Fire()
 world.DescendantAdded:Fire(actorRoot)
 step(128)
 assert((actorRoot.Position-rootFrozen).Magnitude>.001,"individual actor root did not resume after streaming")
+assert(gullMinRoll<-.26 and gullMaxRoll>.38,"gull detail checks did not exercise both flap extremes")
 print("Production animation:",steps,"finite steps; late attributes, stable jobs, real-character greetings/cooldown, blinks, water endpoints, ground contact, LOD and streaming recovery passed")
+print("Gull feather layers remained rigidly attached through both flap extremes:",gullMinRoll,gullMaxRoll)
 print("These are geometry/event-double checks; Roblox rendering and engine behavior require Studio.")
 '''
 

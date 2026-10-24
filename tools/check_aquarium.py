@@ -177,7 +177,16 @@ assert(rowFloors.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,"gallery
 for _,part in rowFloors:GetChildren() do
  assert(part:IsA("BasePart") and part.CanCollide and part.CanQuery,"persistent gallery floor is not physical/queryable")
  assert(part.Transparency==0 and part.Material==Enum.Material.WoodPlanks,"streaming leaves an invisible gallery walkway")
- assert(math.abs(part.Position.Y+part.Size.Y/2-12)<.00001,"gallery floor is not flush with its walking surface")
+ assert(math.abs(part.Position.Y+part.Size.Y/2-12.06)<.00001,"gallery floor must clear the meadow without separating from its support")
+end
+local deckParts=rowFloors:GetChildren()
+for first,a in deckParts do
+ for second=first+1,#deckParts do
+  local b=deckParts[second]
+  local overlapX=math.min(a.Position.X+a.Size.X/2,b.Position.X+b.Size.X/2)-math.max(a.Position.X-a.Size.X/2,b.Position.X-b.Size.X/2)
+  local overlapZ=math.min(a.Position.Z+a.Size.Z/2,b.Position.Z+b.Size.Z/2)-math.max(a.Position.Z-a.Size.Z/2,b.Position.Z-b.Size.Z/2)
+  assert(overlapX<.001 or overlapZ<.001,"coplanar gallery deck faces overlap and can flicker")
+ end
 end
 gallery.remove(second);assert(gallery.arrival(second)==nil,"removed player retained a landing")
 local replacement=Instance.new("Player");replacement.UserId=11;replacement.DisplayName="New angler";replacement.Parent=players

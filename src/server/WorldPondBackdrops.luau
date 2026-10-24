@@ -54,11 +54,59 @@ local function waterfall(parent: Model,frame: CFrame,x: number,z: number,width: 
  end
 end
 
+-- A low waterfront fence makes the exposed suspended-lagoon edge intentional.
+-- Its stone foot reaches the basin; visible rope/wood owns any contact. No
+-- hidden wall spans the water, and dock and spillway openings remain open.
+local function boundary(parent: Model, water: any, dock: any)
+ local center=Vector3.new(table.unpack(water.Center))
+ local radiusX,radiusZ=water.Radius[1],water.Radius[2]
+ local inlet=math.atan2((dock.B[3]-center.Z)/radiusZ,(dock.B[1]-center.X)/radiusX)
+ local function delta(a: number,b: number): number
+  return math.abs(math.atan2(math.sin(a-b),math.cos(a-b)))
+ end
+ local count=20
+ local vertices={}
+ for index=1,count do
+  local angle=(index-1)*math.pi*2/count
+  vertices[index]=center+Vector3.new(math.cos(angle)*(radiusX+2),0,math.sin(angle)*(radiusZ+2))
+ end
+ local posts={}
+ local wood={material=Enum.Material.Wood,collidable=true}
+ local rope={material=Enum.Material.Fabric,collidable=true}
+ local rim={material=Enum.Material.Slate,collidable=true}
+ local outlet=math.atan2(.89,.45)
+ for index=1,count do
+  local nextIndex=index%count+1
+  local angle=(index-.5)*math.pi*2/count
+  -- The inlet includes the side portal and mooring approach. Rock terraces
+  -- frame the far bank, so a second rail behind them would only add clutter.
+  if delta(angle,inlet)<.67 or delta(angle,inlet+math.pi)<.57 or delta(angle,outlet)<.24 then continue end
+  local a,b=vertices[index],vertices[nextIndex]
+  local tangent=b-a
+  local foot=Kit.part(parent,"LagoonRetainingRim",Vector3.new(tangent.Magnitude+.18,5.45,3.2),
+   CFrame.lookAt((a+b)/2-Vector3.yAxis*2.375,b-Vector3.yAxis*2.375)*CFrame.Angles(0,math.pi/2,0),
+   C.Stone:Lerp(C.Limestone,.16),rim)
+  foot:SetAttribute("BoundaryZoneId",water.Id)
+  for _,vertex in {index,nextIndex} do
+   if not posts[vertex] then
+    local point=vertices[vertex]
+    Kit.beam(parent,"LagoonFencePost",point+Vector3.yAxis*.25,point+Vector3.yAxis*2.25,.34,C.Bark,wood)
+    posts[vertex]=true
+   end
+  end
+  local start,finish=a+Vector3.yAxis*1.72,b+Vector3.yAxis*1.72
+  local sag=(start+finish)/2-Vector3.yAxis*.23
+  Kit.beam(parent,"LagoonFenceRope",start,sag,.15,C.Cream:Lerp(C.Wood,.18),rope)
+  Kit.beam(parent,"LagoonFenceRope",sag,finish,.15,C.Cream:Lerp(C.Wood,.18),rope)
+ end
+end
+
 function Backdrops.populate(parent: Instance)
  for _,water in Layout.Waters do
   local shore=SHORES[water.Id]
   local yaw=0
-  for _,dock in Layout.Docks do if dock.Id==water.Id then yaw=dock.Yaw;break end end
+  local shorelineDock=nil
+  for _,dock in Layout.Docks do if dock.Id==water.Id then yaw=dock.Yaw;shorelineDock=dock;break end end
   local model=Kit.model(parent,water.Id.."PondTerraces")
   model.ModelStreamingMode=Enum.ModelStreamingMode.Atomic
   model:SetAttribute("ShoreZoneId",water.Id)
@@ -115,6 +163,8 @@ function Backdrops.populate(parent: Instance)
     if fallIndex==index then waterfall(model,frame,x,z,width*.31,height,index*.17) end
    end
   end
+  assert(shorelineDock,"Lagoon boundary requires its existing dock")
+  boundary(model,water,shorelineDock)
  end
 end
 

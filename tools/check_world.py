@@ -81,7 +81,7 @@ def walking_surface(colliders, x, y, z, label, tolerance=1):
 
 def validate(scene):
     parts = scene['parts']
-    assert len(parts) < 10000, 'World exceeds its source-part budget'
+    assert len(parts) < 10350, 'World exceeds its bounded fish/gull/shore detail budget'
     assert scene['terrainWrites'] == 5, 'Five native-water lagoons must be written'
     for p in parts:
         assert p['anchored'], p['path'] + ' is not anchored'
@@ -276,6 +276,41 @@ def validate(scene):
                             dock['Id']+' casting water is obstructed by '+p['path']
                 cast_samples+=1
 
+    # The shoreline rail must be a supported assembly, not decoration floating
+    # over the old shallow basin. Check real faces and keep all spillways open.
+    rims=[p for p in parts if p['name']=='LagoonRetainingRim']
+    fence_posts=[p for p in parts if p['name']=='LagoonFencePost']
+    basin_faces=[p for p in parts if p['name']=='WalkableMeadow' and '/SuspendedLagoon/' in p['path']]
+    assert rims and fence_posts and basin_faces, 'Missing supported lagoon boundary'
+    rim_samples=0
+    for rim in rims:
+        assert rim['collide'] and rim['query'] and rim['alpha']==1, 'Boundary gained a hidden collider'
+        bottom=rim['position'][1]-rim['size'][1]/2
+        for along in (-.45,0,.45):
+            for across in (-.45,0,.45):
+                v=[rim['size'][0]*along,0,rim['size'][2]*across]
+                point=[rim['position'][i]+sum(rim['rotation'][i][j]*v[j] for j in range(3)) for i in range(3)]
+                supported=any(hit and abs(hit[1]-(bottom+.1))<.2
+                    for floor in basin_faces if (hit:=interval(floor,point[0],point[2])))
+                assert supported, rim['path']+' retaining foot misses the basin'
+                rim_samples+=1
+    for post in fence_posts:
+        x,_,z=post['position']
+        hit=interval(post,x,z)
+        assert hit and post['collide'] and post['alpha']==1
+        assert any(support[1]>=hit[0]-.05 and support[0]<hit[0]
+            for rim in rims if (support:=interval(rim,x,z))), post['path']+' fence post floats above its rim'
+    spillway_samples=0
+    for fall in (p for p in parts if p['name']=='WaterfallCurtain'):
+        top=fall['position'][1]+fall['size'][1]/2
+        for across in (-.49,0,.49):
+            x=fall['position'][0]+fall['rotation'][0][0]*across*fall['size'][0]
+            z=fall['position'][2]+fall['rotation'][2][0]*across*fall['size'][0]
+            for rim in rims:
+                hit=interval(rim,x,z)
+                assert not hit or hit[1]<top-5 or hit[0]>top+.5, 'Fence closes an existing waterfall outlet'
+            spillway_samples+=1
+
     shore_samples = 0
     for water in layout['Waters']:
         shore = [p for p in parts if '/'+water['Id']+'PondTerraces/' in p['path']]
@@ -306,6 +341,7 @@ def validate(scene):
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
     print(f'PASS {visible_floors} visible physical walking surfaces; {cast_samples} clear bobber-lane samples; no raised spawn or hidden rock boxes')
     print(f'PASS authored materials without stud overrides; {shore_samples} visible waterfall samples reaching native water')
+    print(f'PASS {rim_samples} supported retaining-rim samples, {len(fence_posts)} seated fence posts and {spillway_samples} open spillway samples')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 
 

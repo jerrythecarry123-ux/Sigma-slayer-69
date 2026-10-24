@@ -40,6 +40,14 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 	model:SetAttribute("ZoneId", data.Id)
 	local center = v(data.Center)
 	local edge = Layout.outline(data)
+	if data.Basin then
+		-- A contained lagoon needs a continuous foundation beneath its rim.
+		-- Meadow coast noise previously cut some basin edges inside the water.
+		for index=1,#edge do
+			local angle=(index-1)*math.pi*2/#edge
+			edge[index]={center.X+math.cos(angle)*data.Radius[1],center.Y,center.Z+math.sin(angle)*data.Radius[2]}
+		end
+	end
 	local n = #edge
 	for i = 1, n do
 		local j = i % n + 1

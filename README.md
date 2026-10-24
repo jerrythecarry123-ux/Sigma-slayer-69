@@ -1,10 +1,39 @@
-# Cloud Anglers — v1.3
+# Cloud Anglers — v1.4
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.3.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.4.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.4 — fish identity, gulls and a fitted lagoon fence
+
+This pass focuses on the existing fish, birds and waterfront details. All fifteen
+species keep their IDs, habitats, rewards and saved records. Their models now have
+more distinct proportions, fin outlines and fitted markings: a freckled Pufflet,
+striped Mintfin, flame-finned Emberfin, petal-shaped perch, marked long-snouted pike,
+rounded moth wings, swept flying-fish fins, koi patches, shell scutes, mantle spots,
+whiskers, coral branches and Crownwhale's compact tiara. Dark patterns and pale
+accents retain their contrast in Golden and Prismatic appearances. The same models
+appear in catches, journal portraits and player aquariums; each uses at most 35
+Parts, within the existing 50-Part species limit.
+
+The same six seagulls gain fitted eyes and tapered beaks, gray wing coverts,
+dark primaries, paired tail feathers and tucked feet. Wing details belong to their
+existing animated joints, so they flap together. No birds or animation loops are
+added.
+
+Low timber posts and sagging rope follow the exposed edges of all five lagoons.
+A stone retaining rim reaches down to the existing basin floor, and those basin
+foundations now have an even outline beneath it. Docks, portal approaches, boat
+access and existing waterfall outlets remain open. There are no hidden fence
+panels. The gallery entry also removes overlapping deck surfaces and lifts its
+top slightly above the meadow to prevent flicker.
+
+Initial source geometry is **10,254 Parts**, 307 more than v1.3 (about 3.1%). The
+bounded detail budget is now 10,350; extra parts belong to the requested waterfront
+and bird details. This is not a device-performance result. Lighting, audio,
+progression, travel coordinates and saving are retained.
 
 ## New in v1.3 — visible surfaces and matching collision
 
@@ -194,13 +223,15 @@ Luau suites compile. Separate checks execute unchanged production code for:
   requests, character replacement, departure and movement during loading.
 - Dark transitions, control restoration, stale callbacks, gamepad focus and
   timeouts with UI/event/tween doubles.
-- All 15 fish: bounded parts, repeatable appearances and animation at distant pivots.
+- All 15 fish: distinct geometry, at most 35 Parts each, readable variant patterns,
+  repeatable appearances and animation at distant pivots.
 - Actual fishing UI: catalog totals, every timing target, region changes, accurate
   rewards, cancelled reveals and repeat-catch dismissal.
 - Player aquariums: independent owners, profile caching, theme changes, plot reuse,
   dynamic rows, supported arrivals, swim bounds, local animation and streaming rebind.
 - Existing residents: 1,498 finite animation steps, nearby-character reactions,
-  greeting cooldown, stable jobs, fixed water endpoints, blinks and streamed recovery.
+  greeting cooldown, stable jobs, fixed water endpoints, blinks and streamed recovery;
+  gull feather offsets remain fixed through both measured flap extremes.
 - Scenery: fixed mooring anchors, sagging Beam control points, authored pivots,
   bounded rotations, quiet flow wraps, distance limits and opacity ownership;
   27 extreme boat poses keep hull/water contact and the interior dry.
@@ -210,10 +241,12 @@ Luau suites compile. Separate checks execute unchanged production code for:
 Analytic rays through captured colliders check 3,681 walking-route points, 225 spawn
 points, 125 portal-arrival points and 429 portal approaches. Another 2,373 samples
 check that the visible trails still cover the walking corridors, and 81 verify waterfall visibility and their
-contact with native water. Representative captured material roles are checked for
+contact with native water. Another 522 samples check the retaining rim foundation,
+70 fence posts are seated on it, and 45 samples keep the spillways open.
+Representative captured material roles are checked for
 old Studs overrides. Another 100 bobber-lane samples check for obstructions,
 and thin physical walking surfaces must be visible. Initial scenery stays
-below 10,000 anchored parts; player tanks add streamed Atomic displays. Only thin
+below the 10,350-Part detail budget; player tanks add streamed Atomic displays. Only thin
 visible portal decks and gallery walking surfaces are persistent. Walking speed is
 22 studs/second; the first casting marker is about one second from spawn.
 
@@ -232,7 +265,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.3.rbxlx` and `artifacts/Cloud-Anglers-v1.3.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.4.rbxlx` and `artifacts/Cloud-Anglers-v1.4.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell
