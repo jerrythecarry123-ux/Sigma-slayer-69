@@ -54,51 +54,337 @@ local function waterfall(parent: Model,frame: CFrame,x: number,z: number,width: 
  end
 end
 
--- A low waterfront fence makes the exposed suspended-lagoon edge intentional.
--- Its stone foot reaches the basin; visible rope/wood owns any contact. No
--- hidden wall spans the water, and dock and spillway openings remain open.
-local function boundary(parent: Model, water: any, dock: any)
- local center=Vector3.new(table.unpack(water.Center))
- local radiusX,radiusZ=water.Radius[1],water.Radius[2]
- local inlet=math.atan2((dock.B[3]-center.Z)/radiusZ,(dock.B[1]-center.X)/radiusX)
- local function delta(a: number,b: number): number
-  return math.abs(math.atan2(math.sin(a-b),math.cos(a-b)))
+-- The coping is a real polygonal bank over the selected Terrain cells. Every
+-- exposed joint is a miter, and the battered outside faces meet the same shared
+-- corners. Thin, solid masonry faces enclose the visible basin foundation.
+local boundaryFacet=0
+local function tagged(part: BasePart,zone: string?)
+ if not zone then return end
+ part:SetAttribute("BoundaryZoneId",zone)
+ part:SetAttribute("BoundaryFacet",boundaryFacet)
+end
+
+local function triangle(parent: Model,name: string,a: Vector3,b: Vector3,c: Vector3,
+ thickness: number,color: Color3,zone: string?)
+ local points={a,b,c}
+ for index,corner in points do
+  local p,q=points[index%3+1],points[(index+1)%3+1]
+  local first,second=p-corner,q-corner
+  if first.Magnitude>.001 and second.Magnitude>.001 and math.abs(first:Dot(second))<1e-5*first.Magnitude*second.Magnitude then
+   local up,back=first.Unit,-second.Unit
+   tagged(Kit.wedge(parent,name,Vector3.new(thickness,first.Magnitude,second.Magnitude),
+    CFrame.fromMatrix((p+q)/2,up:Cross(back),up,back),color,ROCK),zone)
+   return
+  end
  end
- local count=20
- local vertices={}
- for index=1,count do
-  local angle=(index-1)*math.pi*2/count
-  vertices[index]=center+Vector3.new(math.cos(angle)*(radiusX+2),0,math.sin(angle)*(radiusZ+2))
+ local ab,ac,bc=b-a,c-a,c-b
+ local abd,acd,bcd=ab:Dot(ab),ac:Dot(ac),bc:Dot(bc)
+ if abd>acd and abd>bcd then c,a=a,c
+ elseif acd>bcd and acd>abd then a,b=b,a end
+ ab,ac,bc=b-a,c-a,c-b
+ if ac:Cross(ab).Magnitude<.00001 then return end
+ local right=ac:Cross(ab).Unit
+ local back=bc.Unit
+ local up=bc:Cross(right).Unit
+ local height=math.abs(ab:Dot(up))
+ local l1,l2=math.abs(ab:Dot(back)),math.abs(ac:Dot(back))
+ if l1>.001 then tagged(Kit.wedge(parent,name,Vector3.new(thickness,height,l1),
+  CFrame.fromMatrix((a+b)/2,right,up,back),color,ROCK),zone) end
+ if l2>.001 then tagged(Kit.wedge(parent,name,Vector3.new(thickness,height,l2),
+  CFrame.fromMatrix((a+c)/2,-right,up,-back),color,ROCK),zone) end
+end
+
+-- An uncut trapezoid takes one rectangle and two right-triangle prisms. This
+-- keeps exact shared vertices without paying for four arbitrary triangle halves.
+local function slab(parent: Model,name: string,polygon: {Vector3},thickness: number,color: Color3,zone: string?)
+ if #polygon<3 then return end
+ if #polygon==4 then
+  for first=1,2 do
+   local a,b,c,d=polygon[first],polygon[first%4+1],polygon[(first+1)%4+1],polygon[(first+2)%4+1]
+   if (b-a).Magnitude<.001 or (c-d).Magnitude<.001 then continue end
+   if (b-a):Cross(c-d).Magnitude>1e-5*(b-a).Magnitude*(c-d).Magnitude then continue end
+   if (b-a).Magnitude<(c-d).Magnitude then a,b,c,d=c,d,a,b end
+   local along=(b-a).Unit
+   local left,right=(d-a):Dot(along),(c-a):Dot(along)
+   local across=d-a-along*left
+   local length=(b-a).Magnitude
+   if across.Magnitude<.001 or left<-.001 or right>length+.001 or right-left<.001 then continue end
+   local normal=along:Cross(across.Unit)
+   tagged(Kit.part(parent,name,Vector3.new(right-left,across.Magnitude,thickness),
+    CFrame.fromMatrix(a+along*((left+right)/2)+across/2,along,across.Unit,normal),color,ROCK),zone)
+   triangle(parent,name,a,a+along*left,d,thickness,color,zone)
+   triangle(parent,name,b,c,a+along*right,thickness,color,zone)
+   return
+  end
  end
- local posts={}
- local wood={material=Enum.Material.Wood,collidable=true}
- local rope={material=Enum.Material.Fabric,collidable=true}
- local rim={material=Enum.Material.Slate,collidable=true}
- local outlet=math.atan2(.89,.45)
- for index=1,count do
-  local nextIndex=index%count+1
-  local angle=(index-.5)*math.pi*2/count
-  -- The inlet includes the side portal and mooring approach. Rock terraces
-  -- frame the far bank, so a second rail behind them would only add clutter.
-  if delta(angle,inlet)<.67 or delta(angle,inlet+math.pi)<.57 or delta(angle,outlet)<.24 then continue end
-  local a,b=vertices[index],vertices[nextIndex]
-  local tangent=b-a
-  local foot=Kit.part(parent,"LagoonRetainingRim",Vector3.new(tangent.Magnitude+.18,5.45,3.2),
-   CFrame.lookAt((a+b)/2-Vector3.yAxis*2.375,b-Vector3.yAxis*2.375)*CFrame.Angles(0,math.pi/2,0),
-   C.Stone:Lerp(C.Limestone,.16),rim)
-  foot:SetAttribute("BoundaryZoneId",water.Id)
-  for _,vertex in {index,nextIndex} do
-   if not posts[vertex] then
-    local point=vertices[vertex]
-    Kit.beam(parent,"LagoonFencePost",point+Vector3.yAxis*.25,point+Vector3.yAxis*2.25,.34,C.Bark,wood)
-    posts[vertex]=true
+ for index=2,#polygon-1 do triangle(parent,name,polygon[1],polygon[index],polygon[index+1],thickness,color,zone) end
+end
+
+local function side(a: Vector3,b: Vector3,p: Vector3): number
+ return (b.X-a.X)*(p.Z-a.Z)-(b.Z-a.Z)*(p.X-a.X)
+end
+local function clean(polygon: {Vector3}): {Vector3}
+ local points={}
+ for _,point in polygon do
+  if #points==0 or (point-points[#points]).Magnitude>.00001 then table.insert(points,point) end
+ end
+ if #points>1 and (points[1]-points[#points]).Magnitude<.00001 then table.remove(points) end
+ local index=1
+ while #points>=3 and index<=#points do
+  local previous=points[(index-2)%#points+1]
+  local point,following=points[index],points[index%#points+1]
+  if (point-previous):Cross(following-point).Magnitude<.00001 then table.remove(points,index)
+  else index+=1 end
+ end
+ return points
+end
+local function clip(polygon: {Vector3},a: Vector3,b: Vector3,inside: boolean): {Vector3}
+ local output={}
+ for index,q in polygon do
+  local p=polygon[(index-2)%#polygon+1]
+  local dp,dq=side(a,b,p),side(a,b,q)
+  if not inside then dp,dq=-dp,-dq end
+  local pin,qin=dp>=-.000001,dq>=-.000001
+  if pin~=qin then table.insert(output,p+(q-p)*(dp/(dp-dq))) end
+  if qin then table.insert(output,q) end
+ end
+ return clean(output)
+end
+local function subtract(polygon: {Vector3},opening: {Vector3}): {{Vector3}}
+ local intersection=polygon
+ for index,a in opening do
+  intersection=clip(intersection,a,opening[index%#opening+1],true)
+  if #intersection==0 then return {polygon} end
+ end
+ local output={}
+ local remaining=polygon
+ for index,a in opening do
+  local b=opening[index%#opening+1]
+  local outside=clip(remaining,a,b,false)
+  if #outside>=3 then table.insert(output,outside) end
+  remaining=clip(remaining,a,b,true)
+  if #remaining==0 then break end
+ end
+ return output
+end
+local function trimmed(polygon: {Vector3},openings: {{Vector3}}): {{Vector3}}
+ local pieces={polygon}
+ for _,opening in openings do
+  local nextPieces={}
+  for _,piece in pieces do for _,remaining in subtract(piece,opening) do table.insert(nextPieces,remaining) end end
+  pieces=nextPieces
+ end
+ return pieces
+end
+local function rectangle(frame: CFrame,width: number,depth: number,margin: number?): {Vector3}
+ local x,z=width/2+(margin or 0),depth/2+(margin or 0)
+ return {frame:PointToWorldSpace(Vector3.new(-x,0,-z)),frame:PointToWorldSpace(Vector3.new(x,0,-z)),
+  frame:PointToWorldSpace(Vector3.new(x,0,z)),frame:PointToWorldSpace(Vector3.new(-x,0,z))}
+end
+local function expandedRectangle(polygon: {Vector3},distance: number): {Vector3}
+ local output={}
+ for index,point in polygon do
+  local incoming=point-polygon[(index-2)%#polygon+1]
+  local outgoing=polygon[index%#polygon+1]-point
+  local first=Vector3.new(incoming.Z,0,-incoming.X).Unit
+  local second=Vector3.new(outgoing.Z,0,-outgoing.X).Unit
+  table.insert(output,point+(first+second)*distance)
+ end
+ return output
+end
+local function linePieces(a: Vector3,b: Vector3,openings: {{Vector3}}): {{Vector3}}
+ local pieces={{a,b}}
+ for _,opening in openings do
+  local nextPieces={}
+  for _,piece in pieces do
+   local start,finish=piece[1],piece[2]
+   local low,high=0,1
+   for index,p in opening do
+    local q=opening[index%#opening+1]
+    local ds,de=side(p,q,start),side(p,q,finish)
+    if ds<0 and de<0 then high=-1;break end
+    if ds<0 then low=math.max(low,ds/(ds-de))
+    elseif de<0 then high=math.min(high,ds/(ds-de)) end
+   end
+   if high<low then table.insert(nextPieces,piece)
+   else
+    if low>.00001 then table.insert(nextPieces,{start,start+(finish-start)*low}) end
+    if high<.99999 then table.insert(nextPieces,{start+(finish-start)*high,finish}) end
    end
   end
-  local start,finish=a+Vector3.yAxis*1.72,b+Vector3.yAxis*1.72
-  local sag=(start+finish)/2-Vector3.yAxis*.23
-  Kit.beam(parent,"LagoonFenceRope",start,sag,.15,C.Cream:Lerp(C.Wood,.18),rope)
-  Kit.beam(parent,"LagoonFenceRope",sag,finish,.15,C.Cream:Lerp(C.Wood,.18),rope)
+  pieces=nextPieces
  end
+ return pieces
+end
+
+local function boundary(parent: Model,water: any,dock: any,shoreOpenings: {{Vector3}})
+ local center=Vector3.new(table.unpack(water.Center))
+ local geometry=Layout.waterGeometry(water)
+ local outside,inside,fence,bottom={},{},{},{}
+ local band=geometry.InnerInset+.3
+ for index,p in geometry.Outer do
+  outside[index]=Vector3.new(table.unpack(p))
+  inside[index]=Vector3.new(table.unpack(geometry.Inner[index]))
+  fence[index]=outside[index]:Lerp(inside[index],.8/band)
+  bottom[index]=outside[index]:Lerp(inside[index],.9/band)-Vector3.yAxis*5.1
+ end
+ local dockA,dockB=Vector3.new(table.unpack(dock.A)),Vector3.new(table.unpack(dock.B))
+ local basis=CFrame.lookAt((dockA+dockB)/2,dockB)
+ local portal=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)*CFrame.new(dock.Width/2+4.5,0,8)
+ local spill=geometry.Spillway
+ local farZ=center.Z+water.Radius[2]+16
+ local pierOpenings={rectangle(basis,dock.Width,(dockB-dockA).Magnitude,.18),rectangle(portal,13,12,.18)}
+ local openings={rectangle(CFrame.new((spill.MinX+spill.MaxX)/2,center.Y,(spill.MinZ+farZ)/2),
+  spill.MaxX-spill.MinX,farZ-spill.MinZ,.2)}
+ local railOpenings={}
+ -- A post has a footprint, not just a centre point. Its complete round foot
+ -- sits on coping, inset from the masonry return at each opening.
+ for _,opening in openings do table.insert(railOpenings,expandedRectangle(opening,.23)) end
+ for _,opening in pierOpenings do table.insert(railOpenings,expandedRectangle(opening,.23)) end
+ for _,opening in shoreOpenings do table.insert(railOpenings,opening) end
+ local stone=C.Stone:Lerp(C.Limestone,.11)
+ local coping=C.Stone:Lerp(C.Limestone,.26)
+ local wood={material=Enum.Material.Wood,collidable=true}
+ local rope={material=Enum.Material.Fabric,collidable=true}
+ local posts={}
+ local returns={}
+ local function post(point: Vector3)
+  local key=string.format("%.3f:%.3f",point.X,point.Z)
+  if posts[key] then return end
+  posts[key]=true
+  local part=Kit.beam(parent,"LagoonFencePost",point+Vector3.yAxis*.29,point+Vector3.yAxis*2.44,.34,C.Bark,wood)
+  tagged(part,water.Id)
+ end
+ for index,a in outside do
+  boundaryFacet=index
+  local nextIndex=index%#outside+1
+  local b=outside[nextIndex]
+  local topA,topB=a-Vector3.yAxis*.22,b-Vector3.yAxis*.22
+  local face={topA,topB,bottom[nextIndex],bottom[index]}
+  for _,piece in trimmed(face,openings) do slab(parent,"LagoonRetainingRim",piece,.36,stone,water.Id) end
+  local innerA,innerB=inside[index],inside[nextIndex]
+  local innerFace={innerA-Vector3.yAxis*.22,innerB-Vector3.yAxis*.22,
+   innerB-Vector3.yAxis*5.1,innerA-Vector3.yAxis*5.1}
+  for _,piece in trimmed(innerFace,openings) do slab(parent,"LagoonInnerRetainingFace",piece,.38,stone,water.Id) end
+  local cap={a+Vector3.yAxis*.025,b+Vector3.yAxis*.025,
+   innerB+Vector3.yAxis*.025,innerA+Vector3.yAxis*.025}
+  for _,piece in trimmed(cap,openings) do
+   slab(parent,"LagoonCoping",piece,.65,coping,water.Id)
+   -- Close every real opening with a visible masonry return. Artificial
+   -- triangulation seams stay internal; only footprint edges receive returns.
+   for vertex,p in piece do
+    local q=piece[vertex%#piece+1]
+    for _,opening in openings do
+     for openingIndex,start in opening do
+      local finish=opening[openingIndex%#opening+1]
+      local length=(finish-start).Magnitude
+      if math.abs(side(start,finish,p))/length>.0001 or math.abs(side(start,finish,q))/length>.0001 then continue end
+      local keyA=string.format("%.4f:%.4f",p.X,p.Z)
+      local keyB=string.format("%.4f:%.4f",q.X,q.Z)
+      local key=if keyA<keyB then keyA.."/"..keyB else keyB.."/"..keyA
+      if returns[key] then continue end
+      returns[key]=true
+      local polygon={Vector3.new(p.X,center.Y-.22,p.Z),Vector3.new(q.X,center.Y-.22,q.Z),
+       Vector3.new(q.X,center.Y-5.1,q.Z),Vector3.new(p.X,center.Y-5.1,p.Z)}
+      local outward=Vector3.new((b-a).Z,0,-(b-a).X).Unit
+      local function distance(point: Vector3): number
+       return outward:Dot(point-topA)-.9/4.88*(point.Y-topA.Y)
+      end
+      local clipped={}
+      for edge,s in polygon do
+       local r=polygon[(edge-2)%#polygon+1]
+       local dr,ds=distance(r),distance(s)
+       if (dr<=.000001)~=(ds<=.000001) then table.insert(clipped,r+(s-r)*(dr/(dr-ds))) end
+       if ds<=.000001 then table.insert(clipped,s) end
+      end
+      slab(parent,"LagoonBoundaryReturn",clean(clipped),.36,stone,water.Id)
+     end
+    end
+   end
+  end
+  for _,piece in linePieces(fence[index],fence[nextIndex],railOpenings) do
+   local start,finish=piece[1],piece[2]
+   if (finish-start).Magnitude<.7 then continue end
+   post(start);post(finish)
+   local upperStart,upperFinish=start+Vector3.yAxis*1.91,finish+Vector3.yAxis*1.91
+   local sag=(upperStart+upperFinish)/2-Vector3.yAxis*.22
+   tagged(Kit.beam(parent,"LagoonFenceRope",upperStart,sag,.15,C.Cream:Lerp(C.Wood,.18),rope),water.Id)
+   tagged(Kit.beam(parent,"LagoonFenceRope",sag,upperFinish,.15,C.Cream:Lerp(C.Wood,.18),rope),water.Id)
+  end
+ end
+end
+
+local function fittedFallSetback(water: any,frame: CFrame,x: number,width: number,z: number): number
+ local inner=Layout.waterGeometry(water).Inner
+ local forward=frame:PointToWorldSpace(Vector3.zAxis)-frame.Position
+ local front=z+8
+ -- Endpoints suffice for a convex water hole. Require real perpendicular
+ -- clearance from every inner coping edge, including the outer curtain width.
+ for _,side in {-1,1} do
+  local point=frame:PointToWorldSpace(Vector3.new(x+side*width*.31*.52,0,0))
+  for index,p in inner do
+   local a=Vector3.new(table.unpack(p))
+   local b=Vector3.new(table.unpack(inner[index%#inner+1]))
+   local normal=Vector3.new((b-a).Z,0,-(b-a).X).Unit
+   local slope=normal:Dot(forward)
+   if slope<-.00001 then front=math.max(front,(normal:Dot(a-point)-.75)/slope) end
+  end
+ end
+ return front-8
+end
+
+-- Lower shore masses are prisms along the terrace's local Z. Subtract the
+-- real spillway from their vertical sections; a painted curtain in front of a
+-- whole collider would still leave an impossible source and a blocked opening.
+local function sectionClip(polygon: {Vector3},axis: string,value: number,less: boolean): {Vector3}
+ local output={}
+ for index,b in polygon do
+  local a=polygon[(index-2)%#polygon+1]
+  local av=if axis=="X" then a.X else a.Y
+  local bv=if axis=="X" then b.X else b.Y
+  local da,db=av-value,bv-value
+  if not less then da,db=-da,-db end
+  if (da<=.000001)~=(db<=.000001) then table.insert(output,a+(b-a)*(da/(da-db))) end
+  if db<=.000001 then table.insert(output,b) end
+ end
+ return clean(output)
+end
+
+local function shorePrism(parent: Model,name: string,polygon: {Vector3},z: number,depth: number,
+ frame: CFrame,color: Color3,slot: any)
+ local z0,z1=z-depth/2,z+depth/2
+ local a,b=math.max(z0,slot.MinZ),math.min(z1,slot.MaxZ)
+ local intersection=sectionClip(sectionClip(sectionClip(polygon,"X",slot.MinX,false),"X",slot.MaxX,true),"Y",1.65,true)
+ local cut=b-a>.001 and #intersection>=3
+ local function emit(section: {Vector3},start: number,finish: number)
+  if finish-start<.001 or #section<3 then return end
+  local points={}
+  for _,point in section do table.insert(points,frame:PointToWorldSpace(Vector3.new(point.X,point.Y,(start+finish)/2))) end
+  slab(parent,name,points,finish-start,color,nil)
+ end
+ if not cut then emit(polygon,z0,z1);return end
+ emit(polygon,z0,a)
+ emit(polygon,b,z1)
+ -- Keep the continuous rock lintel; below it only the two fitted jambs remain.
+ emit(sectionClip(polygon,"Y",1.65,false),a,b)
+ local low=sectionClip(polygon,"Y",1.65,true)
+ emit(sectionClip(low,"X",slot.MinX,true),a,b)
+ emit(sectionClip(low,"X",slot.MaxX,false),a,b)
+end
+
+local function outletSlot(water: any,frame: CFrame): any
+ local spill=Layout.waterGeometry(water).Spillway
+ local minimumX,maximumX,minimumZ,maximumZ=math.huge,-math.huge,math.huge,-math.huge
+ -- Extend through the complete rock thickness, starting in the pond rather
+ -- than ending inside a back face. The bridge above the slot stays in place.
+ for _,x in {spill.MinX-.24,spill.MaxX+.24} do
+  for _,z in {water.Center[3],water.Center[3]+water.Radius[2]+32} do
+   local point=frame:PointToObjectSpace(Vector3.new(x,water.Center[2],z))
+   minimumX,maximumX=math.min(minimumX,point.X),math.max(maximumX,point.X)
+   minimumZ,maximumZ=math.min(minimumZ,point.Z),math.max(maximumZ,point.Z)
+  end
+ end
+ return {MinX=minimumX,MaxX=maximumX,MinZ=minimumZ,MaxZ=maximumZ}
 end
 
 function Backdrops.populate(parent: Instance)
@@ -114,6 +400,8 @@ function Backdrops.populate(parent: Instance)
   local sideways=math.abs(math.sin(yaw))>.5
   local radiusX=if sideways then water.Radius[2] else water.Radius[1]
   local radiusZ=if sideways then water.Radius[1] else water.Radius[2]
+  local shoreOpenings={}
+  local slot=outletSlot(water,frame)
   for index,offset in shore.x do
    local x=offset*radiusX
    local width,height=radiusX*shore.w[index],shore.h[index]
@@ -123,7 +411,13 @@ function Backdrops.populate(parent: Instance)
    local outerX=if isFall then math.min(.99,math.abs(offset)+width*.31*.55/radiusX) else math.abs(offset)
    local setback=if isFall then math.min(.4,shore.d[index]) else shore.d[index]
    local z=-(radiusZ*math.sqrt(1-outerX*outerX)+6+setback)
+   if isFall then z=fittedFallSetback(water,frame,x,width,z) end
    local ledge=height*(.44+index%3*.045)
+   -- Trim the rail against the actual lower rocks at its post-foot height.
+   -- The buttress narrows as it rises, so its full ground box is too broad.
+   local footFraction=(.29-BASE)/(ledge-BASE)
+   local rockHalf=width*(.59-.22*footFraction)
+   table.insert(shoreOpenings,rectangle(frame*CFrame.new(x,0,z),rockHalf*2,15.2,.23))
    local lowerTint=C.Cliff:Lerp(C.DeepStone,.08+index%3*.035)
    local upperTint=C.Stone:Lerp(C.Limestone,shore.warmth+index%3*.018)
    -- The crown is seated inside the lower face's flat top. Former upper
@@ -136,13 +430,13 @@ function Backdrops.populate(parent: Instance)
    local crownHeight=height-ledge+.08
    local crownHalf=crownWidth/2
    local shoulderWidth=width*.13
-   Kit.part(model,"LowerShoreRockFace",Vector3.new(width*.76,ledge-BASE,15.2),
-    frame*CFrame.new(x,(ledge+BASE)/2,z),lowerTint,ROCK)
+   shorePrism(model,"LowerShoreRockFace",{Vector3.new(x-width*.38,BASE,0),Vector3.new(x+width*.38,BASE,0),
+    Vector3.new(x+width*.38,ledge,0),Vector3.new(x-width*.38,ledge,0)},z,15.2,frame,lowerTint,slot)
    Kit.part(model,"UpperShoreRockFace",Vector3.new(crownWidth,crownHeight,crownDepth),
     frame*CFrame.new(x+crownShift,(height+ledge)/2,crownZ),upperTint,ROCK)
    for _,side in {-1,1} do
-    Kit.wedge(model,"TaperedShoreButtress",Vector3.new(15.2,ledge-BASE,width*.22),
-     frame*CFrame.new(x+side*width*.48,(ledge+BASE)/2,z)*CFrame.Angles(0,-side*math.pi/2,0),lowerTint,ROCK)
+    shorePrism(model,"TaperedShoreButtress",{Vector3.new(x+side*width*.59,BASE,0),
+     Vector3.new(x+side*width*.37,BASE,0),Vector3.new(x+side*width*.37,ledge,0)},z,15.2,frame,lowerTint,slot)
     Kit.wedge(model,"UpperShoreRockFacet",Vector3.new(crownDepth,crownHeight,shoulderWidth),
      frame*CFrame.new(x+crownShift+side*(crownHalf+shoulderWidth*.48),(height+ledge)/2,crownZ)
       *CFrame.Angles(0,-side*math.pi/2,0),upperTint:Lerp(lowerTint,.08),ROCK)
@@ -164,7 +458,7 @@ function Backdrops.populate(parent: Instance)
    end
   end
   assert(shorelineDock,"Lagoon boundary requires its existing dock")
-  boundary(model,water,shorelineDock)
+  boundary(model,water,shorelineDock,shoreOpenings)
  end
 end
 

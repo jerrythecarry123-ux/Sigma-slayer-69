@@ -30,6 +30,14 @@ assert(count<=414+6*10,"resident scenery exceeds the cast, job-prop and bounded 
 assert(shadows>30 and shadows<100,"missing body contact shadows or excessive small shadow casters")
 local residentCount, birdCount, butterflyCount, schoolCount=0,0,0,0
 local gullWings={}
+-- Native solid geometry checks do not depend on how an offline renderer scales
+-- Ball parts. For a WedgePart the solid lies below y=(height/depth)*z.
+local function inSolid(part,worldPoint)
+ local point=part.CFrame:PointToObjectSpace(worldPoint)
+ local half=part.Size*.5
+ if math.abs(point.X)>half.X+1e-5 or math.abs(point.Y)>half.Y+1e-5 or math.abs(point.Z)>half.Z+1e-5 then return false end
+ return not part:IsA("WedgePart") or point.Y<=point.Z*part.Size.Y/part.Size.Z+1e-5
+end
 for _,actor in group:GetChildren() do
  local kind=actor:GetAttribute("AmbientKind")
  assert(actor.ModelStreamingMode=="Atomic" and actor.PrimaryPart,"incomplete streamed actor")
@@ -42,10 +50,20 @@ for _,actor in group:GetChildren() do
   for _,name in {"WingLeft","WingRight"} do
    local wing=actor:FindFirstChild(name)
    assert(wing and wing.PrimaryPart,"missing gull wing pivot")
+   local side=if name=="WingLeft" then -1 else 1
+   local white,coverts,tip,primary=wing:FindFirstChild("SweptWing"),wing:FindFirstChild("GrayCoverts"),wing:FindFirstChild("InkWingtip"),wing:FindFirstChild("TrailingPrimary")
+   assert(white:IsA("WedgePart") and tip:IsA("WedgePart"),"gull wing outline must use solid native prisms")
+   assert(white.Size.X>=.18 and white.Size.Y>=1.6 and white.Size.Z>=.9,"gull wing lacks visible thickness, span or chord")
+   local function at(x,y,z) return actor:GetPivot():PointToWorldSpace(Vector3.new(side*x,y,z)) end
+   assert(inSolid(white,at(.26,.11,.20)),"gull wing does not overlap its shoulder")
+   assert(inSolid(white,at(1.40,.11,.50)) and inSolid(tip,at(1.40,.11,.50)),"black wingtip does not join the white flight feathers")
+   assert(inSolid(tip,at(1.76,.11,.68)) and inSolid(primary,at(1.76,.11,.68)),"trailing primary floats beside its wingtip")
+   assert(inSolid(white,at(.85,.215,.25)) and inSolid(coverts,at(.85,.215,.25)),"gray coverts float above the white wing")
    for _,detail in {"SweptWing","GrayCoverts","InkWingtip","TrailingPrimary"} do
     local part=wing:FindFirstChild(detail)
     assert(part and part:IsA("BasePart"),"gull feather layer is detached from its wing joint")
-    table.insert(gullWings,{actor=actor,wing=wing,part=part,rest=wing:GetPivot():PointToObjectSpace(part.Position)})
+    assert(part:IsA("WedgePart") or part.Shape==Enum.PartType.Block,"gull wing surface depends on flattened Ball rendering")
+    table.insert(gullWings,{actor=actor,wing=wing,part=part,rest=wing:GetPivot():Inverse()*part.CFrame})
    end
   end
  end
@@ -140,8 +158,10 @@ local function step(time)
   end
  end
  for _,sample in gullWings do
-  local offset=sample.wing:GetPivot():PointToObjectSpace(sample.part.Position)
-  assert((offset-sample.rest).Magnitude<.00001,"gull feather geometry drifted during a flap")
+  if not sample.wing.PrimaryPart then continue end
+  local offset=sample.wing:GetPivot():Inverse()*sample.part.CFrame
+  assert((offset.Position-sample.rest.Position).Magnitude<.00001,"gull feather position drifted during a flap")
+  assert((offset.RightVector-sample.rest.RightVector).Magnitude<.00001 and (offset.UpVector-sample.rest.UpVector).Magnitude<.00001,"gull feather orientation drifted during a flap")
   if sample.wing.Name=="WingRight" then
    local localCf=sample.actor:GetPivot():Inverse()*sample.wing:GetPivot()
    local angle=math.atan2(localCf.r[2][1],localCf.r[1][1])
@@ -315,9 +335,42 @@ lateActor:GetPropertyChangedSignal("PrimaryPart"):Fire()
 world.DescendantAdded:Fire(actorRoot)
 step(128)
 assert((actorRoot.Position-rootFrozen).Magnitude>.001,"individual actor root did not resume after streaming")
-assert(gullMinRoll<-.26 and gullMaxRoll>.38,"gull detail checks did not exercise both flap extremes")
+-- A gull streams as one Atomic model, including both nested wing models. Its
+-- complete removal must release listeners and its return must resume the flock.
+local gull=group:FindFirstChild("IslandGull_1")
+local leftWing,rightWing=gull:FindFirstChild("WingLeft"),gull:FindFirstChild("WingRight")
+workspace.CurrentCamera.CFrame=gull:GetAttribute("AmbientOrigin")
+step(129)
+local gullFrozen=gull:GetPivot().Position
+world.DescendantRemoving:Fire(gull)
+for _,child in gull:GetDescendants() do world.DescendantRemoving:Fire(child) end
+gull.Parent=nil
+step(130)
+assert((gull:GetPivot().Position-gullFrozen).Magnitude==0,"streamed-out gull still moves")
+assert(gull.AttributeChanged:Count()==0 and leftWing.AttributeChanged:Count()==0 and rightWing.AttributeChanged:Count()==0,"streamed-out gull retained animation listeners")
+gull.Parent=group
+world.DescendantAdded:Fire(gull)
+for _,child in gull:GetDescendants() do world.DescendantAdded:Fire(child) end
+step(131)
+assert((gull:GetPivot().Position-gullFrozen).Magnitude>.001,"returning gull did not resume its flight")
+-- PrimaryPart can be assigned after its descendants arrive. The opposite wing
+-- and body keep moving, then both shoulders resume their authored local poses.
+local shoulder=leftWing.PrimaryPart
+leftWing.PrimaryPart=nil
+leftWing:GetPropertyChangedSignal("PrimaryPart"):Fire()
+local rightBefore=rightWing:GetPivot().Position
+step(132)
+assert((rightWing:GetPivot().Position-rightBefore).Magnitude>.001,"one unready wing froze the rest of its gull")
+leftWing.PrimaryPart=shoulder
+leftWing:GetPropertyChangedSignal("PrimaryPart"):Fire()
+step(133)
+for _,wing in {leftWing,rightWing} do
+ local localShoulder=gull:GetPivot():PointToObjectSpace(wing:GetPivot().Position)
+ assert((localShoulder-wing:GetAttribute("AmbientRest").Position).Magnitude<.00001,"gull shoulder did not recover after a late PrimaryPart")
+end
+assert(gullMinRoll<-.48 and gullMaxRoll>.60,"gull detail checks did not exercise both flap extremes")
 print("Production animation:",steps,"finite steps; late attributes, stable jobs, real-character greetings/cooldown, blinks, water endpoints, ground contact, LOD and streaming recovery passed")
-print("Gull feather layers remained rigidly attached through both flap extremes:",gullMinRoll,gullMaxRoll)
+print("Native gull wing prisms remained joined and rigid through both flap extremes and gull streaming recovery:",gullMinRoll,gullMaxRoll)
 print("These are geometry/event-double checks; Roblox rendering and engine behavior require Studio.")
 '''
 

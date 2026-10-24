@@ -36,6 +36,12 @@ for _,species in modules.FishCatalog.Species do
  for _,p in fish:GetChildren() do
   assert(p.Anchored and not p.CanTouch and not p.CanQuery and not p.CanCollide,"fish added physics")
   assert(p.Material~="Neon","fish added eye-straining emission")
+  if p:IsA("Part") then
+   local mesh=p:FindFirstChild("EllipsoidMesh")
+   assert(mesh and mesh:IsA("SpecialMesh") and mesh.MeshType==Enum.MeshType.Sphere,
+    "fish depends on a native Ball being freely stretched")
+   assert(near(mesh.Scale,Vector3.one),"fish mesh scale no longer follows parent rest dimensions")
+  end
   snapshot[p]={size=p.Size,frame=p.CFrame,color=p.Color}
  end
  modules.FishModel.animate(fish,1.28)

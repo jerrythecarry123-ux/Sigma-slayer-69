@@ -198,19 +198,25 @@ local function gull(parent: Model, index: number, origin: Vector3, radius: Vecto
 	local primary = Color3.fromRGB(43, 51, 60)
 	for _, side in { -1, 1 } do
 		ball(model, "GullEye", Vector3.new(0.065, 0.10, 0.11), Vector3.new(side * 0.25, 0.37, -0.77), primary)
-		local tail = ball(model, "TailFeather", Vector3.new(0.26, 0.10, 0.67), Vector3.new(side * 0.12, -0.025, 0.79), COLORS.White)
-		tail.CFrame *= CFrame.Angles(0, side * 0.14, 0)
-		ball(model, "TuckedFoot", Vector3.new(0.10, 0.075, 0.30), Vector3.new(side * 0.14, -0.28, 0.36), COLORS.Gold)
+		block(model, "TailFeather", Vector3.new(0.27, 0.15, 0.70),
+			CFrame.new(side * 0.12, -0.025, 0.79) * CFrame.Angles(0, side * 0.14, 0), COLORS.White)
+		brick(model, "TuckedFoot", Vector3.new(0.10, 0.09, 0.30), Vector3.new(side * 0.14, -0.28, 0.36), COLORS.Gold)
 		local wing = pivot(model, if side < 0 then "WingLeft" else "WingRight", Vector3.new(side * 0.26, 0.11, 0))
-		ball(wing, "SweptWing", Vector3.new(1.75, 0.15, 0.77), Vector3.new(side * 1.05, 0.11, 0.11), COLORS.White)
-		-- The coverts sit above the white flight feathers. Every layer belongs
-		-- to the wing pivot, so the silhouette stays joined throughout a flap.
-		local coverts = ball(wing, "GrayCoverts", Vector3.new(1.55, 0.12, 0.57), Vector3.new(side * 1.04, 0.17, 0.075), mantle)
-		coverts.CFrame *= CFrame.Angles(0, side * -0.12, 0)
-		local tip = ball(wing, "InkWingtip", Vector3.new(0.48, 0.13, 0.51), Vector3.new(side * 1.78, 0.12, 0.25), primary)
-		tip.CFrame *= CFrame.Angles(0, side * -0.28, 0)
-		local feather = ball(wing, "TrailingPrimary", Vector3.new(0.61, 0.10, 0.20), Vector3.new(side * 1.65, 0.12, 0.46), primary)
-		feather.CFrame *= CFrame.Angles(0, side * -0.22, 0)
+		-- A horizontal WedgePart is a solid triangular prism: its local X is
+		-- thickness and local Y is span. The broad inner edge overlaps the body;
+		-- the swept point and black primaries remain visible from below as well
+		-- as above. Do not replace these with flattened native Ball parts.
+		local flat = CFrame.Angles(0, 0, -side * math.pi / 2)
+		Kit.wedge(wing, "SweptWing", Vector3.new(0.22, 1.68, 1.0),
+			CFrame.new(side * 1.0, 0.11, 0.07) * flat, COLORS.White, { shadow = false })
+		Kit.wedge(wing, "GrayCoverts", Vector3.new(0.07, 1.30, 0.82),
+			CFrame.new(side * 0.85, 0.245, 0.01) * flat, mantle, { shadow = false })
+		-- The outer feather roots overlap the white prism rather than meeting
+		-- only at a point. Every feather shares the same shoulder pivot.
+		Kit.wedge(wing, "InkWingtip", Vector3.new(0.20, 0.98, 0.48),
+			CFrame.new(side * 1.78, 0.11, 0.54) * flat, primary, { shadow = false })
+		block(wing, "TrailingPrimary", Vector3.new(0.68, 0.18, 0.16),
+			CFrame.new(side * 1.76, 0.11, 0.69) * CFrame.Angles(0, -side * 0.24, 0), primary)
 	end
 	local cf = CFrame.new(origin)
 	model:SetAttribute("AmbientKind", "Gull")

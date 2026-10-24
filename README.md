@@ -1,10 +1,47 @@
-# Cloud Anglers — v1.4
+# Cloud Anglers — v1.5
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.4.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.5.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.5 — solid wings and accurate pond edges
+
+All six gulls have solid, swept wing prisms, gray coverts and joined dark flight
+feathers. The broad wing surface is visible from above and below and follows the
+existing shoulder animation through flaps and glides. Delayed wing joints and
+streamed-out birds recover without stopping the opposite wing.
+
+All five lagoons now generate their water, basin foundation and stone bank from
+one shared four-stud Terrain-cell footprint. Mitered coping covers the stepped
+water edge, with sloping outside faces, an inner retaining wall and fitted returns
+at the spillways. Rope posts sit on this stone instead of hovering at an idealized
+ellipse. Coping continues beneath the raised piers; rails leave their approaches
+open. The nine cliff cascades land within the exposed water, clear of the coping.
+The native water volume stays above the basin floor instead of extending through
+its tapered underside.
+Existing long outlets have real low openings through the rocks and matching
+cuts through the basin floors and undersides, so stone no longer crosses the fall.
+
+Existing signs gain a small fish mark, restrained inset border, correctly
+proportioned canvases, clearer title/caption spacing and readable reverse faces.
+Floating dock lamps, canopy brackets, cottage lantern stems, the observatory
+plaque, flower leaves, hedge rosettes, pennants and the grotto plaque are fitted to
+their actual supports. The airship bands follow its narrower end sections.
+
+Cosmetic ellipsoids now use an explicit built-in Sphere SpecialMesh with
+independent dimensions, including the fish models. No mesh upload is required.
+The old offline preview had treated native Ball parts as stretched ellipsoids;
+it was insufficient evidence of their appearance in Roblox. The preview now
+distinguishes the actual mesh from the native primitive and exports occupied
+water cells. See [geometry notes](docs/native-geometry.md) for the limits.
+
+Initial source geometry is **10,643 Parts**, within a **10,650-Part** budget.
+The fitted bank and real cuts through existing waterfall cliffs/basins account
+for the increase from v1.4. This is a bounded detail budget,
+not a phone/iPad performance measurement. Lighting, sound, fish collection,
+progression, travel coordinates and save records retain their existing settings.
 
 ## New in v1.4 — fish identity, gulls and a fitted lagoon fence
 
@@ -215,7 +252,7 @@ see [return-play design](docs/discovery-and-return-play.md).
 
 ## Validation and limits
 
-99 automated tests cover fishing, locations, progression/saving, responsive layout,
+104 automated tests cover fishing, locations, progression/saving, responsive layout,
 travel authorization and place export. All 34 production modules/scripts and six
 Luau suites compile. Separate checks execute unchanged production code for:
 
@@ -229,24 +266,27 @@ Luau suites compile. Separate checks execute unchanged production code for:
   rewards, cancelled reveals and repeat-catch dismissal.
 - Player aquariums: independent owners, profile caching, theme changes, plot reuse,
   dynamic rows, supported arrivals, swim bounds, local animation and streaming rebind.
-- Existing residents: 1,498 finite animation steps, nearby-character reactions,
+- Existing residents: 1,503 finite animation steps, nearby-character reactions,
   greeting cooldown, stable jobs, fixed water endpoints, blinks and streamed recovery;
   gull feather offsets remain fixed through both measured flap extremes.
 - Scenery: fixed mooring anchors, sagging Beam control points, authored pivots,
   bounded rotations, quiet flow wraps, distance limits and opacity ownership;
   27 extreme boat poses keep hull/water contact and the interior dry.
+- 96 actual scenery joins: supported lamps, canopy posts and hems, brackets and
+  plaque stands. Sign checks cover 47 boards / 94 faces with three preview owners,
+  including long owner names; actual Roblox font rendering remains untested.
 - Normal generated-Folder startup, custom-map startup, and a regression mutation
   that restores the former broken Model-only travel guard.
 
 Analytic rays through captured colliders check 3,681 walking-route points, 225 spawn
 points, 125 portal-arrival points and 429 portal approaches. Another 2,373 samples
-check that the visible trails still cover the walking corridors, and 81 verify waterfall visibility and their
-contact with native water. Another 522 samples check the retaining rim foundation,
-70 fence posts are seated on it, and 45 samples keep the spillways open.
+check that the visible trails still cover the walking corridors. Pond checks use
+the actual occupied water cells and constructed coping/retaining wedges to inspect
+water containment, supported posts, cascade landings and unobstructed spillways.
 Representative captured material roles are checked for
 old Studs overrides. Another 100 bobber-lane samples check for obstructions,
 and thin physical walking surfaces must be visible. Initial scenery stays
-below the 10,350-Part detail budget; player tanks add streamed Atomic displays. Only thin
+below the 10,650-Part detail budget; player tanks add streamed Atomic displays. Only thin
 visible portal decks and gallery walking surfaces are persistent. Walking speed is
 22 studs/second; the first casting marker is about one second from spawn.
 
@@ -265,7 +305,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.4.rbxlx` and `artifacts/Cloud-Anglers-v1.4.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.5.rbxlx` and `artifacts/Cloud-Anglers-v1.5.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell
@@ -279,6 +319,8 @@ python tools/check_residents.py --luau /path/to/luau
 python tools/check_scenery.py --luau /path/to/luau
 python tools/preview_world.py --luau /path/to/luau --output /tmp/world.json
 python tools/check_world.py /tmp/world.json
+python tools/check_details.py /tmp/world.json
+python tools/check_signs.py --luau /path/to/luau
 ```
 
 `preview_world.py --gallery-players 3` adds clearly named **offline preview** owners

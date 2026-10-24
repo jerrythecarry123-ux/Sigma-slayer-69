@@ -47,7 +47,7 @@ local function beam(parent: Model, name: string, cf: CFrame, a: Vector3, b: Vect
 end
 
 local function cylinder(parent: Model, name: string, diameter: number, depth: number, height: number, cf: CFrame, color: Color3): Part
-	local value = part(parent, name, Vector3.new(height, diameter, depth), cf * CFrame.Angles(0, 0, math.pi / 2), color)
+	local value = part(parent, name, Vector3.new(height, math.min(diameter,depth), math.min(diameter,depth)), cf * CFrame.Angles(0, 0, math.pi / 2), color)
 	value.Shape = Enum.PartType.Cylinder
 	return value
 end
@@ -154,7 +154,7 @@ local function beachKeepsake(parent: Model, cf: CFrame)
 	end
 	beam(parent,"BeachPennantPole",cf,Vector3.new(.88,0,.4),Vector3.new(.88,2.85,.4),.09,C.Wood)
 	Kit.wedge(parent,"BlueBeachPennant",Vector3.new(.05,.62,.95),cf*CFrame.new(.88,2.4,-.1),C.Teal,{material=Enum.Material.Fabric,shadow=false})
-	Kit.wedge(parent,"GoldPennantTip",Vector3.new(.06,.25,.31),cf*CFrame.new(.88,2.55,-.66),C.Gold,{material=Enum.Material.Fabric,shadow=false})
+	Kit.wedge(parent,"GoldPennantTip",Vector3.new(.06,.25,.31),cf*CFrame.new(.88,2.20,-.66),C.Gold,{material=Enum.Material.Fabric,shadow=false})
 end
 
 local function skyKeepsake(parent: Model, cf: CFrame)

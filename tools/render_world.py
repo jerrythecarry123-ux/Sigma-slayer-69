@@ -40,10 +40,18 @@ conversion = Matrix(((1,0,0), (0,0,-1), (0,1,0)))
 def linear(rgb):
     return tuple(v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4 for v in rgb)
 parts=list(scene_data['parts'])
-# Native Terrain water is approximated by ellipses only in this offline renderer.
-for water in scene_data.get('layout',{}).get('Waters',[]):
-    center=list(water['Center']);center[1]-=.08
-    parts.append(dict(name='NativeTerrainWater',color=scene_data.get('waterColor',[.20,.63,.66]),alpha=.96,material='Water',shape='Cylinder',position=center,size=[.16,water['Radius'][0]*2,water['Radius'][1]*2],rotation=[[0,-1,0],[1,0,0],[0,0,1]],shadow=False))
+# Show the actual authored occupied-cell footprint; waves, terrain smoothing
+# and the Roblox water shader remain outside this offline geometry preview.
+if scene_data.get('waterSurfaces'):
+    for water in scene_data['waterSurfaces']:
+        resolution=water['resolution']
+        for cell in water['cells']:
+            center=list(cell);center[1]-=.08
+            parts.append(dict(name='NativeWaterCellFootprint',color=scene_data.get('waterColor',[.20,.63,.66]),alpha=.96,material='Water',shape='Block',position=center,size=[resolution,.16,resolution],rotation=[[1,0,0],[0,1,0],[0,0,1]],shadow=False))
+else:
+    for water in scene_data.get('layout',{}).get('Waters',[]):
+        center=list(water['Center']);center[1]-=.08
+        parts.append(dict(name='LegacyWaterApproximation',color=scene_data.get('waterColor',[.20,.63,.66]),alpha=.96,material='Water',shape='Cylinder',position=center,size=[.16,water['Radius'][0]*2,water['Radius'][1]*2],rotation=[[0,-1,0],[1,0,0],[0,0,1]],shadow=False))
 for part in parts:
     if part['alpha']<=0: continue
     key = (*part['color'], part['alpha'], part['material'])

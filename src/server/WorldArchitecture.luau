@@ -57,7 +57,7 @@ use(Enum.Material.Fabric, {
 use(Enum.Material.Metal, {
 	"ShutterHinge", "IronDeckNail", "RidgeCap", "HatchCanopyBracket", "InnerStairBaluster", "LookoutRailingPost", "ContinuousBalconyHandrail",
 	"BalconyLowerRail", "LanternRoomUpright", "CopperDomeRib", "LensPedestal", "WeatherVaneMast", "WeatherVaneArrow",
-	"ArchKeystoneCarving", "TelescopeBrassBody", "TelescopeObjectiveRim", "TelescopeEyepiece", "PailHandle",
+	"ArchKeystoneCarving", "TelescopeBrassBody", "TelescopeObjectiveRim", "TelescopeEyepiece", "PailHandle", "ObservatoryPlaqueStand",
 })
 
 local function surface(name, fallback)
@@ -299,7 +299,7 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		localBeam(model, cf, "PorchKneeBrace", Vector3.new(side * half, 5.6, front - 4.5), Vector3.new(side * (half - 1.4), 7, front - 4.5), 0.23, C.Cream)
 		localBeam(model, cf, "PorchKneeBrace", Vector3.new(side * half, 5.6, front - 4.5), Vector3.new(side * half, 7, front - 3.1), 0.23, C.Cream)
 	end
-	local canopyCf = cf * CFrame.new(0, 7.5, front - 2.6) * CFrame.Angles(math.rad(7), 0, 0)
+	local canopyCf = cf * CFrame.new(0, 7.5, front - 2.6) * CFrame.Angles(math.rad(-7), 0, 0)
 	p(model, "PorchCanopy", Vector3.new(w + 2, 0.27, 5.4), canopyCf, C.Cream, SMOOTH)
 	for stripe = 0, 2 do
 		p(model, "PaintedCanvasStripe", Vector3.new((w + 2) / 6, 0.03, 5.39),
@@ -315,7 +315,12 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	local subtitle = buildingKind == "Workshop" and "A better rod. A bigger adventure." or (buildingKind == "Cafe" and "Fresh bakes. Good company." or "A little home above the clouds")
 	local sign = p(model, "PaintedShopSign", Vector3.new(math.min(11, w - 3), 1.55, 0.22), cf * CFrame.new(0, 6.45, front - 5.28), roofColor)
 	Kit.sign(sign, label, subtitle, C.Cream)
-	Kit.lantern(model, cf:PointToWorldSpace(Vector3.new(half - 0.8, 5.4, front - 4.5)), 0.7, false)
+	-- The existing hanging stem enters the sloping canvas, rather than ending
+	-- in mid-air below it. Keep the lamp beside the entrance, clear of the door.
+	local lanternZ, lanternScale = front - 4.5, 0.7
+	local canopyPitch = math.rad(-7)
+	local canopyUnderside = 7.5 - math.tan(canopyPitch) * (lanternZ - (front - 2.6)) - 0.135 / math.cos(canopyPitch)
+	Kit.lantern(model, cf:PointToWorldSpace(Vector3.new(half - 0.8, canopyUnderside + 0.04 - 1.6 * lanternScale, lanternZ)), lanternScale, false)
 	-- A quiet interior, visible through the open door, rewards looking around.
 	p(model, "WovenInteriorRug", Vector3.new(w * 0.53, 0.035, d * 0.55), cf * CFrame.new(0, 0.23, 0), roofColor:Lerp(C.Cream, 0.22), SMOOTH)
 	p(model, "RearDisplayShelf", Vector3.new(w - 3, 0.22, 1.2), cf * CFrame.new(0, 4.6, d / 2 - 0.8), C.Timber)
@@ -336,13 +341,13 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		p(model, "CafeServingCounter", Vector3.new(10.7, 2.65, 1.35), rearCf * CFrame.new(0, 1.7, -1.05), C.Coral, PLASTIC)
 		p(model, "CreamCounterMoulding", Vector3.new(10.9, 0.18, 1.45), rearCf * CFrame.new(0, 2.65, -1.05), C.Cream)
 		p(model, "CafeHatchCountertop", Vector3.new(11.3, 0.2, 1.8), rearCf * CFrame.new(0, 3.15, -1.15), C.Plank)
-		local hatchCanopy = rearCf * CFrame.new(0, 7.65, -1.25) * CFrame.Angles(math.rad(8), 0, 0)
+		local hatchCanopy = rearCf * CFrame.new(0, 7.65, -1.25) * CFrame.Angles(math.rad(-8), 0, 0)
 		p(model, "CafeHatchCanvas", Vector3.new(12, 0.12, 3), hatchCanopy, C.Cream, SMOOTH)
 		for stripe = 0, 2 do
 			p(model, "CafeHatchStripe", Vector3.new(2, 0.025, 2.99), hatchCanopy * CFrame.new(-5 + stripe * 4, 0.075, 0), C.Coral, SMOOTH)
 		end
 		for _, side in { -1, 1 } do
-			localBeam(model, rearCf, "HatchCanopyBracket", Vector3.new(side * 5.4, 6.3, -0.2), Vector3.new(side * 5.4, 7.35, -2.45), 0.12, C.Gold, SMOOTH)
+			localBeam(model, rearCf, "HatchCanopyBracket", Vector3.new(side * 5.4, 6.3, 0.1), Vector3.new(side * 5.4, 7.40, -2.45), 0.12, C.Gold, SMOOTH)
 			local cupCf = rearCf * CFrame.new(side * 2.8, 3.53, -1.15)
 			Kit.disk(model, "CafeCup", 0.57, 0.57, 0.57, cupCf.Position, side == -1 and C.Roof or C.Cream, { material = Enum.Material.SmoothPlastic })
 			Kit.disk(model, "FreshCoffee", 0.45, 0.45, 0.025, (cupCf * CFrame.new(0, 0.29, 0)).Position, C.Timber, { material = Enum.Material.SmoothPlastic })
@@ -476,8 +481,12 @@ function Architecture.dock(parent, a, b, width, name, rails, portalOpening)
 			p(model, "PortalEntranceCap", Vector3.new(0.6, 0.16, 0.6), frame * CFrame.new(0, 3.5, 0), C.Plank)
 		end
 	end
-	if length >= 25 then
-		Kit.lantern(model, (basis * CFrame.new((if portalOpening then -1 else 1) * (width / 2 - 0.25), 3.9, -length * 0.28)).Position, 0.65, false)
+	if length >= 25 and rails ~= false then
+		-- Seat the lower rim on an actual post cap. The portal side's entrance
+		-- remains open and each bridge reuses its existing rail-post spacing.
+		local lampBay = math.clamp(math.round(bays * 0.22), 0, bays)
+		local lampZ = -length / 2 + lampBay * length / bays
+		Kit.lantern(model, (basis * CFrame.new((if portalOpening then -1 else 1) * (width / 2 - 0.25), 3.9, lampZ)).Position, 0.65, false)
 	end
 	return model
 end
@@ -603,6 +612,11 @@ function Architecture.ruins(parent, cf)
 		end
 	end
 	local sign = p(model, "ObservatoryPlaque", Vector3.new(5.4, 1.2, 0.2), cf * CFrame.new(-9.4, 2.2, -5.5) * CFrame.Angles(math.rad(12), 0, 0), C.Dark)
+	for _, side in { -1, 1 } do
+		-- Slim stands enter both the stone floor and the rear of the tilted
+		-- plaque. Their tops stop behind the board instead of protruding above it.
+		p(model, "ObservatoryPlaqueStand", Vector3.new(0.24, 2.25, 0.24), cf * CFrame.new(-9.4 + side * 1.6, 1.055, -5.35), C.Dark)
+	end
 	Kit.sign(sign, "THE OLD OBSERVATORY", "A quiet place to watch the cloud tides", C.Cream)
 	return model
 end
@@ -618,7 +632,7 @@ function Architecture.props(parent, cf, kind)
 		end
 		for i = 0, 7 do
 			local color = i % 2 == 0 and C.Cream or C.Roof
-			local awningCf = cf * CFrame.new(-3.5 + i, 6.7, -0.2) * CFrame.Angles(math.rad(9), 0, 0)
+			local awningCf = cf * CFrame.new(-3.5 + i, 6.7, -0.2) * CFrame.Angles(math.rad(-9), 0, 0)
 			p(model, "StripedCanvasAwning", Vector3.new(0.97, 0.14, 5.2), awningCf, color, SMOOTH)
 			canvasHem(model, cf * CFrame.new(-3.5 + i, 6.06, -2.77), 0.97, 0.5, color)
 		end

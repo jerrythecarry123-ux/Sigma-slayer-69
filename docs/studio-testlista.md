@@ -2,8 +2,8 @@
 
 ## Automatiskt verifierat i molnmiljön
 
-- 99 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
-  5 layout, 15 reseregler, 9 världsdata och 3 Python-tester för platsbyggnad.
+- 104 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
+  5 layout, 15 reseregler, 14 världsdata och 3 Python-tester för platsbyggnad.
 - Alla 34 produktionsfiler och de sex Luau-sviterna accepteras av den officiella
   Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Separata kontroller kör produktionskod med geometri-/händelsedubblar för
@@ -437,3 +437,26 @@ De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
 - [ ] Gå till akvarierna: däcket ska möta gräset utan blinkande överlappande ytor.
 - [ ] Prova en riktig telefon och iPad. Anteckna bildfrekvens och minne;
   molnkontroller och offlinebilder bevisar inte Roblox-rendering eller prestanda.
+
+
+## v1.5 — solida vingar och vattenkanter, ännu okörda i Studio
+
+- [ ] Öppna **Cloud-Anglers-v1.5.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Se måsarna från bryggan, ovanifrån och underifrån: båda vingarnas vita
+  ytor och mörka spetsar syns under glidflykt och hela vingslaget.
+- [ ] Res bort och tillbaka så att måsarna laddas ur/in. Båda vingarna rör sig
+  fortfarande och fjädrarna följer sina axelleder.
+- [ ] Se samtliga fem dammkanter nära vattenhöjd. Stenkrönet döljer terrängens
+  cellkanter, hörnen möts och inget torrt hål syns i den öppna vattenytan.
+- [ ] Kontrollera stolparnas fötter, repens ändar och öppningarna vid bryggor
+  och portaler. Gå genom varje portal och fiska på varje ö.
+- [ ] Följ varje vattenfall från källa till nederkant. Inga klippor,
+  bassänggolv eller osynliga ytor skär av flödet.
+- [ ] Läs små vägskyltar, butiksskyltar och akvarieskyltar från båda håll.
+  Prova ett långt spelarnamn; rubrik och underrad håller sig inom skylten.
+- [ ] Granska lampor på bryggstolpar, hängande lampor, markisernas stöd,
+  observatoriets skylt och planteringar: detaljer sitter fast i sina modeller.
+- [ ] Jämför fiskar och mjuka modeller med deras avsedda proportioner. Kontrollera
+  särskilt tyg/material på de inbyggda Sphere-mesharna i Roblox-renderingen.
+- [ ] Prova faktisk mobil/iPad: bildfrekvens, minne och läsbarhet. Offlinebilder
+  och geometrikontroller verifierar inte dessa resultat.

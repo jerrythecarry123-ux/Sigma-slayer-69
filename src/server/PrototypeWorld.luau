@@ -35,12 +35,166 @@ local function triangle(parent: Instance, name: string, a: Vector3, b: Vector3, 
 	if l1 > 0.01 then Kit.wedge(parent, name, Vector3.new(thickness, height, l1), CFrame.fromMatrix((a+b)/2, right, up, back), color, options) end
 	if l2 > 0.01 then Kit.wedge(parent, name, Vector3.new(thickness, height, l2), CFrame.fromMatrix((a+c)/2, -right, up, -back), color, options) end
 end
+-- Clip a planar basin face against the real outlet footprint. The same cut
+-- goes through its floor and all underside tiers, so the long fall never
+-- disappears into a suspended slab and reappears beneath it.
+local function outletClip(polygon: {Vector3},axis: string,value: number,less: boolean): {Vector3}
+ local output={}
+ for index,b in polygon do
+  local a=polygon[(index-2)%#polygon+1]
+  local da=(if axis=="X" then a.X else a.Z)-value
+  local db=(if axis=="X" then b.X else b.Z)-value
+  if not less then da,db=-da,-db end
+  if (da<=.000001)~=(db<=.000001) then table.insert(output,a+(b-a)*(da/(da-db))) end
+  if db<=.000001 then table.insert(output,b) end
+ end
+ local cleaned={}
+ for _,point in output do
+  if #cleaned==0 or (point-cleaned[#cleaned]).Magnitude>.00001 then table.insert(cleaned,point) end
+ end
+ if #cleaned>1 and (cleaned[1]-cleaned[#cleaned]).Magnitude<.00001 then table.remove(cleaned) end
+ return cleaned
+end
+local function hasArea(polygon: {Vector3}): boolean
+ if #polygon<3 then return false end
+ local cross=Vector3.zero
+ for index=2,#polygon-1 do cross+=(polygon[index]-polygon[1]):Cross(polygon[index+1]-polygon[1]) end
+ return cross.Magnitude>.00001
+end
+local function outletPieces(polygon: {Vector3},spill: any): {{Vector3}}
+ if not spill then return {polygon} end
+ local planes={{"Z",spill.SourceFrontZ-.65,false},{"X",spill.MinX-.6,false},{"X",spill.MaxX+.6,true}}
+ local intersection=polygon
+ for _,plane in planes do intersection=outletClip(intersection,plane[1],plane[2],plane[3]) end
+ if not hasArea(intersection) then return {polygon} end
+ local remaining=polygon
+ local output={}
+ for _,plane in planes do
+  local outside=outletClip(remaining,plane[1],plane[2],not plane[3])
+  if hasArea(outside) then table.insert(output,outside) end
+  remaining=outletClip(remaining,plane[1],plane[2],plane[3])
+  if not hasArea(remaining) then break end
+ end
+ return output
+end
+-- Cutting one face should not turn a small outlet into a large mesh budget.
+-- Exact rectangles and right triangles use one native solid each; trapezoids
+-- share their rectangular centre and two mitered triangular ends.
+local function notchFace(parent: Instance,name: string,polygon: {Vector3},color: Color3,material: Enum.Material,
+ solid: boolean,shadow: boolean?,studded: boolean?,surfaceThickness: number?)
+ local thickness=surfaceThickness or (if solid then .7 else .45)
+ local options={material=material,collidable=solid,shadow=shadow~=false,studded=studded==true}
+ local function tri(a: Vector3,b: Vector3,c: Vector3)
+  local corners={a,b,c}
+  for index,corner in corners do
+   local p,q=corners[index%3+1],corners[(index+1)%3+1]
+   local first,second=p-corner,q-corner
+   if first.Magnitude>.001 and second.Magnitude>.001 and math.abs(first:Dot(second))<1e-6*first.Magnitude*second.Magnitude then
+    local up,back=first.Unit,-second.Unit
+    Kit.wedge(parent,name,Vector3.new(thickness,first.Magnitude,second.Magnitude),
+     CFrame.fromMatrix((p+q)/2,up:Cross(back),up,back),color,options)
+    return
+   end
+  end
+  triangle(parent,name,a,b,c,color,material,solid,shadow,studded,surfaceThickness)
+ end
+ if #polygon==4 then
+  for first=1,2 do
+   local a,b,c,d=polygon[first],polygon[first%4+1],polygon[(first+1)%4+1],polygon[(first+2)%4+1]
+   if (b-a).Magnitude<.001 or (c-d).Magnitude<.001 then continue end
+   if (b-a):Cross(c-d).Magnitude>1e-6*(b-a).Magnitude*(c-d).Magnitude then continue end
+   if (b-a).Magnitude<(c-d).Magnitude then a,b,c,d=c,d,a,b end
+   local along=(b-a).Unit
+   local left,right=(d-a):Dot(along),(c-a):Dot(along)
+   local across=d-a-along*left
+   local length=(b-a).Magnitude
+   local low,high=math.max(0,left),math.min(length,right)
+   if across.Magnitude<.001 or high-low<.001 then continue end
+   Kit.part(parent,name,Vector3.new(high-low,across.Magnitude,thickness),
+    CFrame.fromMatrix(a+along*((low+high)/2)+across/2,along,across.Unit,along:Cross(across.Unit)),color,options)
+   if left>=0 then tri(a,a+along*left,d) else tri(a,d,d-along*left) end
+   if right<=length then tri(b,c,a+along*right) else tri(b,c,c-along*(right-length)) end
+   return
+  end
+ end
+ for index=2,#polygon-1 do tri(polygon[1],polygon[index],polygon[index+1]) end
+end
+-- Seal the cut shell with returns taken from its original tier intersections.
+-- A side return follows the real underside profile, not an oversized box placed
+-- behind the opening. The free water/falling-curtain volume stays open.
+local function sealOutletReturns(parent: Model,data: any,faces: {{Vector3}})
+ local spill=data.Spillway
+ if not spill then return end
+ local top=data.Center[2]-.35
+ local xmin,xmax,zmin=spill.MinX-.6,spill.MaxX+.6,spill.SourceFrontZ-.65
+ local planes={{"X",xmin},{"X",xmax},{"Z",zmin}}
+ for _,plane in planes do
+  local axis,value=plane[1],plane[2]
+  local segments={}
+  local function coordinate(point: Vector3): number return if axis=="X" then point.X else point.Z end
+  local function along(point: Vector3): number return if axis=="X" then point.Z else point.X end
+  for _,face in faces do
+   local points={}
+   local function add(point: Vector3)
+    for _,existing in points do if (point-existing).Magnitude<.00001 then return end end
+    table.insert(points,point)
+   end
+   for index,b in face do
+    local a=face[(index-2)%#face+1]
+    local da,db=coordinate(a)-value,coordinate(b)-value
+    if math.abs(da)<.000001 then add(a) end
+    if da*db<-.0000000001 then add(a+(b-a)*(da/(da-db))) end
+   end
+   if #points~=2 then continue end
+   local a,b=points[1],points[2]
+   if along(a)>along(b) then a,b=b,a end
+   local low,high=0,1
+   local function trim(ca: number,cb: number,limit: number,greater: boolean)
+    local da,db=ca-limit,cb-limit
+    if not greater then da,db=-da,-db end
+    if da<0 and db<0 then high=-1
+    elseif da<0 then low=math.max(low,da/(da-db))
+    elseif db<0 then high=math.min(high,da/(da-db)) end
+   end
+   if axis=="X" then trim(a.Z,b.Z,zmin,true)
+   else trim(a.X,b.X,xmin,true);trim(a.X,b.X,xmax,false) end
+   if high-low<.000001 then continue end
+   local first,second=a+(b-a)*low,a+(b-a)*high
+   if along(second)-along(first)>.001 then table.insert(segments,{first,second}) end
+  end
+  table.sort(segments,function(a,b) return along(a[1])<along(b[1]) end)
+  local merged={}
+  for _,segment in segments do
+   local previous=merged[#merged]
+   if previous and (previous[2]-segment[1]).Magnitude<.0001
+    and (previous[2]-previous[1]):Cross(segment[2]-segment[1]).Magnitude<.00001*(previous[2]-previous[1]).Magnitude*(segment[2]-segment[1]).Magnitude then
+    previous[2]=segment[2]
+   else table.insert(merged,segment) end
+  end
+  for _,segment in merged do
+   local a,b=segment[1],segment[2]
+   local polygon={Vector3.new(a.X,top,a.Z),Vector3.new(b.X,top,b.Z),b,a}
+   if hasArea(polygon) then notchFace(parent,"OutletNotchReturn",polygon,C.Cliff:Lerp(C.DeepStone,.12),Enum.Material.Slate,false,true,false,.45) end
+  end
+ end
+end
 local function island(parent: Instance, data: any, color: Color3, material: Enum.Material): Model
 	local model = Kit.model(parent, data.Name)
 	model:SetAttribute("ZoneId", data.Id)
 	local center = v(data.Center)
-	local edge = Layout.outline(data)
-	if data.Basin then
+ local returnFaces={}
+ local function surface(name: string,a: Vector3,b: Vector3,c: Vector3,tint: Color3,mat: Enum.Material,
+  solid: boolean,shadow: boolean?,studded: boolean?,thickness: number?)
+  if data.Spillway and name=="StratifiedCliff" then table.insert(returnFaces,{a,b,c}) end
+  local pieces=outletPieces({a,b,c},data.Spillway)
+  if #pieces==1 and #pieces[1]==3 and pieces[1][1]==a and pieces[1][2]==b and pieces[1][3]==c then
+   triangle(model,name,a,b,c,tint,mat,solid,shadow,studded,thickness)
+  else
+   for _,piece in pieces do notchFace(model,name,piece,tint,mat,solid,shadow,studded,thickness) end
+  end
+ end
+	local edge = data.Outline or Layout.outline(data)
+	if data.Basin and not data.Outline then
 		-- A contained lagoon needs a continuous foundation beneath its rim.
 		-- Meadow coast noise previously cut some basin edges inside the water.
 		for index=1,#edge do
@@ -52,7 +206,7 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 	for i = 1, n do
 		local j = i % n + 1
 		-- Triangle center is half the floor thickness below the declared walking surface.
-		triangle(model, "WalkableMeadow", center - Vector3.yAxis * 0.35, v(edge[i]) - Vector3.yAxis * 0.35,
+		surface("WalkableMeadow", center - Vector3.yAxis * 0.35, v(edge[i]) - Vector3.yAxis * 0.35,
 			v(edge[j]) - Vector3.yAxis * 0.35, color, material, true,true,false)
 		local bottomY=if data.Basin then -18 else -34
 		-- A tapered, faceted underside gives each floating island a rock silhouette
@@ -61,7 +215,7 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 		for tier = 1, #tiers - 1 do
 			local top, bottom = tiers[tier], tiers[tier+1]
 			local function ring(k: number, t: {number}): Vector3
-				local a=(k-1)*math.pi/10
+				local a=(k-1)*math.pi*2/n
 				-- Shared ring vertices keep the cliff watertight while breaking the
 				-- repeated cone profile. The level meadow and collar stay fixed.
 				local taper=if t[1]==.42 then 1+math.sin(a*3+data.Seed)*.16+math.cos(a*5)*.06 else 1
@@ -75,16 +229,23 @@ local function island(parent: Instance, data: any, color: Color3, material: Enum
 				else C.Cliff:Lerp(C.Limestone,.08+math.sin(i*.8+data.Seed)*.025):Lerp(C.DeepStone,if tier==3 then .19 else .03)
 			if top[1]==bottom[1] then
 				-- A straight collar needs one panel, rather than four hidden wedge faces.
-				Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
-					CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Ground})
+    if data.Spillway then table.insert(returnFaces,{a,b,d,c}) end
+    local panel=outletPieces({a,b,d,c},data.Spillway)
+    if #panel==1 and #panel[1]==4 and panel[1][1]==a and panel[1][2]==b and panel[1][3]==d and panel[1][4]==c then
+     Kit.part(model,"StratifiedCliff",Vector3.new((b-a).Magnitude,math.abs(top[2]-bottom[2]),.65),
+      CFrame.lookAt((a+b+c+d)/4,b+(c-a)/2)*CFrame.Angles(0,math.pi/2,0),tint,{material=Enum.Material.Ground})
+    else
+     for _,piece in panel do notchFace(model,"StratifiedCliff",piece,tint,Enum.Material.Ground,false,true,false,.65) end
+    end
 			elseif bottom[1]==0 then
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
+				surface("StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false)
 			else
-				triangle(model,"StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false,true,false)
-				triangle(model,"StratifiedCliff",b,d,c,tint,Enum.Material.Slate,false,true,false)
+				surface("StratifiedCliff",a,b,c,tint,Enum.Material.Slate,false,true,false)
+				surface("StratifiedCliff",b,d,c,tint,Enum.Material.Slate,false,true,false)
 			end
 		end
 	end
+ sealOutletReturns(model,data,returnFaces)
 	return model
 end
 local function path(parent: Instance, points: {{number}}, width: number, material: Enum.Material?, tint: Color3?, lift: number?)
@@ -141,19 +302,16 @@ end
 local function water(parent: Instance, data: any)
 	local center = v(data.Center)
 	-- Native Terrain water supplies Roblox's own wave and reflection shader.
-	local min = center - Vector3.new(data.Radius[1]+4, 8, data.Radius[2]+4)
-	local max = center + Vector3.new(data.Radius[1]+4, 0, data.Radius[2]+4)
-	local region = Region3.new(min,max):ExpandToGrid(4)
-	local size = region.Size / 4
-	local origin = region.CFrame.Position - region.Size / 2
+	local geometry=Layout.waterGeometry(data)
+	local region=Region3.new(v(geometry.Min),v(geometry.Max))
+	local size=v(geometry.Size)
 	local materials, occupancy = {}, {}
 	for x = 1, size.X do
 		materials[x], occupancy[x] = {}, {}
 		for y = 1, size.Y do
 			materials[x][y], occupancy[x][y] = {}, {}
 			for z = 1, size.Z do
-				local p = origin + Vector3.new((x-.5)*4,(y-.5)*4,(z-.5)*4)
-				local inside = ((p.X-center.X)/data.Radius[1])^2+((p.Z-center.Z)/data.Radius[2])^2 < 1
+				local inside=geometry.Occupied[x][z]
 				materials[x][y][z] = if inside then Enum.Material.Water else Enum.Material.Air
 				occupancy[x][y][z] = if inside then 1 else 0
 			end
@@ -161,24 +319,17 @@ local function water(parent: Instance, data: any)
 	end
 	workspace.Terrain:WriteVoxels(region,4,materials,occupancy)
 	-- Lower basin, exposed stone collar, reeds and a small cascade over the rim.
-	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true}
+	local basin = {Id=data.Id.."_lagoon",Name="SuspendedLagoon",Center={center.X,center.Y-5,center.Z},Radius={data.Radius[1]+5,data.Radius[2]+5},Seed=13,Basin=true,Outline=geometry.Basin,Spillway=geometry.Spillway}
 	local model = island(parent,basin,C.Sand,Enum.Material.Sand)
-	for i = 1, 12 do
-		local a=i*math.pi/6
-		local p=center+Vector3.new(math.cos(a)*(data.Radius[1]+2),-.8,math.sin(a)*(data.Radius[2]+2))
-		Nature.rock(model,p,Vector3.new(5.5,2.8,4.6),i*11,true)
-	end
-	for i = 1, 9 do
-		local a = i*2.4
-		local glint = Kit.beam(model,"WaterGlint",center+Vector3.new(math.cos(a)*data.Radius[1]*.65,.16,math.sin(a)*data.Radius[2]*.65),
-			center+Vector3.new(math.cos(a)*data.Radius[1]*.65+2.5,.16,math.sin(a)*data.Radius[2]*.65),.045,C.Cream,{shadow=false,transparency=.78})
-		glint:SetAttribute("GlintPhase",i)
-	end
-	local fallPos = center + Vector3.new(data.Radius[1]*.45,0,data.Radius[2]*.89)
+	-- Native waves supply the surface motion; separate hovering glint rods
+	-- read as loose white geometry above the pond at shallow camera angles.
+	local spillway=geometry.Spillway
+	local fallPos=Vector3.new((spillway.MinX+spillway.MaxX)/2,center.Y,spillway.SourceFrontZ)
+	local fallWidth=(spillway.MaxX-spillway.MinX)/3
 	for i = -1,1 do
-		Kit.part(model,"WaterfallCurtain",Vector3.new(2.8,55,0.2),CFrame.new(fallPos+Vector3.new(i*2.6,-27.5,0)),C.Water,
+		Kit.part(model,"WaterfallCurtain",Vector3.new(fallWidth+.035,55,.2),CFrame.new(fallPos+Vector3.new(i*fallWidth,-27.5,0)),C.Water,
 			{material=Enum.Material.Glass,transparency=.33,shadow=false})
-		local streak=Kit.part(model,"FlowStreak",Vector3.new(.14,8,0.1),CFrame.new(fallPos+Vector3.new(i*2.5,-27.5,0.2)),C.Cream,{shadow=false,transparency=.58})
+		local streak=Kit.part(model,"FlowStreak",Vector3.new(.14,8,0.1),CFrame.new(fallPos+Vector3.new(i*fallWidth,-27.5,.2)),C.Cream,{shadow=false,transparency=.58})
 		streak:SetAttribute("FlowStart",streak.CFrame)
 		streak:SetAttribute("FlowPhase",i*.27)
 		streak:SetAttribute("FlowDistance",47)
@@ -313,7 +464,7 @@ local function grotto(parent: Instance, cf: CFrame)
 			if i%2==0 then C.Water else C.Lavender,{material=Enum.Material.Glass,shadow=false})
 		crystal.Transparency=.12
 	end
-	local sign=Kit.part(model,"GrottoPlaque",Vector3.new(5.4,1.6,.2),cf*CFrame.new(9,2,-6.3),C.Teal)
+	local sign=Kit.part(model,"GrottoPlaque",Vector3.new(5.4,1.6,.2),cf*CFrame.new(9,2,-5.08),C.Teal)
 	Kit.sign(sign,"TIDEGLASS GROTTO","A little shade beneath the palms")
 end
 local function skyship(parent: Instance)
@@ -322,7 +473,9 @@ local function skyship(parent: Instance)
 	model.WorldPivot=CFrame.new(o)
 	Kit.ball(model,"LinenEnvelope",Vector3.new(25,19,48),o,C.Cream,{material=Enum.Material.Fabric})
 	for _,z in {-12,0,12} do
-		Kit.ball(model,"EnvelopeBand",Vector3.new(25.25,19.25,2.6),o+Vector3.new(0,0,z),C.Coral,{material=Enum.Material.Fabric})
+		-- Follow the envelope's narrower cross-section toward each end.
+		local section=math.sqrt(1-(z/24)^2)
+		Kit.ball(model,"EnvelopeBand",Vector3.new(25*section+.25,19*section+.25,2.6),o+Vector3.new(0,0,z),C.Coral,{material=Enum.Material.Fabric})
 	end
 	Kit.part(model,"BoatCabin",Vector3.new(9,5,16),CFrame.new(o+Vector3.new(0,-17,0)),C.Wood,{material=Enum.Material.WoodPlanks})
 	for _,x in {-4.6,4.6} do

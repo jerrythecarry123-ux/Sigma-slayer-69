@@ -230,7 +230,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	local grip = rodPart("Grip", Vector3.new(0.28, 1.5, 0.28), CFrame.new(0, -1.7, 0), Color3.fromRGB(133, 91, 59))
 	rod.PrimaryPart = grip
 	rodPart("Shaft", Vector3.new(0.1, 4.6, 0.1), CFrame.new(0, 1.1, 0), Theme.Teal)
-	local reelPart = rodPart("Reel", Vector3.new(0.7, 0.7, 0.34), CFrame.new(0.32, -1.4, -0.1), Theme.Gold)
+	local reelPart = rodPart("Reel", Vector3.new(0.34, 0.7, 0.7), CFrame.new(0.30, -1.4, -0.1), Theme.Gold)
 	reelPart.Shape = Enum.PartType.Cylinder
 	for y = -1, 3, 0.8 do rodPart("Binding", Vector3.new(0.16, 0.08, 0.16), CFrame.new(0, y, 0), Theme.Gold) end
 	-- Set a central model pivot before rotating it as a unit.

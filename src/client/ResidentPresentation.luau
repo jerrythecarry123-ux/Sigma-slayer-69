@@ -201,7 +201,7 @@ local function wildlife(actor: Actor, time: number)
 	actor.model:PivotTo(body)
 	if actor.kind == "Gull" then
 		-- Occasional still-wing glides punctuate the flap cycle.
-		local flap = math.sin(time * 8.0 + actor.phase) * 0.35
+		local flap = math.sin(time * 8.0 + actor.phase) * 0.55
 		local glide = math.clamp(math.sin(time * 0.6 + actor.phase) * 2.0, 0, 1)
 		local roll = 0.06 + flap * (1 - glide)
 		pose(actor, body, "WingLeft", 0, 0, -roll)

@@ -86,6 +86,7 @@ function Region3.new(lo,hi) return setmetatable({lo=lo,hi=hi,Size=hi-lo,CFrame=C
 function regionMt:ExpandToGrid(r)
  return Region3.new(Vector3.new(math.floor(self.lo.X/r)*r,math.floor(self.lo.Y/r)*r,math.floor(self.lo.Z/r)*r),Vector3.new(math.ceil(self.hi.X/r)*r,math.ceil(self.hi.Y/r)*r,math.ceil(self.hi.Z/r)*r))
 end
+local UDim={new=function(scale,offset) return {Scale=scale,Offset=offset} end}
 local UDim2 = {fromScale=function(x,y) return {x,y} end, fromOffset=function(x,y) return {x,y} end}
 local Enum=setmetatable({}, {__index=function(t,k) local e=setmetatable({}, {__index=function(_,v) return v end}); rawset(t,k,e); return e end})
 local Random = {}

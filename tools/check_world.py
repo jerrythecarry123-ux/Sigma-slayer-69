@@ -79,15 +79,93 @@ def walking_surface(colliders, x, y, z, label, tolerance=1):
     return None
 
 
+def dot(a, b):
+    return sum(x*y for x, y in zip(a, b))
+
+
+def cross(a, b):
+    return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
+
+
+def solid_geometry(part):
+    """Exact convex vertices, separating normals and edge directions of native masonry."""
+    sx, sy, sz = [value/2 for value in part['size']]
+    yz = [(-sy, -sz), (-sy, sz), (sy, sz)] if part['shape'] == 'Wedge' else [
+        (-sy, -sz), (-sy, sz), (sy, -sz), (sy, sz)]
+    vertices = []
+    for x in (-sx, sx):
+        for y, z in yz:
+            vertices.append([part['position'][i]+dot(part['rotation'][i], (x, y, z)) for i in range(3)])
+    normals = [[part['rotation'][i][j] for i in range(3)] for j in range(3)]
+    edges = list(normals)
+    if part['shape'] == 'Wedge':
+        height, depth = part['size'][1:]
+        normals.append([part['rotation'][i][1]/height-part['rotation'][i][2]/depth for i in range(3)])
+        edges.append([part['rotation'][i][1]*height+part['rotation'][i][2]*depth for i in range(3)])
+    bounds = [(min(v[i] for v in vertices), max(v[i] for v in vertices)) for i in range(3)]
+    return vertices, normals, edges, bounds
+
+
+def touching_solids(a, b, tolerance=.02):
+    """Convex separating-axis test; shared triangulation edges count as a seated joint."""
+    av, an, ae, ab = a
+    bv, bn, be, bb = b
+    if any(amax < bmin-tolerance or bmax < amin-tolerance
+           for (amin, amax), (bmin, bmax) in zip(ab, bb)):
+        return False
+    for axis in an+bn+[cross(x, y) for x in ae for y in be]:
+        length = math.sqrt(dot(axis, axis))
+        if length < EPS:
+            continue
+        pa, pb = [dot(axis, v) for v in av], [dot(axis, v) for v in bv]
+        if max(pa) < min(pb)-tolerance*length or max(pb) < min(pa)-tolerance*length:
+            return False
+    return True
+
+
+def polygon_side(a, b, p):
+    return (b[0]-a[0])*(p[2]-a[2])-(b[2]-a[2])*(p[0]-a[0])
+
+
+def inside_polygon(polygon, x, z):
+    return all(polygon_side(a, polygon[(i+1) % len(polygon)], (x, 0, z)) >= -EPS
+               for i, a in enumerate(polygon))
+
+
+def clip_rectangle(polygon, x0, x1, z0, z1):
+    """Independent polygon/air-cell intersection, including concave voxel stair steps."""
+    result = [(p[0], p[2]) for p in polygon]
+    for axis, limit, upper in ((0, x0, False), (0, x1, True), (1, z0, False), (1, z1, True)):
+        clipped = []
+        for i, b in enumerate(result):
+            a = result[i-1]
+            ai, bi = (a[axis] <= limit if upper else a[axis] >= limit), (b[axis] <= limit if upper else b[axis] >= limit)
+            if ai != bi:
+                t = (limit-a[axis])/(b[axis]-a[axis])
+                clipped.append((a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1])))
+            if bi:
+                clipped.append(b)
+        result = clipped
+        if not result:
+            break
+    return result
+
+
 def validate(scene):
     parts = scene['parts']
-    assert len(parts) < 10350, 'World exceeds its bounded fish/gull/shore detail budget'
+    assert len(parts) < 10650, 'World exceeds its bounded native-geometry and fitted-shore budget'
     assert scene['terrainWrites'] == 5, 'Five native-water lagoons must be written'
     for p in parts:
         assert p['anchored'], p['path'] + ' is not anchored'
         assert all(math.isfinite(n) and n > 0 for n in p['size']), p['path'] + ' invalid size'
         assert all(math.isfinite(n) for n in p['position']), p['path'] + ' invalid position'
         assert p['shape'] in ('Block', 'Wedge', 'Cylinder', 'Ball')
+        if p['shape']=='Ball':
+            assert p.get('meshType')=='Sphere', p['path']+' relies on a native Ball stretching into an ellipsoid'
+            assert not p['collide'], p['path']+' ellipsoid mesh conceals a native block collider'
+        if p['shape']=='Cylinder':
+            assert abs(p['size'][1]-p['size'][2])<.001, p['path']+' relies on an elliptical native cylinder'
+
     # Broad phase in world X/Z, including transparent colliders.
     colliders = []
     for p in parts:
@@ -276,40 +354,189 @@ def validate(scene):
                             dock['Id']+' casting water is obstructed by '+p['path']
                 cast_samples+=1
 
-    # The shoreline rail must be a supported assembly, not decoration floating
-    # over the old shallow basin. Check real faces and keep all spillways open.
-    rims=[p for p in parts if p['name']=='LagoonRetainingRim']
-    fence_posts=[p for p in parts if p['name']=='LagoonFencePost']
-    basin_faces=[p for p in parts if p['name']=='WalkableMeadow' and '/SuspendedLagoon/' in p['path']]
-    assert rims and fence_posts and basin_faces, 'Missing supported lagoon boundary'
-    rim_samples=0
-    for rim in rims:
-        assert rim['collide'] and rim['query'] and rim['alpha']==1, 'Boundary gained a hidden collider'
-        bottom=rim['position'][1]-rim['size'][1]/2
-        for along in (-.45,0,.45):
-            for across in (-.45,0,.45):
-                v=[rim['size'][0]*along,0,rim['size'][2]*across]
-                point=[rim['position'][i]+sum(rim['rotation'][i][j]*v[j] for j in range(3)) for i in range(3)]
-                supported=any(hit and abs(hit[1]-(bottom+.1))<.2
-                    for floor in basin_faces if (hit:=interval(floor,point[0],point[2])))
-                assert supported, rim['path']+' retaining foot misses the basin'
-                rim_samples+=1
+    # Every masonry prism must connect to the visible basin, directly or by
+    # true face/edge contact with the other triangulated bank pieces. Merely
+    # sampling the bounding box of an oblique wedge gives false support results.
+    rim_names = {'LagoonRetainingRim', 'LagoonInnerRetainingFace', 'LagoonBoundaryReturn', 'LagoonCoping'}
+    boundaries = [p for p in parts if p['name'] in rim_names]
+    fence_posts = [p for p in parts if p['name'] == 'LagoonFencePost']
+    basin_faces = [p for p in parts if p['name'] == 'WalkableMeadow' and '/SuspendedLagoon/' in p['path']]
+    assert boundaries and fence_posts and basin_faces, 'Missing supported lagoon boundary'
+    water_surfaces = {surface['id']: surface for surface in scene['waterSurfaces']}
+    assert set(water_surfaces) == set(waters), 'Every native-water region needs its exact captured footprint'
+    rim_samples, bank_samples, wet_edge_samples, air_cells = 0, 0, 0, 0
+    for zone, water in waters.items():
+        surface = water_surfaces[zone]
+        resolution = surface['resolution']
+        assert resolution == 4, 'Water footprint must use the production Terrain resolution'
+        assert surface['minimum'][1] > max(p[1] for p in surface['basin'])+.5, zone+' native water extends below its basin floor'
+        assert surface['maximum'][1] == water['Center'][1], zone+' water volume changed its surface height'
+        cells = {(round(p[0]/resolution-.5), round(p[2]/resolution-.5)) for p in surface['cells']}
+        assert len(cells) == len(surface['cells']) and cells, zone+' has missing or duplicated water cells'
+        # All native water, including the waterfall channel, must remain one
+        # connected surface. A detached decorative source is not a pond outlet.
+        reached, frontier = {next(iter(cells))}, [next(iter(cells))]
+        while frontier:
+            x, z = frontier.pop()
+            for candidate in ((x-1,z), (x+1,z), (x,z-1), (x,z+1)):
+                if candidate in cells and candidate not in reached:
+                    reached.add(candidate)
+                    frontier.append(candidate)
+        assert reached == cells, zone+' water source is disconnected from its lagoon'
+        inner, outer = surface['inner'], surface['outer']
+        assert len(inner) == len(outer) >= 12, zone+' lost its fitted bank outline'
+        xmin, xmax = min(x for x,z in cells)-1, max(x for x,z in cells)+1
+        zmin, zmax = min(z for x,z in cells)-1, max(z for x,z in cells)+1
+        for ix in range(xmin, xmax+1):
+            for iz in range(zmin, zmax+1):
+                if (ix,iz) in cells:
+                    continue
+                # Reserve a full stud between the open wet hole and air cells;
+                # this catches both diagonal voxel steps and square source lips.
+                assert not clip_rectangle(inner, ix*resolution-1, (ix+1)*resolution+1,
+                                          iz*resolution-1, (iz+1)*resolution+1), zone+' open pond exposes a dry Terrain cell'
+                air_cells += 1
+        for ix,iz in cells:
+            for dx,dz in ((0,0),(0,resolution),(resolution,0),(resolution,resolution)):
+                assert inside_polygon(outer,ix*resolution+dx,iz*resolution+dz), zone+' native water extends beyond its retaining bank'
+        assert all(inside_polygon(surface['basin'],p[0],p[2]) for p in outer), zone+' bank extends beyond its visible basin foundation'
+        bank = [p for p in boundaries if p.get('boundaryZoneId') == zone]
+        assert bank, zone+' has no tagged physical bank'
+        assert all(p['collide'] and p['query'] and p['alpha'] == 1 for p in bank), zone+' boundary gained hidden collision'
+        geometries = [solid_geometry(p) for p in bank]
+        seated = set()
+        for index, geometry in enumerate(geometries):
+            for vertex in geometry[0]:
+                if vertex[1] > water['Center'][1]-4.5:
+                    continue
+                if any(hit and abs(hit[1]-(vertex[1]+.1)) < .3
+                       for floor in basin_faces if (hit := interval(floor,vertex[0],vertex[2]))):
+                    seated.add(index)
+                    rim_samples += 1
+                    break
+        assert seated, zone+' retaining walls have no seated foundation'
+        remaining = set(range(len(bank)))-seated
+        while remaining:
+            joined = {index for index in remaining
+                      if any(touching_solids(geometries[index], geometries[other]) for other in seated)}
+            assert joined, zone+' floating boundary pieces: '+', '.join(bank[index]['name'] for index in sorted(remaining)[:5])
+            seated.update(joined)
+            remaining.difference_update(joined)
+        coping = [p for p in bank if p['name'] == 'LagoonCoping']
+        spill = surface['spillway']
+        for index, a in enumerate(outer):
+            b, ia, ib = outer[(index+1)%len(outer)], inner[index], inner[(index+1)%len(inner)]
+            length = math.hypot(b[0]-a[0],b[2]-a[2])
+            for step in range(math.ceil(length)+1):
+                along = min(1,step/length)
+                outside = [a[i]+(b[i]-a[i])*along for i in range(3)]
+                inside = [ia[i]+(ib[i]-ia[i])*along for i in range(3)]
+                for across in (.04,.25,.5,.75,.96):
+                    x,z = (outside[i]+(inside[i]-outside[i])*across for i in (0,2))
+                    if spill['MinX']-.201 <= x <= spill['MaxX']+.201 and z >= spill['MinZ']-.201:
+                        continue
+                    assert any(hit and abs(hit[1]-(water['Center'][1]+.35)) < .02
+                               for p in coping if (hit := interval(p,x,z))), zone+f' coping gap at ({x:.3f},{z:.3f})'
+                    bank_samples += 1
+                # A point half a stud inside each wet edge must remain real
+                # selected water, with no coping laid across it.
+                dx,dz = ib[0]-ia[0],ib[2]-ia[2]
+                wet_length = math.hypot(dx,dz)
+                x = inside[0]-dz/wet_length*.5
+                z = inside[2]+dx/wet_length*.5
+                assert (math.floor(x/resolution),math.floor(z/resolution)) in cells, zone+' wet bank edge misses native water'
+                assert not any(hit and hit[0] < water['Center'][1]+.5 and hit[1] > water['Center'][1]-.4
+                               for p in coping if (hit := interval(p,x,z))), zone+' coping covers the open pond'
+                wet_edge_samples += 1
+    post_samples = 0
     for post in fence_posts:
-        x,_,z=post['position']
-        hit=interval(post,x,z)
-        assert hit and post['collide'] and post['alpha']==1
-        assert any(support[1]>=hit[0]-.05 and support[0]<hit[0]
-            for rim in rims if (support:=interval(rim,x,z))), post['path']+' fence post floats above its rim'
-    spillway_samples=0
-    for fall in (p for p in parts if p['name']=='WaterfallCurtain'):
-        top=fall['position'][1]+fall['size'][1]/2
-        for across in (-.49,0,.49):
-            x=fall['position'][0]+fall['rotation'][0][0]*across*fall['size'][0]
-            z=fall['position'][2]+fall['rotation'][2][0]*across*fall['size'][0]
-            for rim in rims:
-                hit=interval(rim,x,z)
-                assert not hit or hit[1]<top-5 or hit[0]>top+.5, 'Fence closes an existing waterfall outlet'
-            spillway_samples+=1
+        x,_,z = post['position']
+        hit = interval(post,x,z)
+        assert hit and post['collide'] and post['query'] and post['alpha'] == 1
+        # The complete round foot must sit on stone, including the posts beside
+        # pier/portal/spillway cuts. Centre-only checks miss an overhanging foot.
+        radius = min(post['size'][1:])/2
+        for dx,dz in [(0,0)]+[(radius*math.cos(t*math.tau/8),radius*math.sin(t*math.tau/8)) for t in range(8)]:
+            assert any(support[1] >= hit[0]-.02 and support[0] < hit[0]
+                       for p in boundaries if p['name'] == 'LagoonCoping' and p.get('boundaryZoneId') == post.get('boundaryZoneId')
+                       if (support := interval(p,x+dx,z+dz))), post['path']+' fence foot overhangs its coping'
+            post_samples += 1
+    ropes = [p for p in parts if p['name'] == 'LagoonFenceRope']
+    rope_ends = [[p['position'][i]+p['rotation'][i][0]*side*p['size'][0]/2 for i in range(3)]
+                 for p in ropes for side in (-1,1)]
+    for index, (x,y,z) in enumerate(rope_ends):
+        seated_post = any(hit and hit[0] <= y <= hit[1] for p in fence_posts if (hit := interval(p,x,z)))
+        joined_rope = any(index != other and math.dist((x,y,z),end) < .001 for other,end in enumerate(rope_ends))
+        assert seated_post or joined_rope, 'Shoreline rope has a detached endpoint'
+    opaque = []
+    for p in parts:
+        if p['alpha'] < .98:
+            continue
+        radii = [sum(abs(p['rotation'][i][j])*p['size'][j]/2 for j in range(3)) for i in range(3)]
+        opaque.append((p,p['position'][0]-radii[0],p['position'][0]+radii[0],p['position'][2]-radii[2],p['position'][2]+radii[2]))
+    spillway_samples, channel_samples, falling_rays = 0, 0, 0
+    for zone, water in waters.items():
+        surface = water_surfaces[zone]
+        spill = surface['spillway']
+        source_z = spill['SourceFrontZ']
+        falls = [p for p in parts if p['name'] == 'WaterfallCurtain'
+                 and abs(p['position'][2]-source_z) < .01
+                 and spill['MinX'] <= p['position'][0] <= spill['MaxX']]
+        assert len(falls) == 3, zone+' must retain its full three-strip waterfall outlet'
+        obstacles = [p for p in parts if '/'+zone+'PondTerraces/' in p['path'] and p['collide']]
+        cells = {(round(p[0]/4-.5),round(p[2]/4-.5)) for p in surface['cells']}
+        for fall in falls:
+            top = fall['position'][1]+fall['size'][1]/2
+            assert abs(top-water['Center'][1]) < .01, zone+' waterfall starts away from native-water level'
+            for across in (-.49,-.25,0,.25,.49):
+                x = fall['position'][0]+fall['rotation'][0][0]*across*fall['size'][0]
+                z = fall['position'][2]+fall['rotation'][2][0]*across*fall['size'][0]
+                assert (math.floor(x/4),math.floor((z-.1)/4)) in cells, zone+' outlet starts at an unfilled native-water cell'
+                for y in (top+.1,top-.1,top-1,top-3,top-5.5):
+                    for p in obstacles:
+                        hit = interval(p,x,z)
+                        assert not hit or not hit[0]+.01 < y < hit[1]-.01, zone+' outlet passes through '+p['name']
+                spillway_samples += 1
+            # Test the complete falling interval against visible geometry, also
+            # the noncollidable under-cliff facets. Fixed height samples miss
+            # the thin basin floor that formerly cut right through each fall.
+            for lane in range(9):
+                across = -.49+lane*.98/8
+                for depth in (-.09,0,.09):
+                    x = fall['position'][0]+fall['rotation'][0][0]*across*fall['size'][0]+fall['rotation'][0][2]*depth
+                    z = fall['position'][2]+fall['rotation'][2][0]*across*fall['size'][0]+fall['rotation'][2][2]*depth
+                    bottom = fall['position'][1]-fall['size'][1]/2
+                    for p,x0,x1,z0,z1 in opaque:
+                        if not x0-EPS <= x <= x1+EPS or not z0-EPS <= z <= z1+EPS:
+                            continue
+                        hit = interval(p,x,z)
+                        assert not hit or max(hit[0],bottom+.1) >= min(hit[1],top-.01)-EPS, zone+' falling water crosses visible '+p['path']
+                    falling_rays += 1
+        # Trace the actual visible channel from the inner wet hole through the
+        # new low rock tunnels to the falling front. Connectivity of Terrain
+        # cells alone would allow a stone wall to block the visible outlet.
+        for lane in range(21):
+            x = spill['MinX']+.03+(spill['MaxX']-spill['MinX']-.06)*lane/20
+            edge_hits = []
+            for index,a in enumerate(surface['inner']):
+                b = surface['inner'][(index+1)%len(surface['inner'])]
+                if min(a[0],b[0]) <= x <= max(a[0],b[0]) and abs(a[0]-b[0]) > EPS:
+                    t = (x-a[0])/(b[0]-a[0])
+                    edge_hits.append(a[2]+(b[2]-a[2])*t)
+            assert edge_hits, zone+' source lies outside its wet hole'
+            start = max(edge_hits)-.2
+            length = source_z-start
+            assert length > 0, zone+' outlet is behind its source'
+            steps = math.ceil(length/.5)
+            for step in range(steps+1):
+                z = start+length*step/steps
+                # The far edge belongs to the last filled cell behind it.
+                assert (math.floor(x/4),math.floor(min(z,source_z-.01)/4)) in cells, zone+' visible outlet crosses dry Terrain'
+                for p in obstacles:
+                    hit = interval(p,x,z)
+                    assert not hit or not (hit[0]+.01 < water['Center'][1]+.1 < hit[1]-.01
+                                           or hit[0]+.01 < water['Center'][1]-.1 < hit[1]-.01), zone+' source channel passes through '+p['name']
+                channel_samples += 1
 
     shore_samples = 0
     for water in layout['Waters']:
@@ -325,7 +552,10 @@ def validate(scene):
             for across in (-.49, 0, .49):
                 x = p['position'][0]+p['rotation'][0][0]*p['size'][0]*across
                 z = p['position'][2]+p['rotation'][2][0]*p['size'][0]*across
-                assert ((x-water['Center'][0])/water['Radius'][0])**2+((z-water['Center'][2])/water['Radius'][1])**2 < 1, 'Waterfall edge falls onto land instead of water'
+                surface = water_surfaces[water['Id']]
+                assert inside_polygon(surface['inner'],x,z), 'Waterfall edge lands on the bank instead of the open wet hole'
+                assert any(abs(x-cell[0]) <= surface['resolution']/2+EPS and abs(z-cell[2]) <= surface['resolution']/2+EPS for cell in surface['cells']), 'Waterfall edge falls onto an unfilled native-water cell'
+                assert not any(hit and hit[0] < water['Center'][1]+.5 and hit[1] > water['Center'][1]-.4 for cap in boundaries if cap['name'] == 'LagoonCoping' if (hit := interval(cap,x,z))), 'Waterfall lands inside the coping'
                 for vertical in (-.4, 0, .4):
                     y = p['position'][1]+p['size'][1]*vertical
                     for rock in solid:
@@ -341,7 +571,10 @@ def validate(scene):
     print('PASS native-water regions and structural canopy/cliff/roof shadow flags')
     print(f'PASS {visible_floors} visible physical walking surfaces; {cast_samples} clear bobber-lane samples; no raised spawn or hidden rock boxes')
     print(f'PASS authored materials without stud overrides; {shore_samples} visible waterfall samples reaching native water')
-    print(f'PASS {rim_samples} supported retaining-rim samples, {len(fence_posts)} seated fence posts and {spillway_samples} open spillway samples')
+    print(f'PASS {rim_samples} foundation-seated masonry pieces; every bank prism connected by true convex contact')
+    print(f'PASS {bank_samples} continuous mitered coping samples; {wet_edge_samples} wet-edge rays; {air_cells} expanded dry cells excluded')
+    print(f'PASS {post_samples} seated fence-foot rays, {len(rope_ends)} attached rope ends; {spillway_samples} wet-fed outlet-width samples')
+    print(f'PASS {channel_samples} unobstructed wet channel samples; {falling_rays} complete falling intervals clear of opaque world geometry')
     print('Geometry inspection only; Roblox physics, streaming and device frame rate require Studio/client tests.')
 
 

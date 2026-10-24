@@ -267,4 +267,106 @@ test("rod upgrades have a supported booth and a short authored approach from fis
 	assert(bestWalk/Layout.WalkSpeed <= 4, "Fishing-to-upgrade loop takes more than four seconds along its authored approach")
 end)
 
+test("the complete native water depth stays above the suspended basin floor", function()
+	for _,water in Layout.Waters do
+		local geometry=Layout.waterGeometry(water)
+		local floorY=geometry.Basin[1][2]
+		assert(geometry.Min[2]>floorY+.5,water.Id.." native water leaks beneath its basin floor")
+		assert(geometry.Max[2]==water.Center[2],water.Id.." native water surface changed height")
+		assert(geometry.Max[2]-geometry.Min[2]>=geometry.Resolution,water.Id.." lacks a complete water layer")
+		for axis=1,3 do
+			assert(geometry.Min[axis]%geometry.Resolution==0 and geometry.Max[axis]%geometry.Resolution==0,
+				water.Id.." water volume leaves the Terrain grid")
+		end
+	end
+end)
+
+test("native lagoon cell corners fit the coping and its complete foundation", function()
+	for _,water in Layout.Waters do
+		local geometry=Layout.waterGeometry(water)
+		for axis=1,3 do
+			assert(geometry.Min[axis]%4==0 and geometry.Max[axis]%4==0,water.Id.." water region is off grid")
+			assert(geometry.Size[axis]*4==geometry.Max[axis]-geometry.Min[axis],water.Id.." water region size differs")
+		end
+		for x,row in geometry.Occupied do
+			for z,occupied in row do
+				if not occupied then continue end
+				for _,dx in {0,4} do for _,dz in {0,4} do
+					local point={geometry.Min[1]+(x-1)*4+dx,water.Center[2],geometry.Min[3]+(z-1)*4+dz}
+					assert(clearance(geometry.Outer,point)>=.2999,water.Id.." has an uncovered native-water corner")
+				end end
+			end
+		end
+		for _,point in geometry.Outer do
+			assert(clearance(geometry.Basin,point)>=.8999,water.Id.." coping overhangs its visible foundation")
+		end
+	end
+end)
+
+test("the complete inner lagoon polygon stays clear of native air cells", function()
+	local function segmentDistance(a: Point,b: Point,c: Point,d: Point): number
+		local function cross(p,q,r) return (q[1]-p[1])*(r[3]-p[3])-(q[3]-p[3])*(r[1]-p[1]) end
+		local abC,abD,cdA,cdB=cross(a,b,c),cross(a,b,d),cross(c,d,a),cross(c,d,b)
+		if abC*abD<0 and cdA*cdB<0 then return 0 end
+		return math.min((projection(a,c,d)),(projection(b,c,d)),(projection(c,a,b)),(projection(d,a,b)))
+	end
+	for _,water in Layout.Waters do
+		local geometry=Layout.waterGeometry(water)
+		for x,row in geometry.Occupied do
+			for z,occupied in row do
+				if occupied then continue end
+				local ax,az=geometry.Min[1]+(x-1)*4,geometry.Min[3]+(z-1)*4
+				local rectangle={{ax,water.Center[2],az},{ax+4,water.Center[2],az},
+					{ax+4,water.Center[2],az+4},{ax,water.Center[2],az+4}}
+				for _,corner in rectangle do assert(not contains(geometry.Inner,corner),water.Id.." encloses an air-cell corner") end
+				for index,a in geometry.Inner do
+					assert(not (a[1]>=ax and a[1]<=ax+4 and a[3]>=az and a[3]<=az+4),water.Id.." inner corner touches air")
+					local b=geometry.Inner[index%#geometry.Inner+1]
+					for edge,c in rectangle do
+						assert(segmentDistance(a,b,c,rectangle[edge%4+1])>=.9999,water.Id.." inner bank leaves dry native-water gaps")
+					end
+				end
+			end
+		end
+	end
+end)
+
+test("every spillway begins across a connected wet native-cell front", function()
+	for _,water in Layout.Waters do
+		local geometry=Layout.waterGeometry(water)
+		local spillway=geometry.Spillway
+		assert(spillway.SourceFrontZ==spillway.MaxZ and spillway.MinX%4==0 and spillway.MaxX%4==0)
+		for x=spillway.MinX+.25,spillway.MaxX-.25,.5 do
+			local column=math.floor((x-geometry.Min[1])/4)+1
+			local row=math.floor((spillway.SourceFrontZ-.05-geometry.Min[3])/4)+1
+			assert(geometry.Occupied[column][row],water.Id.." spillway curtain starts beyond native water")
+		end
+		local startX=math.floor((water.Center[1]-geometry.Min[1])/4)+1
+		local startZ=math.floor((water.Center[3]-geometry.Min[3])/4)+1
+		local queue,seen={{startX,startZ}},{[startX..":"..startZ]=true}
+		local cursor=1
+		while cursor<=#queue do
+			local p=queue[cursor];cursor+=1
+			for _,step in {{1,0},{-1,0},{0,1},{0,-1}} do
+				local x,z=p[1]+step[1],p[2]+step[2]
+				local key=x..":"..z
+				if seen[key] or not geometry.Occupied[x] or not geometry.Occupied[x][z] then continue end
+				seen[key]=true;table.insert(queue,{x,z})
+			end
+		end
+		for x,row in geometry.Occupied do for z,occupied in row do
+			assert(not occupied or seen[x..":"..z],water.Id.." has a disconnected source cell")
+		end end
+	end
+end)
+
+test("water geometry caching follows dimensions as well as its zone ID", function()
+	local source=Layout.Waters[1]
+	local original=Layout.waterGeometry(source)
+	local larger={Id=source.Id,Center=table.clone(source.Center),Radius={source.Radius[1]+8,source.Radius[2]+8}}
+	local changed=Layout.waterGeometry(larger)
+	assert(changed~=original and changed.Max[1]>original.Max[1] and changed.Min[1]<original.Min[1],"Changed dimensions reused a stale native mask")
+	assert(Layout.waterGeometry(source)==original and Layout.waterGeometry(larger)==changed,"Identical masks should reuse their computed contour")
+end)
+
 print(string.format("%d tests passed; 0 skipped", passed))

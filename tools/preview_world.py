@@ -45,9 +45,12 @@ for _,p in workspace:GetDescendants() do
  if p:IsA("BasePart") then
   if p.CanCollide then collisions+=1 end
   local parentNames={}; local cursor=p; while cursor and cursor~=workspace do table.insert(parentNames,1,cursor.Name); cursor=cursor.Parent end
+  local mesh=p:FindFirstChild("EllipsoidMesh")
+  local shape=if p:IsA("WedgePart") then "Wedge" elseif mesh and mesh:IsA("SpecialMesh") and mesh.MeshType==Enum.MeshType.Sphere then "Ball" else p.Shape
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
-   color={p.Color.R,p.Color.G,p.Color.B},shape=if p:IsA("WedgePart") then "Wedge" else p.Shape,material=p.Material,alpha=1-p.Transparency,reflectance=p.Reflectance or 0,
+   color={p.Color.R,p.Color.G,p.Color.B},shape=shape,nativeShape=if p:IsA("WedgePart") then "Wedge" else p.Shape,meshType=if mesh then mesh.MeshType else "None",material=p.Material,alpha=1-p.Transparency,reflectance=p.Reflectance or 0,
    collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/"),
+   boundaryZoneId=p:GetAttribute("BoundaryZoneId") or "",boundaryFacet=p:GetAttribute("BoundaryFacet") or 0,
    studs={top=p.TopSurface==Enum.SurfaceType.Studs,bottom=p.BottomSurface==Enum.SurfaceType.Studs,left=p.LeftSurface==Enum.SurfaceType.Studs,right=p.RightSurface==Enum.SurfaceType.Studs,front=p.FrontSurface==Enum.SurfaceType.Studs,back=p.BackSurface==Enum.SurfaceType.Studs}})
  end
 end
@@ -60,6 +63,17 @@ for _,node in workspace:GetDescendants() do
 end
 local layout=modules.WorldLayout
 for _,bridge in layout.Bridges do bridge.Points=layout.bridgePoints(bridge) end
+local waterSurfaces={}
+for _,water in layout.Waters do
+ local geometry=layout.waterGeometry(water)
+ local cells={}
+ for x=1,geometry.Size[1] do for z=1,geometry.Size[3] do
+  if geometry.Occupied[x][z] then
+   table.insert(cells,{geometry.Min[1]+(x-.5)*geometry.Resolution,water.Center[2],geometry.Min[3]+(z-.5)*geometry.Resolution})
+  end
+ end end
+ table.insert(waterSurfaces,{id=water.Id,resolution=geometry.Resolution,minimum=geometry.Min,maximum=geometry.Max,cells=cells,inner=geometry.Inner,outer=geometry.Outer,basin=geometry.Basin,spillway=geometry.Spillway})
+end
 local travel={}
 for _,dock in layout.Docks do
  local frame=CFrame.new(table.unpack(dock.Spot))*CFrame.Angles(0,dock.Yaw,0)
@@ -69,7 +83,7 @@ for _,dock in layout.Docks do
   entry=vec(entry.Position),entryRotation=entry.r,approach=vec((frame*CFrame.new(0,-.1,8)).Position)})
 end
 local support=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("TravelArrivalSupports")
-print(encode({parts=parts,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
+print(encode({parts=parts,waterSurfaces=waterSurfaces,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
  travel=travel,persistentTravelSupport=support.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,
  layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn,RodStand=layout.RodStand,WalkSpeed=layout.WalkSpeed}}))
 '''

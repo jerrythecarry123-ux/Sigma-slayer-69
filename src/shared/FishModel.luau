@@ -6,7 +6,11 @@ local Fish = {}
 
 local function shape(parent: Model, name: string, size: Vector3, position: Vector3, color: Color3, tapered: boolean?, role: string?): BasePart
 	local part: BasePart = if tapered then Instance.new("WedgePart") else Instance.new("Part")
-	if part:IsA("Part") then part.Shape = Enum.PartType.Ball end
+	if part:IsA("Part") then
+		local mesh=Instance.new("SpecialMesh")
+		mesh.Name,mesh.MeshType,mesh.Scale="EllipsoidMesh",Enum.MeshType.Sphere,Vector3.one
+		mesh.Parent=part
+	end
 	part.Name, part.Size, part.Position = name, size, position
 	part.Color, part.Material = color, Enum.Material.SmoothPlastic
 	part.TopSurface, part.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth

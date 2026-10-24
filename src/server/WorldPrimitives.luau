@@ -55,14 +55,27 @@ end
 
 function Kit.ball(parent: Instance, name: string, size: Vector3, pos: Vector3, color: Color3, options: Options?): Part
 	local p = Kit.part(parent, name, size, CFrame.new(pos), color, options)
-	p.Shape = Enum.PartType.Ball
+	-- Native Ball is a spherical primitive. An explicit Sphere mesh is the
+	-- documented way to preserve independent visual dimensions on every axis.
+	local mesh=Instance.new("SpecialMesh")
+	mesh.Name,mesh.MeshType,mesh.Scale="EllipsoidMesh",Enum.MeshType.Sphere,Vector3.one
+	mesh.Parent=p
 	return p
 end
 
 function Kit.disk(parent: Instance, name: string, width: number, depth: number, thickness: number, pos: Vector3, color: Color3, options: Options?): Part
-	local p = Kit.part(parent, name, Vector3.new(thickness, width, depth),
-		CFrame.new(pos) * CFrame.Angles(0, 0, math.pi / 2), color, options)
-	p.Shape = Enum.PartType.Cylinder
+	local solid=options and options.collidable==true
+	local unequal=math.abs(width-depth)>.001
+	-- A native cylinder has a circular cross-section. Cosmetic oval plates
+	-- use a shallow ellipsoid; solid floors retain an honest circular collider.
+	if unequal and solid then width=math.min(width,depth);depth=width end
+	local p = Kit.part(parent,name,Vector3.new(thickness,width,depth),
+		CFrame.new(pos)*CFrame.Angles(0,0,math.pi/2),color,options)
+	if unequal and not solid then
+		local mesh=Instance.new("SpecialMesh")
+		mesh.Name,mesh.MeshType,mesh.Scale="EllipsoidMesh",Enum.MeshType.Sphere,Vector3.one
+		mesh.Parent=p
+	else p.Shape=Enum.PartType.Cylinder end
 	return p
 end
 
@@ -88,20 +101,66 @@ function Kit.model(parent: Instance, name: string): Model
 end
 
 function Kit.sign(parent: BasePart, title: string, subtitle: string, color: Color3?): SurfaceGui
-	local gui = Instance.new("SurfaceGui")
-	gui.Name, gui.Face = "PaintedSign", Enum.NormalId.Front
-	gui.SizingMode, gui.CanvasSize = Enum.SurfaceGuiSizingMode.FixedSize, Vector2.new(900, 280)
-	gui.LightInfluence, gui.Brightness, gui.AlwaysOnTop = 0.7, 1, false
-	gui.Parent = parent
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Name, titleLabel.BackgroundTransparency = "Title", 1
-	titleLabel.Size, titleLabel.Position = UDim2.fromScale(0.9, 0.5), UDim2.fromScale(0.05, 0.1)
-	titleLabel.Font, titleLabel.TextSize, titleLabel.Text = Enum.Font.GothamBold, 61, title
-	titleLabel.TextColor3, titleLabel.AutoLocalize = color or Kit.palette.Cream, false
-	titleLabel.TextScaled, titleLabel.TextWrapped, titleLabel.Parent = true, true, gui
-	local sub = titleLabel:Clone()
-	sub.Name, sub.Text, sub.Font = "Caption", subtitle, Enum.Font.Gotham
-	sub.Size, sub.Position, sub.Parent = UDim2.fromScale(0.88, 0.23), UDim2.fromScale(0.06, 0.65), gui
+	local gui=Instance.new("SurfaceGui")
+	gui.Name,gui.Face="PaintedSign",Enum.NormalId.Front
+	-- Match the board's actual proportions. A single 900x280 canvas stretched
+	-- short shop plaques and tall wayfinding boards by different amounts.
+	local width=1024
+	local height=math.clamp(math.floor(width*parent.Size.Y/math.max(.1,parent.Size.X)+.5),48,640)
+	gui.SizingMode,gui.CanvasSize=Enum.SurfaceGuiSizingMode.FixedSize,Vector2.new(width,height)
+	gui.LightInfluence,gui.Brightness,gui.AlwaysOnTop=.35,1,false
+	gui.MaxDistance,gui.ZOffset=110,.01
+	local bright=parent.Color.R*.2126+parent.Color.G*.7152+parent.Color.B*.0722>.65
+	local ink=color or (if bright then Kit.palette.Iron else Kit.palette.Cream)
+	local accent=if bright then Kit.palette.Teal else Kit.palette.Brass
+	local function frame(name: string,x: number,y: number,w: number,h: number,tint: Color3): Frame
+		local item=Instance.new("Frame")
+		item.Name,item.BorderSizePixel=name,0
+		item.Position,item.Size=UDim2.fromOffset(x,y),UDim2.fromOffset(w,h)
+		item.BackgroundColor3,item.Parent=tint,gui
+		return item
+	end
+	local inset=math.max(8,height*.075)
+	local border=frame("InsetPaintedBorder",inset,inset,width-inset*2,height-inset*2,ink)
+	border.BackgroundTransparency=1
+	local outline=Instance.new("UIStroke")
+	outline.Name,outline.Color,outline.Thickness="PaintedKeyline",ink:Lerp(parent.Color,.38),math.max(1,height*.009)
+	outline.Parent=border
+	local corners=Instance.new("UICorner")
+	corners.CornerRadius,corners.Parent=UDim.new(0,height*.055),border
+	local iconSize=height*.46
+	local iconX,iconY=inset+height*.12,height*.25
+	local body=frame("HarborFishMark",iconX,iconY+iconSize*.18,iconSize*.62,iconSize*.43,accent)
+	local bodyRound=Instance.new("UICorner")
+	bodyRound.CornerRadius,bodyRound.Parent=UDim.new(.5,0),body
+	local tail=frame("HarborFishTail",iconX+iconSize*.58,iconY+iconSize*.22,iconSize*.29,iconSize*.29,accent)
+	tail.Rotation=45
+	local eye=frame("HarborFishEye",iconX+iconSize*.12,iconY+iconSize*.30,iconSize*.055,iconSize*.055,parent.Color)
+	local eyeRound=Instance.new("UICorner")
+	eyeRound.CornerRadius,eyeRound.Parent=UDim.new(.5,0),eye
+	local textX=iconX+iconSize+height*.14
+	local textWidth=width-textX-inset-height*.10
+	frame("QuietHeaderRule",textX,height*.16,textWidth,math.max(1.2,height*.008),accent)
+	local function label(name: string,text: string,y: number,h: number,bold: boolean,maxSize: number): TextLabel
+		local item=Instance.new("TextLabel")
+		item.Name,item.BackgroundTransparency=name,1
+		item.Position,item.Size=UDim2.fromOffset(textX,y),UDim2.fromOffset(textWidth,h)
+		item.Text,item.TextColor3,item.Font=text,ink,if bold then Enum.Font.GothamBold else Enum.Font.Gotham
+		item.TextScaled,item.TextWrapped,item.AutoLocalize=true,false,false
+		item.TextXAlignment,item.TextYAlignment=Enum.TextXAlignment.Left,Enum.TextYAlignment.Center
+		local sizing=Instance.new("UITextSizeConstraint")
+		sizing.MaxTextSize,sizing.MinTextSize=maxSize,10
+		sizing.Parent=item
+		item.Parent=gui
+		return item
+	end
+	label("Title",title,height*.25,height*.35,true,100)
+	local caption=label("Caption",subtitle,height*.64,height*.18,false,48)
+	caption.TextColor3=ink:Lerp(parent.Color,.18)
+	gui.Parent=parent
+	-- Wayfinding stays legible when approached from either side of a path.
+	local reverse=gui:Clone()
+	reverse.Name,reverse.Face,reverse.Parent="PaintedSignBack",Enum.NormalId.Back,parent
 	return gui
 end
 

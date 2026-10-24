@@ -39,8 +39,10 @@ end
 local function flower(parent: Instance, pos: Vector3, height: number, tint: Color3, angle: number)
 	local top = pos + Vector3.yAxis * height
 	Kit.beam(parent, "FlowerStem", pos, top, .12, C.Moss, detail)
+	-- Rotate around the stem first, keeping the leaf's broad root attached.
 	Kit.wedge(parent, "PointedFlowerLeaf", Vector3.new(.08,.42,.95),
-		CFrame.new(pos + Vector3.new(.3, height * .46, 0)) * CFrame.Angles(0,angle,math.pi/2), C.Leaf, detail)
+		CFrame.new(pos + Vector3.yAxis * (height * .46)) * CFrame.Angles(0,angle,math.pi/2)
+			* CFrame.new(0,0,-.43), C.Leaf, detail)
 	for petal=0,3 do
 		local cf=CFrame.new(top)*CFrame.Angles(0,angle+petal*math.pi/2,0)*CFrame.new(0,0,-.38)
 		Kit.wedge(parent,"SculptedFlowerPetal",Vector3.new(.65,.12,.85),cf,tint,detail)
@@ -67,14 +69,18 @@ local function hedge(parent: Instance, center: Vector3, length: number, yaw: num
 	local model = group(parent, "BrickGardenHedge")
 	local cf = CFrame.new(center) * CFrame.Angles(0, yaw, 0)
 	for i = 0, 2 do
-		local pos = cf:PointToWorldSpace(Vector3.new((i - 1) * length / 3, .95 + i % 2 * .2, 0))
+		local localPos = Vector3.new((i - 1) * length / 3, .95 + i % 2 * .2, 0)
+		local pos = cf:PointToWorldSpace(localPos)
 		for _,side in {-1,1} do
 			Kit.wedge(model, "TaperedGardenHedge", Vector3.new(length/3+.12,1.8,2),
 				CFrame.new(pos)*CFrame.Angles(0,yaw,0)*CFrame.new(0,0,side*.75)*CFrame.Angles(0,if side==1 then math.pi else 0,0),
 				C.Leaf:Lerp(C.Lime,i*.03), foliage)
 		end
 		if i ~= 1 then
-			Kit.disk(model, "HedgeRosette", .75,.75,.13,pos+Vector3.new(0,1,-.85),tint,detail)
+			-- The two mirrored shoulders peak at local z=-.25 and .25.
+			-- Seat the flower .045 studs into the front ridge, following its yaw.
+			Kit.disk(model, "HedgeRosette", .75,.75,.13,
+				cf:PointToWorldSpace(localPos + Vector3.new(0,.92,-.25)),tint,detail)
 		end
 	end
 	return model
