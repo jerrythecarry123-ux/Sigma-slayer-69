@@ -48,7 +48,7 @@ for _,p in workspace:GetDescendants() do
   local mesh=p:FindFirstChild("EllipsoidMesh")
   local shape=if p:IsA("WedgePart") then "Wedge" elseif mesh and mesh:IsA("SpecialMesh") and mesh.MeshType==Enum.MeshType.Sphere then "Ball" else p.Shape
   table.insert(parts,{name=p.Name,size=vec(p.Size),position=vec(p.CFrame.p),rotation=p.CFrame.r,
-   color={p.Color.R,p.Color.G,p.Color.B},shape=shape,nativeShape=if p:IsA("WedgePart") then "Wedge" else p.Shape,meshType=if mesh then mesh.MeshType else "None",material=p.Material,alpha=1-p.Transparency,reflectance=p.Reflectance or 0,
+   color={p.Color.R,p.Color.G,p.Color.B},shape=shape,nativeShape=if p:IsA("WedgePart") then "Wedge" else p.Shape,meshType=if mesh then mesh.MeshType else "None",material=p.Material,materialVariant=p.MaterialVariant or "",surfaceStyle=p:GetAttribute("AnglersSurfaceStyle") or "",surfaceTagged=p:HasTag("AnglersSurfaceStyle"),alpha=1-p.Transparency,reflectance=p.Reflectance or 0,
    collide=p.CanCollide,query=p.CanQuery,shadow=p.CastShadow,anchored=p.Anchored,path=table.concat(parentNames,"/"),
    boundaryZoneId=p:GetAttribute("BoundaryZoneId") or "",boundaryFacet=p:GetAttribute("BoundaryFacet") or 0,
    studs={top=p.TopSurface==Enum.SurfaceType.Studs,bottom=p.BottomSurface==Enum.SurfaceType.Studs,left=p.LeftSurface==Enum.SurfaceType.Studs,right=p.RightSurface==Enum.SurfaceType.Studs,front=p.FrontSurface==Enum.SurfaceType.Studs,back=p.BackSurface==Enum.SurfaceType.Studs}})

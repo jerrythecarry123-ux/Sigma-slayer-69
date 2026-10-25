@@ -63,7 +63,8 @@ local function flowerpot(parent: Instance, cf: CFrame, x: number, accent: Color3
 	Kit.beam(parent, "FlowerStem", (base*CFrame.new(0,.77,0)).Position,
 		(base*CFrame.new(0,1.91,0)).Position, .09, C.Moss, smooth)
 	Kit.wedge(parent, "PointedPottedLeaf", Vector3.new(.08,.54,.9),
-		base*CFrame.new(.25,1.2,.05)*CFrame.Angles(-.25,.6,math.pi/2),C.Leaf,smooth)
+		-- Keep the broad root embedded in the stem after both rotations.
+		base*CFrame.new(0,1.2,0)*CFrame.Angles(-.25,.6,math.pi/2)*CFrame.new(0,0,-.44),C.Leaf,smooth)
 	for petal=0,2 do
 		local rosette=base*CFrame.new(0,1.91,0)*CFrame.Angles(0,petal*math.pi*2/3,0)*CFrame.new(0,0,-.24)
 		Kit.wedge(parent,"PottedRosettePetal",Vector3.new(.51,.1,.63),rosette,accent:Lerp(C.Cream,.22),smooth)

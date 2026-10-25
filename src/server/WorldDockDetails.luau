@@ -64,7 +64,7 @@ local function tackle(parent: Model, cf: CFrame, accent: Color3)
 	for index, tint in {C.Coral,C.Gold} do
 		local x = (index-1.5)*.68
 		Kit.wedge(parent, "PaintedFishingLure", Vector3.new(.22,.18,.54),
-			cf*CFrame.new(x,.28,-1.22)*CFrame.Angles(0,math.pi/2,0), tint, {shadow=false})
+			cf*CFrame.new(x,.245,-1.22)*CFrame.Angles(0,math.pi/2,0), tint, {shadow=false})
 		Kit.wedge(parent, "LureSilverTail", Vector3.new(.08,.18,.24),
 			cf*CFrame.new(x+.28,.25,-1.22)*CFrame.Angles(0,-math.pi/2,0), C.Cream, {material=Enum.Material.Metal,shadow=false})
 	end
@@ -77,8 +77,11 @@ local function bucket(parent: Model, cf: CFrame, accent: Color3)
 	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.39,1.04,.28), Vector3.new(-.28,1.55,.28), .085, C.Iron)
 	beam(parent, "BucketCarryHandle", cf, Vector3.new(-.28,1.55,.28), Vector3.new(.28,1.55,.28), .085, C.Iron)
 	beam(parent, "BucketCarryHandle", cf, Vector3.new(.28,1.55,.28), Vector3.new(.39,1.04,.28), .085, C.Iron)
-	cylinder(parent, "CreamFishingFloat", .28, .28, .72, cf*CFrame.new(.17,.91,-.03)*CFrame.Angles(.18,0,-.22), C.Cream)
-	cylinder(parent, "CoralFloatTip", .29, .29, .23, cf*CFrame.new(.23,1.17,-.08)*CFrame.Angles(.18,0,-.22), C.Coral)
+	local floatFrame=cf*CFrame.new(.17,.91,-.03)*CFrame.Angles(.18,0,-.22)
+	cylinder(parent, "CreamFishingFloat", .28, .28, .72, floatFrame, C.Cream)
+	-- The colored cap overlaps the body, with its end clear of the body's
+	-- coplanar end face so the two colors cannot flicker at shallow angles.
+	cylinder(parent, "CoralFloatTip", .29, .29, .23, floatFrame*CFrame.new(0,.255,0), C.Coral)
 end
 
 local function rodRack(parent: Model, cf: CFrame)
@@ -93,12 +96,19 @@ local function rodRack(parent: Model, cf: CFrame)
 end
 
 local function railTrim(parent: Model, basis: CFrame, width: number, length: number, index: number, name: string)
+	-- Use the same authored board pitch as the pier builder. A mounting plate
+	-- at an arbitrary eleven studs landed directly over a seam on the cove.
+	local plankCount=math.clamp(math.ceil(length/2.25),2,48)
+	local pitch=length/plankCount
+	local cleatZ=-(math.floor(11/pitch)+.5)*pitch
 	for _, x in {-width/2+.25,width/2-.25} do
 		for _, z in {-.5,-length+.5} do
 			cylinder(parent, "CreamPierCornerBumper", .75, .75, 1.65, basis*CFrame.new(x,1.3,z), C.Cream)
 		end
-		part(parent, "MooringCleatFoot", Vector3.new(.64,.13,1.1), basis*CFrame.new(x,.19,-11), C.Iron)
-		part(parent, "MooringCleatHorn", Vector3.new(.23,.18,1.43), basis*CFrame.new(x,.33,-11), C.Brass)
+		-- The complete mounting plate belongs on the deck, clear of its edge.
+		local cleatX=x-math.sign(x)*.13
+		part(parent, "MooringCleatFoot", Vector3.new(.64,.13,1.1), basis*CFrame.new(cleatX,.10,cleatZ), C.Iron)
+		part(parent, "MooringCleatHorn", Vector3.new(.23,.18,1.43), basis*CFrame.new(cleatX,.24,cleatZ), C.Brass)
 	end
 	-- Front normal faces inward from the left rail; arriving anglers can read it.
 	local plaque = part(parent, "PaintedPierNameplate", Vector3.new(4.7,1.35,.13),
@@ -125,31 +135,33 @@ local function teaBreak(parent: Model, cf: CFrame)
 	cylinder(parent,"FlaskCreamLid",.65,.65,.2,cf*CFrame.new(-.42,1.63,.03),C.Cream)
 	cylinder(parent,"TeaFlaskStripe",.61,.61,.16,cf*CFrame.new(-.42,.77,.03),C.Gold)
 	for _, z in {-.38,.38} do
-		cylinder(parent,"GlazedTeaCup",.43,.43,.4,cf*CFrame.new(.43,.41,z),C.Cream)
-		cylinder(parent,"WarmTeaSurface",.3,.3,.025,cf*CFrame.new(.43,.615,z),C.Bark)
-		beam(parent,"TeaCupHandle",cf,Vector3.new(.61,.54,z),Vector3.new(.78,.5,z),.075,C.Gold)
-		beam(parent,"TeaCupHandle",cf,Vector3.new(.78,.5,z),Vector3.new(.78,.36,z),.075,C.Gold)
-		beam(parent,"TeaCupHandle",cf,Vector3.new(.78,.36,z),Vector3.new(.61,.31,z),.075,C.Gold)
+		local cup=cf*CFrame.new(0,-.015,0)
+		cylinder(parent,"GlazedTeaCup",.43,.43,.4,cup*CFrame.new(.43,.41,z),C.Cream)
+		cylinder(parent,"WarmTeaSurface",.3,.3,.025,cup*CFrame.new(.43,.605,z),C.Bark)
+		beam(parent,"TeaCupHandle",cup,Vector3.new(.61,.54,z),Vector3.new(.78,.5,z),.075,C.Gold)
+		beam(parent,"TeaCupHandle",cup,Vector3.new(.78,.5,z),Vector3.new(.78,.36,z),.075,C.Gold)
+		beam(parent,"TeaCupHandle",cup,Vector3.new(.78,.36,z),Vector3.new(.61,.31,z),.075,C.Gold)
 	end
 end
 
 local function forestKeepsake(parent: Model, cf: CFrame)
 	for index=0,2 do
 		beam(parent,"NeatlyStackedFirewood",cf,Vector3.new((index-1)*.61,.34,-.9),Vector3.new((index-1)*.61,.34,.9),.57,C.Bark)
-		cylinder(parent,"FirewoodCutEnd",.47,.43,.025,cf*CFrame.new((index-1)*.61,.34,-.915)*CFrame.Angles(math.pi/2,0,0),C.Plank)
+		cylinder(parent,"FirewoodCutEnd",.47,.43,.025,cf*CFrame.new((index-1)*.61,.34,-.9075)*CFrame.Angles(math.pi/2,0,0),C.Plank)
 	end
-	part(parent,"ExplorerCompassCase",Vector3.new(.9,.16,.9),cf*CFrame.new(0,.71,.1),C.Brass)
-	part(parent,"CompassIvoryDial",Vector3.new(.73,.025,.73),cf*CFrame.new(0,.805,.1),C.Cream)
-	part(parent,"CompassRedNeedle",Vector3.new(.07,.04,.54),cf*CFrame.new(0,.84,.1)*CFrame.Angles(0,.45,0),C.Coral)
+	part(parent,"ExplorerCompassCase",Vector3.new(.9,.16,.9),cf*CFrame.new(0,.70,.1),C.Brass)
+	part(parent,"CompassIvoryDial",Vector3.new(.73,.025,.73),cf*CFrame.new(0,.785,.1),C.Cream)
+	part(parent,"CompassRedNeedle",Vector3.new(.07,.04,.54),cf*CFrame.new(0,.81,.1)*CFrame.Angles(0,.45,0),C.Coral)
 end
 
 local function beachKeepsake(parent: Model, cf: CFrame)
+	cf *= CFrame.new(0,-.015,0)
 	part(parent,"FoundShellTray",Vector3.new(1.7,.1,1.2),cf*CFrame.new(0,.12,0),C.Plank,true)
 	for index=0,2 do
 		local x=(index-1)*.48
 		local shell=cf*CFrame.new(x,.265,(index%2)*.25-.1)*CFrame.Angles(0,index*.5,0)
 		Kit.wedge(parent,"TaperedBeachShell",Vector3.new(.43,.19,.56),shell,C.Cream,{shadow=false})
-		part(parent,"CoralShellRidge",Vector3.new(.055,.045,.48),shell*CFrame.new(0,.025,0)
+		part(parent,"CoralShellRidge",Vector3.new(.055,.045,.48),shell*CFrame.new(0,.018,0)
 			*CFrame.Angles(-math.atan2(.19,.56),0,0),C.Coral)
 	end
 	beam(parent,"BeachPennantPole",cf,Vector3.new(.88,0,.4),Vector3.new(.88,2.85,.4),.09,C.Wood)
@@ -158,7 +170,7 @@ local function beachKeepsake(parent: Model, cf: CFrame)
 end
 
 local function skyKeepsake(parent: Model, cf: CFrame)
-	part(parent,"WeatherVaneFoot",Vector3.new(1.3,.23,1.3),cf*CFrame.new(0,.18,0),C.Stone,true)
+	part(parent,"WeatherVaneFoot",Vector3.new(1.3,.23,1.3),cf*CFrame.new(0,.17,0),C.Stone,true)
 	beam(parent,"WeatherVaneMast",cf,Vector3.new(0,.28,0),Vector3.new(0,3.8,0),.13,C.Brass)
 	beam(parent,"WeatherVaneEastWest",cf,Vector3.new(-.88,2.53,0),Vector3.new(.88,2.53,0),.075,C.Brass)
 	beam(parent,"WeatherVaneNorthSouth",cf,Vector3.new(0,2.53,-.85),Vector3.new(0,2.53,.85),.075,C.Brass)

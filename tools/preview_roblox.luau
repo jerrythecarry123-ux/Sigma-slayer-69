@@ -119,6 +119,14 @@ end
 function methods:IsA(class) return self.ClassName==class or (class=="BasePart" and (self.ClassName=="Part" or self.ClassName=="SpawnLocation" or self.ClassName=="WedgePart")) end
 function methods:SetAttribute(k,v) self.attributes[k]=v end
 function methods:GetAttribute(k) return self.attributes[k] end
+function methods:AddTag(tag) self.tags=self.tags or {};self.tags[tag]=true end
+function methods:RemoveTag(tag) if self.tags then self.tags[tag]=nil end end
+function methods:HasTag(tag) return self.tags~=nil and self.tags[tag]==true end
+function methods:GetTags()
+	local tags={}
+	if self.tags then for tag in self.tags do table.insert(tags,tag) end end
+	return tags
+end
 function methods:GetChildren() return self.children end
 function methods:GetDescendants()
 	local out={}

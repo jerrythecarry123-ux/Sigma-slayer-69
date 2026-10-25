@@ -153,18 +153,34 @@ def clip_rectangle(polygon, x0, x1, z0, z1):
 
 def validate(scene):
     parts = scene['parts']
-    assert len(parts) < 10650, 'World exceeds its bounded native-geometry and fitted-shore budget'
+    assert len(parts) < 10825, 'World exceeds its bounded native-geometry and fitted-shore budget'
     assert scene['terrainWrites'] == 5, 'Five native-water lagoons must be written'
+    definitions=json.loads((Path(__file__).resolve().parent/'world_materials.json').read_text())['variants']
+    styles={entry['name']:entry['base_material'] for entry in definitions}
+    styled_parts=0
     for p in parts:
         assert p['anchored'], p['path'] + ' is not anchored'
         assert all(math.isfinite(n) and n > 0 for n in p['size']), p['path'] + ' invalid size'
         assert all(math.isfinite(n) for n in p['position']), p['path'] + ' invalid position'
+        axes=[[row[i] for row in p['rotation']] for i in range(3)]
+        assert all(abs(dot(axis,axis)-1)<.0001 for axis in axes), p['path']+' has a non-unit CFrame basis'
+        assert all(abs(dot(axes[i],axes[j]))<.0001 for i,j in ((0,1),(0,2),(1,2))), p['path']+' has non-orthogonal CFrame axes'
+        assert dot(cross(axes[0],axes[1]),axes[2])>.9999, p['path']+' has a mirrored CFrame basis'
         assert p['shape'] in ('Block', 'Wedge', 'Cylinder', 'Ball')
         if p['shape']=='Ball':
             assert p.get('meshType')=='Sphere', p['path']+' relies on a native Ball stretching into an ellipsoid'
             assert not p['collide'], p['path']+' ellipsoid mesh conceals a native block collider'
         if p['shape']=='Cylinder':
             assert abs(p['size'][1]-p['size'][2])<.001, p['path']+' relies on an elliptical native cylinder'
+        style=p.get('surfaceStyle','')
+        if style:
+            assert style in styles and p['material']==styles[style], p['path']+' has an incompatible surface preset'
+            assert p.get('surfaceTagged') and p.get('materialVariant')==style, p['path']+' lost its streamed material binding'
+            assert p.get('meshType')!='Sphere', p['path']+' applies native material maps to a SpecialMesh'
+            styled_parts+=1
+        else:
+            assert not p.get('surfaceTagged') and not p.get('materialVariant'), p['path']+' has an orphan material binding'
+    assert styled_parts>0, 'The generated world lost its material surface bindings'
 
     # Broad phase in world X/Z, including transparent colliders.
     colliders = []
@@ -563,6 +579,7 @@ def validate(scene):
                         assert not hit or not hit[0]+.01 < y < hit[1]-.01, p['path']+' runs inside '+rock['name']
                     shore_samples += 1
     print(f'PASS {len(parts)} bounded, anchored source parts; {len(colliders)} colliders incl. invisible floors/rails')
+    print(f'PASS {styled_parts} native surface bindings across {len(styles)} shared material presets; mesh visuals excluded')
     print(f'PASS {sampled} route rays with continuous support and six-stud headroom across a 2.6-stud corridor')
     print(f'PASS {trail_samples} visible-trail samples covering the existing walking corridors')
     print(f'PASS {spawn_samples} spawn-footprint rays supported by the underlying world with six-stud headroom')

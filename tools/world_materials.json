@@ -1,0 +1,68 @@
+{
+  "source": "https://github.com/Roblox/creator-docs/blob/main/content/en-us/parts/materials.md#base-materials",
+  "source_section": "Current Base",
+  "source_sha256": "a7e195420da3301190ca935b7d636021b551a1a03d9a77467c751c4ffe39303d",
+  "notes": "Official Roblox same-base Color, Normal and Roughness maps at authored tile scales. Existing Part.Color inputs and lighting are retained. No global material overrides or custom physical properties. Texture pixels, asset delivery and native shader appearance are not verified by offline geometry tools.",
+  "variants": [
+    {
+      "name": "AnglersWeatheredWood",
+      "base_material": "Wood",
+      "base_material_token": 512,
+      "studs_per_tile": 4,
+      "pattern": "Regular",
+      "normal_map_id": "9439641376",
+      "roughness_map_id": "9439648605",
+      "color_map_id": "9920625290"
+    },
+    {
+      "name": "AnglersCanvas",
+      "base_material": "Fabric",
+      "base_material_token": 1312,
+      "studs_per_tile": 2,
+      "pattern": "Regular",
+      "normal_map_id": "9873280412",
+      "roughness_map_id": "9873282563",
+      "color_map_id": "9920517696"
+    },
+    {
+      "name": "AnglersRoofSlate",
+      "base_material": "Slate",
+      "base_material_token": 800,
+      "studs_per_tile": 6,
+      "pattern": "Organic",
+      "normal_map_id": "9439612514",
+      "roughness_map_id": "9439612733",
+      "color_map_id": "9920599782"
+    },
+    {
+      "name": "AnglersPlaster",
+      "base_material": "Plaster",
+      "base_material_token": 2310,
+      "studs_per_tile": 6,
+      "pattern": "Organic",
+      "normal_map_id": "14108671870",
+      "roughness_map_id": "14108672378",
+      "color_map_id": "14108671255"
+    },
+    {
+      "name": "AnglersCutStone",
+      "base_material": "Limestone",
+      "base_material_token": 820,
+      "studs_per_tile": 6,
+      "pattern": "Organic",
+      "normal_map_id": "9439415191",
+      "roughness_map_id": "9439415495",
+      "color_map_id": "9920561437"
+    },
+    {
+      "name": "AnglersFineSand",
+      "base_material": "Sand",
+      "base_material_token": 1296,
+      "studs_per_tile": 8,
+      "pattern": "Organic",
+      "normal_map_id": "9439577084",
+      "roughness_map_id": "9439577327",
+      "color_map_id": "9920591683"
+    }
+  ]
+}

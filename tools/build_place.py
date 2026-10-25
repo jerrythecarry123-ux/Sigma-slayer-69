@@ -7,11 +7,12 @@ The prototype's server script creates its isolated world when Play is pressed.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v1.5.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v1.6.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
@@ -76,6 +77,26 @@ def build(output: Path) -> None:
         color = ET.SubElement(node.find("Properties"), "Color3", {"name": name})
         for channel, value in zip(("R", "G", "B"), rgb):
             ET.SubElement(color, channel).text = str(value / 255)
+
+    # Texture-map and BaseMaterial setters require Studio/plugin capability.
+    # Serialize a small shared set here; ordinary runtime scripts only select
+    # their names. Do not change MaterialService's base-material overrides.
+    material_manifest = json.loads((ROOT / "tools/world_materials.json").read_text(encoding="utf-8"))
+    item("MaterialService", "MaterialService")
+    for definition in material_manifest["variants"]:
+        variant = item("MaterialService/" + definition["name"], "MaterialVariant")
+        property_value(variant, "token", "BaseMaterial", str(definition["base_material_token"]))
+        property_value(variant, "float", "StudsPerTile", str(definition["studs_per_tile"]))
+        property_value(variant, "token", "MaterialPattern", str({"Regular": 0, "Organic": 1}[definition["pattern"]]))
+        for property_name, key in (("ColorMap", "color_map_id"), ("NormalMap", "normal_map_id"), ("RoughnessMap", "roughness_map_id")):
+            asset_id = definition[key]
+            if not isinstance(asset_id, str) or not asset_id.isdecimal():
+                raise ValueError("Material maps require a documented numeric Roblox asset ID")
+            content = ET.SubElement(variant.find("Properties"), "Content", {"name": property_name})
+            ET.SubElement(content, "url").text = "rbxassetid://" + asset_id
+        # Same-base albedo retains the grain/speckling that blank color maps
+        # would remove. Part colors remain authored separately. Inherited
+        # physics stay intact; no emission, metalness or texture overlays.
 
     workspace = item("Workspace", "Workspace")
     property_value(workspace, "float", "FallenPartsDestroyHeight", "-250")

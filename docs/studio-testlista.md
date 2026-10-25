@@ -2,8 +2,8 @@
 
 ## Automatiskt verifierat i molnmiljön
 
-- 104 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
-  5 layout, 15 reseregler, 14 världsdata och 3 Python-tester för platsbyggnad.
+- 105 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
+  5 layout, 15 reseregler, 14 världsdata och 4 Python-tester för platsbyggnad/material.
 - Alla 34 produktionsfiler och de sex Luau-sviterna accepteras av den officiella
   Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Separata kontroller kör produktionskod med geometri-/händelsedubblar för
@@ -460,3 +460,28 @@ De visar inte hur Roblox materialtexturer och normal maps faktiskt återges.
   särskilt tyg/material på de inbyggda Sphere-mesharna i Roblox-renderingen.
 - [ ] Prova faktisk mobil/iPad: bildfrekvens, minne och läsbarhet. Offlinebilder
   och geometrikontroller verifierar inte dessa resultat.
+
+
+## v1.6 — ytstruktur och modellfinish, ännu okörda i Studio
+
+- [ ] Öppna **Cloud-Anglers-v1.6.rbxlx**, tryck Play och kontrollera Output.
+- [ ] Granska trä, tyg, skiffer, puts, kalksten och sand nära och på normalt
+  kameraavstånd. Ådring, väv och stenstruktur syns utan störande upprepning.
+- [ ] Kontrollera färgerna i sol och skugga: texturerna ska vara läsbara och
+  kartan behagligt ljus med den befintliga eftermiddagsbelysningen.
+- [ ] Kontrollera att alla sex material laddas utan återkommande texturfel i Output.
+  Prova låg och hög grafiknivå samt riktig mobil och iPad; anteckna FPS/minne.
+- [ ] Res mellan öarna och tillbaka till akvarierna. Ytmaterial återkommer när
+  modeller laddas in igen; rörelser, fiske och gränssnitt fortsätter fungera.
+- [ ] Se stenarna runt om, även vid grottan. Slutna sluttningar, markkontakt och
+  mossytor ska hålla ihop utan stora utstickande skivor eller dolda hinder.
+- [ ] Granska takens skifferlager, tunnornas band och staplade lådor från sidan:
+  delarna sitter fast utan blinkande överlapp eller svävande mellanrum.
+- [ ] Se fönsterlådorna nära: träändar och jord möts, och blommorna sitter i bladen.
+  Kontrollera även bladfästena i stigarnas blomkrukor.
+- [ ] Granska bryggbeslag, flöten, musslor, vimplar och picknickdetaljer. Koppar
+  har tydliga vita kanter och teytor; kuddarnas tyg och vikningar håller ihop.
+- [ ] Se fyrens kupol från utsiktsbalkongen och från marken. Metallribborna följer
+  kupolen och ansluter till takkrans och topp utan avbrott.
+- [ ] Fiska på alla fem öar och använd samtliga portaler. Befintliga gångvägar,
+  kastbanor och ankomster förblir fria efter detaljändringarna.

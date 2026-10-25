@@ -2,12 +2,19 @@
 -- Small, streamed scenery actors are independent of fishing and never own gameplay state.
 -- Track arrivals once; the animation pass only visits the currently streamed actors.
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local ResidentPresentation = require(script.Parent:WaitForChild("ResidentPresentation"))
 
 local Scenery = {}
 local started = false
 local WORLD_NAME = "MolnfiskarnaPrototype"
 local STEP = 1 / 20
+local SURFACE_TAG = "AnglersSurfaceStyle"
+local SURFACE_MATERIALS: {[string]: Enum.Material} = {
+	AnglersWeatheredWood=Enum.Material.Wood, AnglersCanvas=Enum.Material.Fabric,
+	AnglersRoofSlate=Enum.Material.Slate, AnglersPlaster=Enum.Material.Plaster,
+	AnglersCutStone=Enum.Material.Limestone, AnglersFineSand=Enum.Material.Sand,
+}
 
 type Flow = {
 	part: BasePart, origin: CFrame, phase: number, distance: number, speed: number,
@@ -34,8 +41,57 @@ function Scenery.start()
 	local surrenderedGlints: { [Instance]: boolean } = {}
 	local listeners: { [Instance]: { RBXScriptConnection } } = {}
 	local worldConnections: { RBXScriptConnection } = {}
+	local surfaces: {[Instance]: {original: string, last: string}} = {}
+	local surfaceWaiting: {[Instance]: {RBXScriptConnection}} = {}
+
+	local function stopWaiting(instance: Instance)
+		local connections=surfaceWaiting[instance]
+		if connections then
+			for _,connection in connections do connection:Disconnect() end
+			surfaceWaiting[instance]=nil
+		end
+	end
+	local function forgetSurface(instance: Instance)
+		stopWaiting(instance)
+		local owned=surfaces[instance]
+		if owned and owned.original~=owned.last and instance:IsA("BasePart") and instance.Parent and instance.MaterialVariant==owned.last then
+			instance.MaterialVariant=owned.original
+		end
+		surfaces[instance]=nil
+	end
+	local applySurface: (Instance) -> ()
+	applySurface=function(instance: Instance)
+		if not world or not instance:IsA("BasePart") or not instance:IsDescendantOf(world)
+			or not instance:HasTag(SURFACE_TAG) then return end
+		-- A SpecialMesh supplies its own surface, so native Part maps cannot wrap it.
+		if instance:FindFirstChildWhichIsA("SpecialMesh") then forgetSurface(instance);return end
+		local style=instance:GetAttribute(SURFACE_TAG)
+		local material=if typeof(style)=="string" then SURFACE_MATERIALS[style] else nil
+		if style~=nil and not material then stopWaiting(instance);return end
+		if not material or instance.Material~=material then
+			-- Only incomplete, explicitly tagged parts need readiness listeners.
+			-- Finished planks and stones keep no per-part connections or polling.
+			if not surfaceWaiting[instance] then
+				surfaceWaiting[instance]={
+					instance:GetAttributeChangedSignal(SURFACE_TAG):Connect(function() applySurface(instance) end),
+					instance:GetPropertyChangedSignal("Material"):Connect(function() applySurface(instance) end),
+				}
+			end
+			return
+		end
+		stopWaiting(instance)
+		local current=instance.MaterialVariant
+		local owned=surfaces[instance]
+		if owned then
+			if current~=owned.last then return end -- Another presentation system owns it now.
+		elseif current~="" and current~=style then return end
+		if not owned then surfaces[instance]={original=current,last=style}
+		else owned.last=style end
+		if current~=style then instance.MaterialVariant=style end
+	end
 
 	local function forget(instance: Instance)
+		forgetSurface(instance)
 		local flow=flows[instance]
 		if flow and flow.alphaOwned and flow.part.Parent and math.abs(flow.part.Transparency-flow.last)<.0001 then
 			flow.part.Transparency=flow.original
@@ -53,9 +109,17 @@ function Scenery.start()
 			for _, connection in connections do connection:Disconnect() end
 			listeners[instance] = nil
 		end
-		-- A streamed-out animation root must not leave a live model entry behind.
-		for _, motions in {drifters,boats,swaying,spinners} do
-			for model,motion in motions do if motion.part==instance then motions[model]=nil end end
+		-- DescendantRemoving runs before the parent link changes. Only animated
+		-- ancestors can own this root; avoid scanning every actor for every plank.
+		if instance:IsA("BasePart") then
+			local ancestor=instance.Parent
+			while ancestor and ancestor~=world do
+				for _,motions in {drifters,boats,swaying,spinners} do
+					local motion=motions[ancestor]
+					if motion and motion.part==instance then motions[ancestor]=nil end
+				end
+				ancestor=ancestor.Parent
+			end
 		end
 	end
 
@@ -132,6 +196,8 @@ function Scenery.start()
 	end
 
 	local function discover(instance: Instance)
+		applySurface(instance)
+		if instance:IsA("SpecialMesh") and instance.Parent then applySurface(instance.Parent) end
 		if listeners[instance] then refresh(instance); return end
 		local candidate = instance:IsA("Model")
 		if instance:IsA("BasePart") then
@@ -163,6 +229,8 @@ function Scenery.start()
 		table.clear(worldConnections)
 		local tracked = {}
 		for instance in listeners do table.insert(tracked, instance) end
+		for instance in surfaces do table.insert(tracked,instance) end
+		for instance in surfaceWaiting do table.insert(tracked,instance) end
 		for _, instance in tracked do forget(instance) end
 		world = nil
 	end
@@ -185,6 +253,8 @@ function Scenery.start()
 		for _, instance in candidate:GetDescendants() do discover(instance) end
 	end
 
+	CollectionService:GetInstanceAddedSignal(SURFACE_TAG):Connect(applySurface)
+	CollectionService:GetInstanceRemovedSignal(SURFACE_TAG):Connect(forgetSurface)
 	workspace.ChildAdded:Connect(bind)
 	local existing = workspace:FindFirstChild(WORLD_NAME)
 	if existing then bind(existing) end

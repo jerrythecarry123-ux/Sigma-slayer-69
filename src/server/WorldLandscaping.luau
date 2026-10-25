@@ -8,7 +8,7 @@ local C = Kit.palette
 local Landscaping = {}
 local TAU = math.pi * 2
 local foliage = { material = Enum.Material.SmoothPlastic }
-local detail = { material = Enum.Material.Plastic, shadow = false }
+local detail = { material = Enum.Material.SmoothPlastic, shadow = false }
 local wood = { material = Enum.Material.Wood }
 local cloth = { material = Enum.Material.Fabric, shadow = false }
 local flowerTints = {
@@ -106,7 +106,15 @@ local function forestFloor(parent: Instance, pos: Vector3, seed: number)
 		Kit.part(model, "IvoryMushroomStalk", Vector3.new(.26,height,.26), CFrame.new(base+Vector3.yAxis*height/2), C.Cream, detail)
 		Kit.ball(model, "MushroomDome", Vector3.new(1.25, .48, 1.25), base + Vector3.yAxis * height,
 			if i == 2 then flowerTints[1] else flowerTints[2], detail)
-		Kit.part(model, "MushroomCapSpot", Vector3.new(.29, .05, .3), CFrame.new(base + Vector3.new(.2, height + .24, -.12)), C.Cream, detail)
+		-- A curved inlaid cap follows the mushroom dome, instead of a square
+		-- hovering over its sloping surface at the outer corners.
+		local x,z=.2,-.12
+		local y=.24*math.sqrt(1-(x/.625)^2-(z/.625)^2)
+		local normal=Vector3.new(x/(.625*.625),y/(.24*.24),z/(.625*.625)).Unit
+		local right=Vector3.yAxis:Cross(normal).Unit
+		local spot=Kit.ball(model,"MushroomCapSpot",Vector3.new(.29,.30,.07),
+			base+Vector3.new(x,height+y,z)-normal*.021,C.Cream,detail)
+		spot.CFrame=CFrame.fromMatrix(spot.Position,right,normal:Cross(right),normal)
 	end
 	return model
 end
@@ -118,7 +126,7 @@ local function blossomDrift(parent: Instance, pos: Vector3, seed: number)
 		local a = random:NextNumber(0, TAU)
 		local radius = random:NextNumber(1.4, 6)
 		local petal = Kit.wedge(model, "FallenBlossomPetal", Vector3.new(.55, .035, 1),
-			CFrame.new(pos + Vector3.new(math.cos(a) * radius, .07, math.sin(a) * radius * .65)),
+			CFrame.new(pos + Vector3.new(math.cos(a) * radius, .016, math.sin(a) * radius * .65)),
 			C.Blossom:Lerp(C.BlossomLight, i % 3 * .3), detail)
 		petal.CFrame *= CFrame.Angles(0, random:NextNumber(0, TAU), 0)
 	end
@@ -154,7 +162,8 @@ local function umbrella(parent: Instance, pos: Vector3, tint: Color3, yaw: numbe
 	end
 	canvas:SetAttribute("SwayOrigin",canvasOrigin)
 	canvas:SetAttribute("SwayAmplitude",.007)
-	Kit.disk(model, "CafeRoundTable", 4.4, 4.4, .25, pos + Vector3.yAxis * 2.6, C.Plank, wood)
+	Kit.disk(model, "CafeRoundTable", 4.4, 4.4, .25, pos + Vector3.yAxis * 2.6, C.Plank,
+		{material=Enum.Material.WoodPlanks})
 	Kit.beam(model, "CafeTableLeg", pos + Vector3.yAxis * .2, pos + Vector3.yAxis * 2.5, .5, C.Wood, wood)
 	for _, x in {-3.8, 3.8} do
 		local chair = pos + Vector3.new(x, 0, 0)
@@ -167,19 +176,23 @@ end
 local function produce(parent: Instance, cf: CFrame)
 	local model = group(parent, "FreshHarborProduce")
 	for crate = 0, 1 do
-		local base = cf * CFrame.new(crate * 3.8, 0, 0)
-		Kit.part(model, "ProduceCrateFloor", Vector3.new(3.4, .2, 3), base * CFrame.new(0, .2, 0), C.Plank, wood)
+		local base = cf * CFrame.new(crate * 3.8, -.10, 0)
+		Kit.part(model, "ProduceCrateFloor", Vector3.new(3.4, .2, 3), base * CFrame.new(0, .2, 0), C.Plank,
+			{material=Enum.Material.WoodPlanks})
 		for _, side in {-1, 1} do
 			Kit.part(model, "SlattedCrateSide", Vector3.new(3.5, .9, .2), base * CFrame.new(0, .7, side * 1.45), C.Wood, wood)
-			Kit.part(model, "CrateEnd", Vector3.new(.2, .9, 2.8), base * CFrame.new(side * 1.65, .7, 0), C.Plank, wood)
+			-- Butt the end against the side's inside face; overlapping top faces
+			-- made dark/flickering squares at the four crate corners.
+			Kit.part(model, "CrateEnd", Vector3.new(.2, .9, 2.7), base * CFrame.new(side * 1.65, .7, 0), C.Plank, wood)
 		end
 		for fruit = 0, 5 do
-			local pos = base:PointToWorldSpace(Vector3.new((fruit % 3 - 1) * .87, .85, (math.floor(fruit / 3) - .5) * 1.08))
-			Kit.ball(model, if crate == 0 then "SunPear" else "CoralApple", Vector3.new(.83, if crate == 0 then 1.05 else .8, .83), pos,
+			local height=if crate==0 then 1.05 else .8
+			local pos = base:PointToWorldSpace(Vector3.new((fruit % 3 - 1) * .87, .28+height*.5, (math.floor(fruit / 3) - .5) * 1.08))
+			Kit.ball(model, if crate == 0 then "SunPear" else "CoralApple", Vector3.new(.83, height, .83), pos,
 				if crate == 0 then flowerTints[1] else flowerTints[2], detail)
 		end
 	end
-	Kit.part(model, "FoldedMarketCloth", Vector3.new(2, .15, 1.5), cf * CFrame.new(-2.9, .2, .6) * CFrame.Angles(0, .2, 0), C.Teal, cloth)
+	Kit.part(model, "FoldedMarketCloth", Vector3.new(2, .15, 1.5), cf * CFrame.new(-2.9, .075, .6) * CFrame.Angles(0, .2, 0), C.Teal, cloth)
 	return model
 end
 
@@ -189,7 +202,8 @@ local function skiff(parent: Instance)
 	-- bottom above the surface even at the low point of the gentle bob.
 	local cf = CFrame.new(22, 7.65, 144) * CFrame.Angles(0, -.22, 0)
 	model.WorldPivot=cf
-	Kit.part(model, "SkiffFloor", Vector3.new(4.6, .4, 12), cf * CFrame.new(0, .65, 0), C.Plank, wood)
+	Kit.part(model, "SkiffFloor", Vector3.new(4.6, .4, 12), cf * CFrame.new(0, .65, 0), C.Plank,
+		{material=Enum.Material.WoodPlanks})
 	for _, x in {-2.5, 2.5} do
 		local side = if x < 0 then -1 else 1
 		Kit.part(model, "PaintedHull", Vector3.new(.45, 1.8, 12), cf * CFrame.new(x, 1.1, 0) * CFrame.Angles(0, 0, side * .13), C.Teal, wood)
@@ -245,9 +259,24 @@ local function beach(parent: Instance)
 	Kit.part(model, "BeachCooler", Vector3.new(2.2, 1.75, 1.8), cf * CFrame.new(3, .9, -4), C.Teal)
 	Kit.part(model, "CoolerCreamLid", Vector3.new(2.35, .25, 1.95), cf * CFrame.new(3, 1.9, -4), C.Cream)
 	for i = 1, 5 do
-		local p = Vector3.new(-267 + i * 3.1, 4.14, -230 + math.sin(i) * 3)
+		local p = Vector3.new(-267 + i * 3.1, 4.10, -230 + math.sin(i) * 3)
 		Kit.ball(model, "PearlShell", Vector3.new(.75, .21, .65), p, C.Cream:Lerp(C.Coral, i % 3 * .14), detail)
-		for ridge = -1, 1 do Kit.beam(model, "ShellRidge", p + Vector3.new(0, .12, -.25), p + Vector3.new(ridge * .2, .12, .2), .045, C.Coral:Lerp(C.Cream, .65), detail) end
+		for ridge=-1,1 do
+			-- Every rib is a slightly raised elliptical section of the shell.
+			-- Its ends sink into the dome instead of floating as straight rods.
+			local start=Vector3.new(0,0,-.245)
+			local direction=Vector3.new(ridge*.19,0,.425)
+			local a=(direction.X/.375)^2+(direction.Z/.325)^2
+			local b=2*(start.X*direction.X/(.375*.375)+start.Z*direction.Z/(.325*.325))
+			local c=(start.X/.375)^2+(start.Z/.325)^2
+			local middle=-b/(2*a)
+			local section=math.sqrt(1-c+b*b/(4*a))
+			local half=section/math.sqrt(a)
+			local center=p+start+direction*middle
+			local rib=Kit.ball(model,"ShellRidge",Vector3.new(.045,.21*section*1.075,direction.Magnitude*half*2*.94),
+				center,C.Coral:Lerp(C.Cream,.65),detail)
+			rib.CFrame=CFrame.lookAt(center,center+direction)
+		end
 	end
 	-- Navigation beacon is a physical landmark rather than a non-functional prompt.
 	local b = Vector3.new(-274, 4, -200)
@@ -256,7 +285,7 @@ local function beach(parent: Instance)
 	local pennantOrigin=CFrame.new(b+Vector3.yAxis*6.5)
 	pennants.WorldPivot=pennantOrigin
 	for _, side in {-1, 1} do
-		Kit.wedge(pennants, "CoralWindPennant", Vector3.new(.055, 1.3, 2.6), CFrame.new(b + Vector3.new(0, 6.5 + side * .7, 1)) * CFrame.Angles(0, math.pi / 2, 0),
+		Kit.wedge(pennants, "CoralWindPennant", Vector3.new(.055, 1.3, 2.6), CFrame.new(b + Vector3.new(-1.24, 6.5 + side * .7, 0)) * CFrame.Angles(0, math.pi / 2, 0),
 			if side == 1 then C.Coral else C.Cream, cloth)
 	end
 	pennants:SetAttribute("SwayOrigin",pennantOrigin)
@@ -266,20 +295,34 @@ end
 
 local function skyPicnic(parent: Instance, cf: CFrame, name: string, tint: Color3)
 	local model = group(parent, name)
+	-- Seat the blanket's underside on the meadow and keep the objects above
+	-- it in the same local frame, rather than floating the complete setting.
+	cf *= CFrame.new(0,-.02,0)
 	Kit.part(model, "WovenPicnicBlanket", Vector3.new(8, .06, 6.4), cf * CFrame.new(0, .05, 0), C.Cream, cloth)
 	for i = -2, 2 do
-		Kit.part(model, "BlanketWovenStripe", Vector3.new(.5, .015, 6.4), cf * CFrame.new(i * 1.4, .09, 0), tint, cloth)
+		Kit.part(model, "BlanketWovenStripe", Vector3.new(.5, .015, 6.4), cf * CFrame.new(i * 1.4, .085, 0), tint, cloth)
 	end
 	for _, x in {-2.6, 2.6} do
-		Kit.ball(model, "LinenCushion", Vector3.new(1.9, .65, 1.8), cf:PointToWorldSpace(Vector3.new(x, .4, .7)), tint, cloth)
+		-- Native fabric receives the woven material maps. A raised centre and
+		-- two closed tapered folds keep the same padded footprint and height;
+		-- the former Sphere mesh could not display the cloth's surface texture.
+		Kit.part(model,"LinenCushion",Vector3.new(1.9,.65,1),cf*CFrame.new(x,.4,.7),tint,cloth)
+		for _,side in {-1,1} do
+			Kit.wedge(model,"LinenCushionFold",Vector3.new(1.9,.65,.4),
+				cf*CFrame.new(x,.4,.7+side*.7)*CFrame.Angles(0,if side==1 then math.pi else 0,0),tint,cloth)
+		end
 	end
-	Kit.part(model, "PicnicHamper", Vector3.new(2, 1.2, 1.6), cf * CFrame.new(.3, .65, -2), C.Plank, wood)
-	Kit.part(model, "HamperLid", Vector3.new(2.12, .15, 1.7), cf * CFrame.new(.3, 1.32, -2), C.Wood, wood)
+	Kit.part(model, "PicnicHamper", Vector3.new(2, 1.2, 1.6), cf * CFrame.new(.3, .65, -2), C.Plank, cloth)
+	Kit.part(model, "HamperLid", Vector3.new(2.12, .15, 1.7), cf * CFrame.new(.3, 1.32, -2), C.Wood, cloth)
 	for _, x in {-.3, .9} do
-		Kit.disk(model, "GlazedTeaCup", .45, .45, .55, cf:PointToWorldSpace(Vector3.new(x, .4, -.5)), C.Cream)
+		Kit.disk(model, "GlazedTeaCup", .45, .45, .55, cf:PointToWorldSpace(Vector3.new(x, .345, -.5)), C.Cream)
+		-- The inset color leaves a clear white rim and rises just above the
+		-- cylinder's end face, so this small cup reads as tea without flicker.
+		Kit.disk(model, "PicnicTeaSurface", .32, .32, .025,
+			cf:PointToWorldSpace(Vector3.new(x,.615,-.5)),C.Bark,{shadow=false})
 	end
-	Kit.disk(model, "PicnicFruitPlate", 1.5, 1.5, .1, cf:PointToWorldSpace(Vector3.new(.2, .2, .8)), C.Coral)
-	for i = 0, 2 do Kit.ball(model, "PicnicApricot", Vector3.one * .42, cf:PointToWorldSpace(Vector3.new(i * .35 - .15, .5, .8)), C.Gold, detail) end
+	Kit.disk(model, "PicnicFruitPlate", 1.5, 1.5, .1, cf:PointToWorldSpace(Vector3.new(.2, .12, .8)), C.Coral)
+	for i = 0, 2 do Kit.ball(model, "PicnicApricot", Vector3.one * .42, cf:PointToWorldSpace(Vector3.new(i * .35 - .15, .37, .8)), C.Gold, detail) end
 	return model
 end
 

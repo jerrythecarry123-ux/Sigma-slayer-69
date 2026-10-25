@@ -2,6 +2,18 @@
 -- Original modular scenery. Cylinders in Roblox run along their local X axis.
 local Kit = {}
 
+-- Shared color, normal and roughness maps are serialized under MaterialService by the
+-- place builder. Base materials and painted colors remain the fallback.
+local SURFACE_STYLES = {
+	[Enum.Material.Wood] = "AnglersWeatheredWood",
+	[Enum.Material.Fabric] = "AnglersCanvas",
+	[Enum.Material.Slate] = "AnglersRoofSlate",
+	[Enum.Material.Plaster] = "AnglersPlaster",
+	[Enum.Material.Limestone] = "AnglersCutStone",
+	[Enum.Material.Sand] = "AnglersFineSand",
+}
+local SURFACE_TAG = "AnglersSurfaceStyle"
+
 export type Options = {
 	material: Enum.Material?, collidable: boolean?, shadow: boolean?,
 	transparency: number?, reflectance: number?, studded: boolean?,
@@ -44,7 +56,20 @@ local function finish(p: BasePart, parent: Instance, name: string, size: Vector3
 		p.LeftSurface,p.RightSurface=Enum.SurfaceType.Studs,Enum.SurfaceType.Studs
 		p.FrontSurface,p.BackSurface=Enum.SurfaceType.Studs,Enum.SurfaceType.Studs
 	end
+	local style=SURFACE_STYLES[p.Material]
+	if style then
+		p.MaterialVariant=style
+		p:SetAttribute(SURFACE_TAG,style)
+		p:AddTag(SURFACE_TAG)
+	end
 	p.Parent = parent
+end
+
+local function meshSurface(p: BasePart)
+	-- SpecialMesh keeps its own visual surface; Part PBR maps do not wrap it.
+	p.MaterialVariant=""
+	p:SetAttribute(SURFACE_TAG,nil)
+	p:RemoveTag(SURFACE_TAG)
 end
 
 function Kit.part(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, options: Options?): Part
@@ -60,6 +85,7 @@ function Kit.ball(parent: Instance, name: string, size: Vector3, pos: Vector3, c
 	local mesh=Instance.new("SpecialMesh")
 	mesh.Name,mesh.MeshType,mesh.Scale="EllipsoidMesh",Enum.MeshType.Sphere,Vector3.one
 	mesh.Parent=p
+	meshSurface(p)
 	return p
 end
 
@@ -75,6 +101,7 @@ function Kit.disk(parent: Instance, name: string, width: number, depth: number, 
 		local mesh=Instance.new("SpecialMesh")
 		mesh.Name,mesh.MeshType,mesh.Scale="EllipsoidMesh",Enum.MeshType.Sphere,Vector3.one
 		mesh.Parent=p
+		meshSurface(p)
 	else p.Shape=Enum.PartType.Cylinder end
 	return p
 end

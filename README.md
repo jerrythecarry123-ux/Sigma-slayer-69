@@ -1,10 +1,37 @@
-# Cloud Anglers — v1.5
+# Cloud Anglers — v1.6
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.5.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.6.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.6 — surface textures and fitted world details
+
+Six shared material presets use Roblox's published color, normal and roughness
+maps for timber, woven fabric, slate, plaster, limestone and sand. Their tile
+scales suit the existing buildings and props. Painted color inputs and lighting
+settings are retained; smooth fish, leaves and cosmetic Sphere meshes are kept
+separate. Native cloth faces replace four untexturable cushion meshes. Material
+selection follows streamed parts without a per-frame surface scan or permanent
+readiness listeners on finished surfaces. See [surface notes](docs/world-surfaces.md)
+for the exact maps, scales and rendering limits.
+
+Existing details receive another contact and shape pass: seated roof courses and
+crate stacks, fitted barrel hoops, contained planter soil, attached flowers and
+leaves, supported cleats, coaxial fishing floats, anchored pennants, curved shell
+ribs and inlaid mushroom spots. Picnic cups, plates, fruit and cloth sit on their
+supports, with small tea surfaces inside the visible white cup borders. Seven
+existing rock groups become closed, beveled hulls with moss fitted to their faces;
+coconuts follow the actual leaning palm trunks through the canopy sway.
+The lighthouse's existing metal ribs now follow the dome instead of disappearing
+inside it. Initial source geometry is **10,806 Parts**, within a **10,825-Part**
+budget; the added geometry refines existing rocks, cushions, cups and dome ribs.
+
+These are refinements to the same world and props. The fish collection, progression,
+travel coordinates, sound mix and saved records retain their existing settings.
+Native textures and device performance must still be inspected in Roblox Studio;
+offline previews show geometry and color, not the Roblox material shader.
 
 ## New in v1.5 — solid wings and accurate pond edges
 
@@ -252,7 +279,7 @@ see [return-play design](docs/discovery-and-return-play.md).
 
 ## Validation and limits
 
-104 automated tests cover fishing, locations, progression/saving, responsive layout,
+105 automated tests cover fishing, locations, progression/saving, responsive layout,
 travel authorization and place export. All 34 production modules/scripts and six
 Luau suites compile. Separate checks execute unchanged production code for:
 
@@ -272,8 +299,13 @@ Luau suites compile. Separate checks execute unchanged production code for:
 - Scenery: fixed mooring anchors, sagging Beam control points, authored pivots,
   bounded rotations, quiet flow wraps, distance limits and opacity ownership;
   27 extreme boat poses keep hull/water contact and the interior dry.
-- 96 actual scenery joins: supported lamps, canopy posts and hems, brackets and
-  plaque stands. Sign checks cover 47 boards / 94 faces with three preview owners,
+- Material export checks verify the six presets and 18 shared map references.
+  Production event checks cover late tags, attributes and materials, independent
+  owners, delayed meshes, full streamed-model removal and world rebind. An optional
+  captured-world stress pass exercises more than 6,000 actual surface bindings.
+- 178 actual scenery joins: supported lamps, canopy posts and hems, brackets,
+  plaque stands, contained planters and attached flower/leaf parts.
+  Sign checks cover 47 boards / 94 faces with three preview owners,
   including long owner names; actual Roblox font rendering remains untested.
 - Normal generated-Folder startup, custom-map startup, and a regression mutation
   that restores the former broken Model-only travel guard.
@@ -286,7 +318,7 @@ water containment, supported posts, cascade landings and unobstructed spillways.
 Representative captured material roles are checked for
 old Studs overrides. Another 100 bobber-lane samples check for obstructions,
 and thin physical walking surfaces must be visible. Initial scenery stays
-below the 10,650-Part detail budget; player tanks add streamed Atomic displays. Only thin
+below the 10,825-Part detail budget; player tanks add streamed Atomic displays. Only thin
 visible portal decks and gallery walking surfaces are persistent. Walking speed is
 22 studs/second; the first casting marker is about one second from spawn.
 
@@ -305,7 +337,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.5.rbxlx` and `artifacts/Cloud-Anglers-v1.5.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.6.rbxlx` and `artifacts/Cloud-Anglers-v1.6.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell

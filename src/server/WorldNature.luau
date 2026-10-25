@@ -25,7 +25,7 @@ end
 
 -- Joined triangular faces produce a closed foliage volume. Radial rectangular
 -- wedge fans used to leave six sharp fins and deep gaps around the crown.
-local function facet(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, tint: Color3)
+local function facet(parent: Instance, name: string, a: Vector3, b: Vector3, c: Vector3, tint: Color3, options: any?, thickness: number?)
 	local ab, ac, bc = b-a, c-a, c-b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	if abd > acd and abd > bcd then c, a = a, c
@@ -37,10 +37,10 @@ local function facet(parent: Instance, name: string, a: Vector3, b: Vector3, c: 
 	local height = math.abs(ab:Dot(up))
 	local l1, l2 = math.abs(ab:Dot(back)), math.abs(ac:Dot(back))
 	if l1 > .01 then
-		Kit.wedge(parent,name,Vector3.new(.055,height,l1),CFrame.fromMatrix((a+b)/2,right,up,back),tint,foliage)
+		Kit.wedge(parent,name,Vector3.new(thickness or .055,height,l1),CFrame.fromMatrix((a+b)/2,right,up,back),tint,options or foliage)
 	end
 	if l2 > .01 then
-		Kit.wedge(parent,name,Vector3.new(.055,height,l2),CFrame.fromMatrix((a+c)/2,-right,up,-back),tint,foliage)
+		Kit.wedge(parent,name,Vector3.new(thickness or .055,height,l2),CFrame.fromMatrix((a+c)/2,-right,up,-back),tint,options or foliage)
 	end
 end
 
@@ -139,6 +139,7 @@ end
 local function palm(parent: Instance, pos: Vector3, scale: number, random: Random)
 	local curve = Vector3.new(random:NextNumber(1.8, 3.8), 0, random:NextNumber(-2.2, 2.2)) * scale
 	local previous = pos
+	local crownBase = pos
 	for segment = 1, 6 do
 		local t = segment / 6
 		local nextPos = pos + Vector3.yAxis * 16.8 * t * scale + curve * t * t
@@ -146,6 +147,7 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 		local tint = if segment % 2 == 0 then C.BarkLight else C.Wood
 		Kit.beam(parent,"CurvedPalmTrunk",previous,nextPos,width,tint,collider)
 		Kit.beam(parent,"SculptedPalmTrunk",previous,nextPos,width*1.01,tint,bark)
+		if segment==6 then crownBase=previous end
 		previous=nextPos
 	end
 	local fronds=swaying(parent,"BreezyPalmCanopy",previous,.022)
@@ -160,8 +162,12 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 	end
 	for nut=1,2 do
 		local angle=nut*math.pi
+		-- Follow the last trunk segment down to the fruit's actual height.
+		-- An offset from the leaning tip alone left the outer coconut floating.
+		local crownAxis=previous-crownBase
+		local seat=previous-crownAxis*(.6*scale/crownAxis.Y)
 		Kit.ball(fronds,"Coconut",Vector3.new(.76,1,.7)*scale,
-			previous+Vector3.new(math.cos(angle)*.65,-.6,math.sin(angle)*.65)*scale,C.Bark,bark)
+			seat+Vector3.new(math.cos(angle)*.55,0,math.sin(angle)*.55)*scale,C.Bark,detail)
 	end
 end
 
@@ -178,25 +184,66 @@ function Nature.rock(parent: Instance, pos: Vector3, size: Vector3, seed: number
 	local model=Kit.model(parent,"FacetedShoreRock")
 	local random=Random.new(seed)
 	local yaw=random:NextNumber(0,math.pi)
-	local oldFrame=CFrame.new(pos+Vector3.yAxis*size.Y*.34)*CFrame.Angles(.05,yaw,-.06)
+	local frame=CFrame.new(pos)*CFrame.Angles(0,yaw,0)
 	local tint=C.Stone:Lerp(C.DeepStone,random:NextNumber(0,.24))
-	-- Physical contact follows the visible facets. A hidden rectangular core
-	-- protruded through their slopes and stopped avatars in apparently empty air.
+	-- A closed, irregular hull replaces three intersecting ramps. The small
+	-- scalene cap and the five unequal shoulders give every end a real bevel;
+	-- no stone fin or hidden rectangular collision core projects through them.
 	local rockSurface=if size.Y>=3 then {material=Enum.Material.Slate,collidable=true} else stone
-	Kit.wedge(model,"SlopingStoneFace",size*Vector3.new(.95,.76,.88),oldFrame,tint,rockSurface)
-	Kit.wedge(model,"BrokenStoneCrown",size*Vector3.new(.78,.66,.78),
-		oldFrame*CFrame.new(-size.X*.06,size.Y*.09,size.Z*.04)*CFrame.Angles(0,math.pi,0),tint:Lerp(C.Cliff,.2),rockSurface)
-	Kit.wedge(model,"ChippedRockShoulder",size*Vector3.new(.56,.48,.7),
-		oldFrame*CFrame.new(size.X*.24,-size.Y*.05,-size.Z*.03)*CFrame.Angles(0,math.pi/2,.12),tint:Lerp(C.DeepStone,.16),rockSurface)
+	local thickness=.12
+	local halfX,halfZ=size.X*.475-.10,size.Z*.44-.10
+	local base=-size.Y*.075
+	local height=size.Y*random:NextNumber(.52,.60)
+	local frontZ=-size.Z*random:NextNumber(.16,.20)
+	local a,b=Vector3.new(-halfX,base,-halfZ),Vector3.new(halfX,base,-halfZ)
+	local c,d=Vector3.new(halfX,base,halfZ),Vector3.new(-halfX,base,halfZ)
+	local e,f=Vector3.new(-size.X*.22,height,frontZ),Vector3.new(size.X*.27,height,frontZ)
+	local g=Vector3.new(size.X*random:NextNumber(.02,.12),height,size.Z*random:NextNumber(.19,.25))
+	local interior=Vector3.new(0,(base+height)/2,0)
+	local function point(v: Vector3): Vector3 return frame:PointToWorldSpace(v) end
+	local function face(name: string,p: Vector3,q: Vector3,r: Vector3,color: Color3)
+		local normal=(q-p):Cross(r-p).Unit
+		if normal:Dot((p+q+r)/3-interior)<0 then normal=-normal end
+		-- Extrude into the hull: the visible outside stays exactly on its shared
+		-- vertex planes instead of leaving raised fins along every facet edge.
+		local inset=normal*(thickness/2)
+		facet(model,name,point(p-inset),point(q-inset),point(r-inset),color,rockSurface,thickness)
+	end
+	-- The front trapezoid has one rectangular centre and two exact right
+	-- triangles, saving parts without overlapping box-shaped approximations.
+	local along=(b-a).Unit
+	local low,high=(e-a):Dot(along),(f-a):Dot(along)
+	local across=e-a-along*low
+	local up=across.Unit
+	local frontNormal=Vector3.new(0,frontZ+halfZ,-(height-base)).Unit
+	Kit.part(model,"SlopingStoneFace",Vector3.new(high-low,across.Magnitude,thickness),
+		frame*CFrame.fromMatrix(a+along*((low+high)/2)+across/2-frontNormal*(thickness/2),along,up,along:Cross(up)),tint,rockSurface)
+	local function rightFace(corner: Vector3,p: Vector3,q: Vector3)
+		local first,second=p-corner,q-corner
+		local y,z=first.Unit,-second.Unit
+		Kit.wedge(model,"SlopingStoneFace",Vector3.new(thickness,first.Magnitude,second.Magnitude),
+			frame*CFrame.fromMatrix((p+q)/2-frontNormal*(thickness/2),y:Cross(z),y,z),tint,rockSurface)
+	end
+	rightFace(a+along*low,a,e)
+	rightFace(a+along*high,b,f)
+	face("ChippedRockShoulder",b,c,f,tint:Lerp(C.DeepStone,.055))
+	face("ChippedRockShoulder",c,g,f,tint:Lerp(C.Cliff,.06))
+	face("ChippedRockShoulder",c,d,g,tint:Lerp(C.DeepStone,.075))
+	face("ChippedRockShoulder",d,e,g,tint:Lerp(C.Cliff,.085))
+	face("ChippedRockShoulder",d,a,e,tint:Lerp(C.DeepStone,.035))
+	face("BrokenStoneCrown",e,f,g,tint:Lerp(C.Limestone,.06))
+	Kit.part(model,"BoulderUnderside",Vector3.new(halfX*2,thickness,halfZ*2),
+		frame*CFrame.new(0,base+thickness/2,0),tint:Lerp(C.DeepStone,.09),rockSurface)
 	if moss then
-		-- The exposed first face rises by .76Y over .88Z. Attach this patch to
-		-- that actual plane; the old horizontal offset left moss in mid-air.
-		local slope=math.atan2(size.Y*.76,size.Z*.88)
-		local z=size.Z*.22
-		local y=(size.Y*.76)/(size.Z*.88)*z
-		local surface=oldFrame*CFrame.new(-size.X*.1,y,z)*CFrame.Angles(-slope,0,0)
-		Kit.wedge(model,"SlopingMossPatch",Vector3.new(size.X*.38,.035,size.Z*.30/math.cos(slope)),
-			surface*CFrame.Angles(0,.12,0)*CFrame.new(0,.025,0),C.Moss,mossSurface)
+		-- This front-face patch follows the visible slab's outside surface,
+		-- including its thickness. The entire lower triangle embeds by .0095.
+		local rise,run=height-base,frontZ+halfZ
+		local normal=Vector3.new(0,run,-rise).Unit
+		local down=normal:Cross(Vector3.xAxis)
+		local center=Vector3.new(size.X*.02,base+rise*.60,-halfZ+run*.60)
+		local surface=CFrame.fromMatrix(center+normal*.008,normal,Vector3.xAxis,down)
+		Kit.wedge(model,"SlopingMossPatch",Vector3.new(.035,size.X*.28,across.Magnitude*.34),
+			frame*surface,C.Moss,mossSurface)
 	end
 	return model
 end

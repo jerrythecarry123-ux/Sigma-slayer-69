@@ -30,7 +30,7 @@ local function use(material, names)
 end
 use(Enum.Material.Wood, {
 	"CrateBody", "Binding", "CornerBinding", "DiagonalBrace", "StaveSeam", "LidCrossbar",
-	"DoorJamb", "ExposedCornerTimber", "LowerWallTimber", "PaintedSideWainscot", "PaintedRearWainscot", "RearWainscotCap",
+	"DoorJamb", "DoorLintel", "ExposedCornerTimber", "LowerWallTimber", "PaintedSideWainscot", "PaintedRearWainscot", "RearWainscotCap",
 	"WindowJamb", "WindowLintel", "WindowMullion", "WindowTransom", "ShapedWindowCrown", "DeepWindowSill", "PaintedShutter",
 	"WindowFlowerBox", "CarvedGableTrim", "EaveTimber", "GableLattice", "GableCrossbeam", "PorchFrontRiser", "PorchPost", "PorchKneeBrace",
 	"PaintedShopSign", "RearDisplayShelf", "BackCounter", "CounterTop", "CafeServingCounter", "CreamCounterMoulding", "CafeHatchCountertop",
@@ -117,7 +117,14 @@ local function barrel(parent, cf, scale)
 		end
 	end
 	for _, y in { .56, 1.64 } do
-		Kit.disk(model, "IronHoop", 2.16 * s, 2.16 * s, .11 * s,
+		-- Match the bowed stave profile at this exact height. The old constant
+		-- diameter projected a broad metal shelf beyond the smaller end sections.
+		local along=(math.min(y-.05,2.15-y)+.055)*s
+		local staveRadius=endRadius+(bellyRadius-endRadius)*along/halfHeight+.065*s/math.cos(pitch)
+		-- Leave a narrow edge over the corners rather than letting timber cut
+		-- through the metal when its round silhouette is rendered in facets.
+		local hoopDiameter=2*(math.sqrt(staveRadius^2+(staveWidth/2)^2)+.024*s)
+		Kit.disk(model, "IronHoop", hoopDiameter, hoopDiameter, .11 * s,
 			(cf * CFrame.new(0, y * s, 0)).Position, C.Dark, { material = Enum.Material.Metal })
 	end
 	for _, y in { .06, 2.14 } do
@@ -187,18 +194,27 @@ end
 local function flowerBox(parent, cf, width, tint)
 	p(parent, "WindowFlowerBox", Vector3.new(width - 0.4, 0.65, 0.7), cf, C.Wood, SMOOTH)
 	for _, side in { -1, 1 } do
-		Kit.wedge(parent, "TaperedPlanterEnd", Vector3.new(0.7, 0.65, 0.24),
-			cf * CFrame.new(side * (width / 2 - 0.12), 0, 0) * CFrame.Angles(0, side * math.pi / 2, 0), C.Wood,
+		-- The full-height inner face meets the wooden body; the outer edge
+		-- tapers down, rather than standing away from the box as an upright fin.
+		Kit.wedge(parent, "TaperedPlanterEnd", Vector3.new(0.7, 0.65, 0.2),
+			cf * CFrame.new(side * (width / 2 - 0.1), 0, 0) * CFrame.Angles(0, -side * math.pi / 2, 0), C.Wood,
 			{ material = Enum.Material.Wood })
 	end
-	p(parent, "Soil", Vector3.new(width - 0.16, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, Enum.Material.Ground)
+	-- Keep the soil on the box's actual wooden top, leaving the same small
+	-- rim at the ends as at the front/back. It formerly overhung each end.
+	p(parent, "Soil", Vector3.new(width - 0.56, 0.08, 0.54), cf * CFrame.new(0, 0.32, 0), C.Timber, Enum.Material.Ground)
 	for i = -1, 1 do
 		local x = i * width / 3.5
+		local leafCf = cf * CFrame.new(x - 0.1, 0.56, -0.09)
+			* CFrame.Angles(0, i * 0.4 + 0.25, math.rad(24))
 		Kit.wedge(parent, "PointedWindowLeaf", Vector3.new(0.1, 0.45, 0.65),
-			cf * CFrame.new(x - 0.1, 0.56, -0.09) * CFrame.Angles(0, i * 0.4 + 0.25, math.rad(24)), C.Moss,
+			leafCf, C.Moss,
 			{ material = SMOOTH })
-		Kit.disk(parent, "WindowRosette", 0.45, 0.45, 0.1, cf:PointToWorldSpace(Vector3.new(x + 0.05, 0.75, -0.12)), tint, { material = SMOOTH })
-		Kit.disk(parent, "FlowerHeart", 0.12, 0.12, 0.08, cf:PointToWorldSpace(Vector3.new(x + 0.05, 0.83, -0.12)), C.Gold, { material = SMOOTH })
+		-- Seat the head over this leaf's rising end, including its authored yaw.
+		-- A point inside the native leaf prism enters the bottom of the bloom.
+		local bloom = leafCf:PointToWorldSpace(Vector3.new(0, 0.22, 0.28))
+		Kit.disk(parent, "WindowRosette", 0.45, 0.45, 0.1, bloom, tint, { material = SMOOTH })
+		Kit.disk(parent, "FlowerHeart", 0.12, 0.12, 0.08, bloom + Vector3.yAxis * 0.08, C.Gold, { material = SMOOTH })
 	end
 end
 
@@ -254,10 +270,12 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 		p(model, "RoofUnderlay", Vector3.new(slope + 0.2, 0.35, roofDepth), roofCf, roofColor, Enum.Material.SmoothPlastic, true)
 		for row = 0, courses - 1 do
 			for col = 0, cols - 1 do
-				-- Courses end together at the verge. Small color changes carry the
-				-- slate texture without a sawtooth roof edge or checkerboard noise.
+				-- Every plate enters the backing. Higher courses overlap lower
+				-- courses toward the ridge on both roof halves, rather than lifting
+				-- the eave plates or leaving a shadow gap beneath the whole roof.
+				local upslope=if side<0 then row else courses-1-row
 				local tileCf = roofCf * CFrame.new(-slope / 2 + (row + .5) * slope / courses,
-					.24 + row * .008, -roofDepth / 2 + (col + .5) * roofDepth / cols)
+					.205 + upslope * .008, -roofDepth / 2 + (col + .5) * roofDepth / cols)
 				local shade = ((row * 7 + col * 3) % 5) * .006
 				p(model, "IndividualSlateShingle", Vector3.new(slope / courses + .09, .12, roofDepth / cols - .045), tileCf,
 					roofColor:Lerp(C.Cream, shade), Enum.Material.SmoothPlastic)
@@ -544,9 +562,24 @@ function Architecture.lighthouse(parent, cf)
 				{ material = Enum.Material.Glass, transparency = 0.58, reflectance = 0.02 })
 		end
 		p(model, "LanternRoomUpright", Vector3.new(0.14, 6.3, 0.14), ring * CFrame.new(0, 31.6, -4.5), C.Dark, SMOOTH)
-		localBeam(model, cf, "CopperDomeRib", Vector3.new(math.sin(angle) * 5.3, 34.5, -math.cos(angle) * 5.3), Vector3.new(0, 37.7, 0), 0.14, C.Dark, SMOOTH)
+		-- Follow the actual ellipsoid; a straight cornice-to-apex chord was
+		-- buried inside it. Six joined lengths keep a continuous visible strip
+		-- while their inner surfaces still enter the dome instead of hovering.
+		local startAngle=math.asin((34.5-35.3)/2.55)
+		local function ribPoint(step)
+			local theta=startAngle+(math.pi/2-startAngle)*step/6
+			local radial=5.2*math.cos(theta)
+			local normal=Vector3.new(math.sin(angle)*math.cos(theta)/5.2,
+				math.sin(theta)/2.55,-math.cos(angle)*math.cos(theta)/5.2).Unit
+			return Vector3.new(math.sin(angle)*radial,35.3+2.55*math.sin(theta),-math.cos(angle)*radial)+normal*.035
+		end
+		for segment=1,6 do
+			local first,last=ribPoint(segment-1),ribPoint(segment)
+			local along=(last-first).Unit
+			localBeam(model,cf,"CopperDomeRib",first-along*.012,last+along*.012,.14,C.Dark,SMOOTH)
+		end
 	end
-	Kit.disk(model, "LanternRoomCornice", 10.5, 10.5, 0.36, cf:PointToWorldSpace(Vector3.new(0, 34.5, 0)), C.Dark, { material = SMOOTH })
+	Kit.disk(model, "LanternRoomCornice", 10.5, 10.5, 0.36, cf:PointToWorldSpace(Vector3.new(0, 34.5, 0)), C.Dark, { material = Enum.Material.Metal })
 	localBall(model, cf, "VerdigrisDome", Vector3.new(10.4, 5.1, 10.4), Vector3.new(0, 35.3, 0), C.Roof, SMOOTH)
 	localBall(model, cf, "LighthouseLens", Vector3.new(2.6, 3.4, 2.6), Vector3.new(0, 31.4, 0), C.Gold, Enum.Material.Neon)
 	local lampMount = p(model, "LensPedestal", Vector3.new(1.1, 1.8, 1.1), cf * CFrame.new(0, 28.7, 0), C.Dark, SMOOTH)
@@ -661,7 +694,9 @@ function Architecture.props(parent, cf, kind)
 		Kit.lantern(model, cf:PointToWorldSpace(Vector3.new(0, 2.65, 0)), 0.5, false)
 	else
 		crate(model, cf * CFrame.new(-1.5, 0, 0), Vector3.new(2.5, 1.9, 2.1))
-		crate(model, cf * CFrame.new(-1.3, 1.94, 0.1) * CFrame.Angles(0, math.rad(12), 0), Vector3.new(2, 1.3, 1.7))
+		-- A small contact overlap seats the rotated upper crate on the lower
+		-- lid; the former 1.94 offset left a dark air gap under the whole stack.
+		crate(model, cf * CFrame.new(-1.3, 1.88, 0.1) * CFrame.Angles(0, math.rad(12), 0), Vector3.new(2, 1.3, 1.7))
 		barrel(model, cf * CFrame.new(1.6, 0, 0.6), 0.9)
 		ropeCoil(model, cf * CFrame.new(0.7, 0, -1.6), 0.75)
 		Kit.disk(model, "BaitPail", 1, 1, 1.15, cf:PointToWorldSpace(Vector3.new(2.9, 0.58, -1.1)), C.Dark, { material = Enum.Material.Metal })

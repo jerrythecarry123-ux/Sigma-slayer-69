@@ -1,6 +1,7 @@
 """Verify the delivered place embeds the actual sources at their required locations."""
 from pathlib import Path
 import importlib.util
+import json
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -74,6 +75,36 @@ class PlaceTests(unittest.TestCase):
             builder.build(first)
             builder.build(second)
             self.assertEqual(first.read_bytes(), second.read_bytes())
+
+    def test_material_variants_embed_shared_texture_maps_without_changing_base_physics(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "materials.rbxlx"
+            builder.build(path)
+            root = ET.parse(path).getroot()
+        manifest = json.loads((ROOT / "tools/world_materials.json").read_text())
+        service = root.find("Item[@class='MaterialService']")
+        self.assertIsNotNone(service)
+        self.assertEqual([p.attrib["name"] for p in service.find("Properties")], ["Name"],
+                         "Per-part variants must not replace global base materials")
+        variants = service.findall("Item[@class='MaterialVariant']")
+        self.assertEqual(len(variants), 6)
+        definitions = {entry["name"]: entry for entry in manifest["variants"]}
+        native_tokens = {"Wood": 512, "Fabric": 1312, "Slate": 800, "Plaster": 2310, "Limestone": 820, "Sand": 1296}
+        references = set()
+        for node in variants:
+            properties = node.find("Properties")
+            name = properties.find("string[@name='Name']").text
+            definition = definitions[name]
+            self.assertEqual(int(properties.find("token[@name='BaseMaterial']").text), native_tokens[definition["base_material"]])
+            self.assertGreater(float(properties.find("float[@name='StudsPerTile']").text), 0)
+            for property_name, key in (("ColorMap", "color_map_id"), ("NormalMap", "normal_map_id"), ("RoughnessMap", "roughness_map_id")):
+                url = properties.find(f"Content[@name='{property_name}']/url").text
+                self.assertEqual(url, "rbxassetid://" + definition[key])
+                references.add(url)
+            for omitted in ("MetalnessMap", "CustomPhysicalProperties", "EmissiveMaskContent", "EmissiveStrength"):
+                self.assertIsNone(properties.find(f"*[@name='{omitted}']"), omitted + " must retain its default")
+        self.assertEqual(len(references), 18, "Six materials share three texture maps each")
+        self.assertNotIn("Use2022Materials", ET.tostring(root, encoding="unicode"))
 
 
 if __name__ == "__main__":
