@@ -31,8 +31,156 @@ local function skinFrame(size: Vector3, point: Vector3, inset: number?): CFrame
 	return CFrame.fromMatrix(size * point * .5 + normal * (inset or 0), right, up, normal)
 end
 
+local function finish(model: Model, parent: Instance, species: any): Model
+	model:SetAttribute("SpeciesId", species.Id)
+	model:SetAttribute("FishAnimation", species.Animation)
+	model:SetAttribute("FishRarity", species.Rarity)
+	-- Rest data is shared by all three renderers. Joint centers are authored in
+	-- model space, then scaled from these originals rather than incrementally.
+	for index, part in model:GetChildren() do
+		if not part:IsA("BasePart") then continue end
+		part:SetAttribute("FishRestCFrame", part.CFrame)
+		part:SetAttribute("FishRestSize", part.Size)
+		part:SetAttribute("FishBaseColor", part.Color)
+		part:SetAttribute("FishColorIndex", index)
+		if part.Name == "Fin" or part.Name == "Tail" or part.Name == "Tentacle" or part.Name == "TentacleTip"
+			or part:GetAttribute("FishMotionGroup") ~= nil then
+			part:SetAttribute("FinRest", part.CFrame)
+		end
+		local center = part:GetAttribute("FishMotionCenter")
+		if typeof(center) == "Vector3" then part:SetAttribute("FishMotionRestCenter", center) end
+	end
+	model.Parent = parent
+	return model
+end
+
+local function moving(part: BasePart, group: number, center: Vector3)
+	part:SetAttribute("FishMotionGroup", group)
+	part:SetAttribute("FishMotionCenter", center)
+	return part
+end
+
+local function exceptionalFace(model: Model, size: Vector3, highEyes: boolean)
+	for _, side in {-1, 1} do
+		local nx, ny = .44, if highEyes then .58 else .22
+		local frame = skinFrame(size, Vector3.new(side * nx, ny, -math.sqrt(1 - nx*nx - ny*ny)), .004)
+		local white = shape(model, "EyeWhite", Vector3.new(.28, .32, .105), Vector3.zero, Color3.fromRGB(239, 246, 247), false, "Face")
+		white.CFrame = frame
+		local pupil = shape(model, "Pupil", Vector3.new(.13, .19, .058), Vector3.zero, Color3.fromRGB(25, 36, 56), false, "Face")
+		pupil.CFrame = frame * CFrame.new(0, .01, .058)
+		local glint = shape(model, "EyeGlint", Vector3.new(.045, .055, .02), Vector3.zero, Color3.new(1, 1, 1), false, "Face")
+		glint.CFrame = frame * CFrame.new(-.025, .055, .091)
+	end
+	local mouth = shape(model, "Mouth", Vector3.new(.15, .045, .04), Vector3.zero, Color3.fromRGB(38, 42, 68), false, "Face")
+	mouth.CFrame = skinFrame(size, Vector3.new(0, -.12, -math.sqrt(1 - .12*.12)), .008)
+end
+
+local function createVeilfin(parent: Instance, name: string?, species: any): Model
+	local model = Instance.new("Model")
+	model.Name = name or species.Name
+	local bodyColor, finColor = Color3.fromRGB(table.unpack(species.Body)), Color3.fromRGB(table.unpack(species.Fin))
+	local pale = Color3.fromRGB(224, 224, 240)
+	local size = Vector3.new(.98, .84, 1.6)
+	model.PrimaryPart = shape(model, "Body", size, Vector3.zero, bodyColor, false, "Body")
+	shape(model, "Belly", Vector3.new(.70, .23, 1.25), Vector3.new(0, -.26, -.09), pale, false, "Belly")
+	exceptionalFace(model, size, false)
+	-- Each segment and its two trailing membranes share one joint transform.
+	-- Generous overlap keeps the continuous eel body closed through its wave.
+	for index = 1, 5 do
+		local center = Vector3.new(math.sin(index * .4) * .05, math.sin(index * .6) * .02, .55 + index * .47)
+		local width, height = .92 - index * .13, .68 - index * .095
+		moving(shape(model, "VeilSegment", Vector3.new(width, height, .94 - index * .035), center,
+			bodyColor:Lerp(finColor, index * .055), false, "Body"), index, center)
+		for _, side in {-1, 1} do
+			local span = .76 - index * .085
+			local membrane = shape(model, "VeilMembrane", Vector3.new(.065, span, .94),
+				center + Vector3.new(side * (width * .43 + span * .32), -.025, .18), finColor, true, "Fin")
+			-- Keep the wedge's straight inner edge embedded along the segment;
+			-- mirroring that edge made only its distant broad end face the skin.
+			membrane.CFrame *= CFrame.Angles(0, side * -.25, -side * math.pi / 2)
+			moving(membrane, index, center)
+		end
+		local ribbon = shape(model, "VeilSpine", Vector3.new(.07, .34, .78), center + Vector3.new(0, height * .42 + .09, .10), pale, true, "Accent")
+		ribbon.CFrame *= CFrame.Angles(-.23, 0, 0)
+		moving(ribbon, index, center)
+	end
+	for _, side in {-1, 1} do
+		local root = Vector3.new(side * .39, -.03, .22)
+		local fin = shape(model, "VeilHeadFin", Vector3.new(.09, 1, 1.4), Vector3.new(side * .68, -.03, .34), finColor, true, "Fin")
+		fin.CFrame *= CFrame.Angles(0, side * -.28, -side * math.pi / 2)
+		moving(fin, if side == -1 then -1 else -2, root)
+		local tailCenter = Vector3.new(math.sin(2) * .05, math.sin(3) * .02, 2.90)
+		local outward = Vector3.xAxis * side
+		local streamer = shape(model, "VeilStreamer", Vector3.new(.07, .43, .54), Vector3.zero, pale, true, "Accent")
+		streamer.CFrame = CFrame.fromMatrix(tailCenter + Vector3.zAxis * .44 + outward * .10,
+			-Vector3.yAxis * side, -outward, -Vector3.zAxis)
+		moving(streamer, 5, Vector3.new(math.sin(2) * .05, math.sin(3) * .02, 2.90))
+	end
+	local crest = shape(model, "VeilCrest", Vector3.new(.15, .44, .31), Vector3.new(0, .46, -.13), pale, true, "Accent")
+	crest.CFrame *= CFrame.Angles(-.23, 0, 0)
+	return finish(model, parent, species)
+end
+
+local function createEclipse(parent: Instance, name: string?, species: any): Model
+	local model = Instance.new("Model")
+	model.Name = name or species.Name
+	local bodyColor, finColor = Color3.fromRGB(table.unpack(species.Body)), Color3.fromRGB(table.unpack(species.Fin))
+	local pale, ink = Color3.fromRGB(223, 235, 239), Color3.fromRGB(32, 40, 65)
+	local size = Vector3.new(2.2, .52, 2.05)
+	model.PrimaryPart = shape(model, "Body", size, Vector3.zero, bodyColor, false, "Body")
+	shape(model, "Belly", Vector3.new(1.75, .17, 1.61), Vector3.new(0, -.17, -.03), finColor, false, "Belly")
+	exceptionalFace(model, size, true)
+	-- A fitted open crescent runs across the real upper disk, rather than an
+	-- unrelated glowing ring hovering around an ordinary ray.
+	for index = 0, 7 do
+		local a = -.15 * math.pi + index / 8 * math.pi * 1.5
+		local b = -.15 * math.pi + (index + 1) / 8 * math.pi * 1.5
+		local from = Vector3.new(math.cos(a) * .946, .132, math.sin(a) * .8815)
+		local to = Vector3.new(math.cos(b) * .946, .132, math.sin(b) * .8815)
+		local rim = shape(model, "CrescentRim", Vector3.new(.13, .09, (to - from).Magnitude + .05), Vector3.zero, pale, false, "Accent")
+		rim.CFrame = CFrame.lookAt((from + to) * .5, to)
+	end
+	for _, side in {-1, 1} do
+		local center = Vector3.new(side * .72, -.035, .20)
+		local fin = shape(model, "EclipseWing", Vector3.new(.12, 1.30, 2.05), Vector3.new(side * 1.12, -.04, .27), finColor, true, "Fin")
+		fin.CFrame *= CFrame.Angles(0, side * -.34, -side * math.pi / 2)
+		moving(fin, side, center)
+		local vein = shape(model, "EclipseWingVein", Vector3.new(.045, .82, .065), Vector3.zero, ink, false, "Pattern")
+		-- Fit the marking to the triangle's broad region, with a shallow skin
+		-- overlap. An independent world offset left a dark rod outside the fin.
+		vein.CFrame = fin.CFrame * CFrame.new(-side * .055, -.12, .615)
+		moving(vein, side, center)
+	end
+	for index = 1, 3 do
+		local center = Vector3.new(.05 + index * index * .072, -.025, .55 + index * .51)
+		local tail = shape(model, "CometTail", Vector3.new(.37 - index * .075, .20 - index * .03, .94), center,
+			if index == 3 then pale else bodyColor:Lerp(finColor, index * .20), false, if index == 3 then "Accent" else "Body")
+		-- The centreline bends toward +X. Each long axis follows that bend;
+		-- opposite yaw opened visible gaps between the narrow ellipsoids.
+		tail.CFrame *= CFrame.Angles(0, .16 + index * .16, 0)
+		moving(tail, 10, Vector3.new(.18, -.025, 1.03))
+	end
+	local terminal = Vector3.new(.698, -.025, 2.08)
+	local forward = Vector3.new(math.sin(.64), 0, math.cos(.64))
+	local root = terminal + forward * .18
+	for _, side in {-1, 1} do
+		local outward = Vector3.new(forward.Z, 0, -forward.X) * side
+		local streamer = shape(model, "CometStreamer", Vector3.new(.065, .46, .65), Vector3.zero, finColor, true, "Fin")
+		-- A wedge's broad root is its local +Z end. Seat that edge through
+		-- the terminal skin, then point the tapered ends aft and apart.
+		streamer.CFrame = CFrame.fromMatrix(root + outward * .14 + forward * .325,
+			-Vector3.yAxis * side, -outward, -forward)
+		moving(streamer, 10, Vector3.new(.18, -.025, 1.03))
+	end
+	local pearl = shape(model, "CometPearl", Vector3.new(.18, .15, .21), terminal + forward * .42, pale, false, "Accent")
+	moving(pearl, 10, Vector3.new(.18, -.025, 1.03))
+	return finish(model, parent, species)
+end
+
 function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 	local species = Catalog.get(speciesId)
+	if species.Shape == "Veil" then return createVeilfin(parent, name, species) end
+	if species.Shape == "Eclipse" then return createEclipse(parent, name, species) end
 	local bodyColor, finColor = Color3.fromRGB(table.unpack(species.Body)), Color3.fromRGB(table.unpack(species.Fin))
 	local dark = bodyColor:Lerp(finColor, .58):Lerp(Color3.fromRGB(30, 55, 68), .30)
 	local light = bodyColor:Lerp(Color3.fromRGB(255, 246, 221), .65)
@@ -247,17 +395,7 @@ function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 			spot.CFrame=CFrame.new(size*point*.5-Vector3.new(0,.025,0))*CFrame.Angles(0,0,-side*.12)
 		end
 	end
-	-- Immutable rest geometry supports repeatable appearance changes at any pivot.
-	for index, part in model:GetChildren() do
-		if not part:IsA("BasePart") then continue end
-		part:SetAttribute("FishRestCFrame",part.CFrame)
-		part:SetAttribute("FishRestSize",part.Size)
-		part:SetAttribute("FishBaseColor",part.Color)
-		part:SetAttribute("FishColorIndex",index)
-		if part.Name == "Fin" or part.Name == "Tail" or part.Name == "Tentacle" or part.Name == "TentacleTip" then part:SetAttribute("FinRest",part.CFrame) end
-	end
-	model.Parent = parent
-	return model
+	return finish(model, parent, species)
 end
 
 function Fish.applyAppearance(model: Model, variant: string?, weightKg: number?, displayScale: number?)
@@ -269,7 +407,10 @@ function Fish.applyAppearance(model: Model, variant: string?, weightKg: number?,
 	end
 	-- Tank models use a bounded presentation scale; the recorded weight stays real.
 	if type(displayScale) == "number" and displayScale == displayScale and displayScale > 0 and displayScale < math.huge then
-		scale *= math.clamp(displayScale, 0.5, 1)
+		-- Long/asymmetric tails need slightly smaller display envelopes through
+		-- the outer slots' full yaw/wave. Catches keep authored proportions.
+		local maximum = if species.Shape == "Veil" then .77 elseif species.Shape == "Eclipse" then .80 else 1
+		scale *= math.min(math.clamp(displayScale, 0.5, 1), maximum)
 	end
 	-- Keep the same relationship between skin, pale accents and dark markings in
 	-- every variant. Per-part rainbow cycling used to erase stripes and fin edges.
@@ -286,6 +427,8 @@ function Fish.applyAppearance(model: Model, variant: string?, weightKg: number?,
 		local scaledRest = CFrame.new(rest.Position * scale) * (rest - rest.Position)
 		part.Size, part.CFrame, part.Color = restSize * scale, pivot * scaledRest, color
 		if part:GetAttribute("FinRest") then part:SetAttribute("FinRest", scaledRest) end
+		local center = part:GetAttribute("FishMotionRestCenter")
+		if typeof(center) == "Vector3" then part:SetAttribute("FishMotionCenter", center * scale) end
 		local role = part:GetAttribute("FishColorRole")
 		if role == "Face" or part.Name == "EyeWhite" or part.Name == "Pupil" or part.Name == "EyeGlint" or part.Name == "Mouth" then continue end
 		if variant == "Golden" then
@@ -305,17 +448,42 @@ function Fish.applyAppearance(model: Model, variant: string?, weightKg: number?,
 	model:SetAttribute("Variant", variant or "Normal")
 end
 
+local animationProfiles: { [string]: { number } } = {
+	Paddle = { 2.3, .12, 3.8, .12 }, Dart = { 7.2, .12, 8.4, .23 },
+	Flick = { 6.3, .18, 7.6, .21 }, Hover = { 2.7, .13, 3.6, .11 },
+	Glide = { 1.9, .15, 2.8, .10 }, Pulse = { 3.3, .20, 4.1, .17 },
+	Flutter = { 5.8, .25, 4.9, .12 }, Flow = { 2.8, .14, 4.2, .24 },
+	Skip = { 6.5, .22, 7.0, .13 }, Heavy = { 1.6, .08, 1.9, .11 },
+}
+
 function Fish.animate(model: Model, time: number)
 	local pivot = model:GetPivot()
+	local profileName = model:GetAttribute("FishAnimation")
+	local profile = animationProfiles[profileName :: string] or animationProfiles.Paddle
 	for _, child in model:GetChildren() do
 		if not child:IsA("BasePart") then continue end
 		local rest = child:GetAttribute("FinRest")
 		local side = child:GetAttribute("Side")
+		local group, center = child:GetAttribute("FishMotionGroup"), child:GetAttribute("FishMotionCenter")
+		if typeof(rest) == "CFrame" and typeof(group) == "number" and typeof(center) == "Vector3" then
+			local wave: number
+			local motion: CFrame
+			if profileName == "Undulate" then
+				wave = math.sin(time * 2.4 - group * .65) * (if group > 0 then .018 + group * .014 else .09)
+				motion = CFrame.Angles(wave * .2, wave, wave * .4)
+			else
+				wave = math.sin(time * 1.8 + group * .27)
+				motion = if group == 10 then CFrame.Angles(0, wave * .065, 0) else CFrame.Angles(wave * .025, 0, wave * .11 * group)
+			end
+			child.CFrame = pivot * CFrame.new(center) * motion * CFrame.new(-center) * rest
+			continue
+		end
 		if typeof(rest) ~= "CFrame" or typeof(side) ~= "number" then continue end
 		if child.Name == "Fin" then
-			child.CFrame = pivot * rest * CFrame.Angles(0, 0, math.sin(time * 5 + side * 0.3) * 0.18 * side)
+			child.CFrame = pivot * rest * CFrame.Angles(0, 0, math.sin(time * profile[1] + side * .3) * profile[2] * side)
 		elseif child.Name == "Tail" then
-			child.CFrame = pivot * rest * CFrame.Angles(0, math.sin(time * 6) * 0.17, 0)
+			local beat = math.sin(time * profile[3]) * profile[4]
+			child.CFrame = pivot * rest * (if profileName == "Heavy" then CFrame.Angles(beat, 0, 0) else CFrame.Angles(0, beat, 0))
 		elseif child.Name == "Tentacle" or child.Name == "TentacleTip" then
 			child.CFrame = pivot * rest * CFrame.Angles(math.sin(time * 3 + side) * 0.14, 0, math.cos(time * 3 + side) * 0.1)
 		end

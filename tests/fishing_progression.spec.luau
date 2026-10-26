@@ -62,7 +62,9 @@ test("upgrades unlock species and bounded duplicates guarantee discovery", funct
 	assert(progression.upgrade(p).success and p.level == 2)
 	for _ = 1, #Catalog.Species * 3 do progression.catch(p, "Normal") end
 	assert(p.best.aurorafin and p.best.coralcrown and not p.best.crownwhale)
-	assert(progression.snapshot(p).species == #Catalog.Species - 1)
+	local unlockedAtNimbus = 0
+	for _, species in Catalog.Species do if species.Level <= 2 then unlockedAtNimbus += 1 end end
+	assert(progression.snapshot(p).species == unlockedAtNimbus)
 end)
 
 test("better grades replace rather than accumulate collection points", function()
@@ -209,8 +211,8 @@ test("loaded profiles restore currency, goals, grades and catches without aliasi
 	assert(assert(e:snapshot(1)).profile.best.pufflet == 1)
 end)
 
-test("every free island has three distinct species and an available starter fish", function()
-	assert(#Catalog.Species == 15 and #Catalog.Zones == 5)
+test("every free island has a distinct species pool and an available starter fish", function()
+	assert(#Catalog.Species == 17 and #Catalog.Zones == 5)
 	local ids = {}
 	for _, species in Catalog.Species do
 		assert(not ids[species.Id] and species.WeightMin > 0 and species.WeightMax >= species.WeightMin)
@@ -221,7 +223,7 @@ test("every free island has three distinct species and an available starter fish
 		for _, species in Catalog.Species do
 			if species.Zone == zone.Id then count += 1; if species.Level == 0 then starters += 1 end end
 		end
-		assert(count == 3 and starters >= 1)
+		assert(count >= 3 and starters >= 1)
 	end
 end)
 
@@ -380,6 +382,61 @@ test("zone collection progress uses actual discoveries and earned coins stay cap
 	p.coins = 1000000000 - 1
 	progression.catch(p, "Brilliant", "harbor")
 	assert(p.coins == 1000000000 and saves.validate(p))
+end)
+
+test("preparing a fish never awards progress or consumes discovery protection", function()
+	local p = firstThree()
+	p.level, p.zoneDuplicates.forest = 3, 2
+	local before = progression.copy(p)
+	local candidate = progression.prepare(p, "forest")
+	assert(candidate.Zone == "forest" and candidate.Id == "moonray")
+	assert(p.coins == before.coins and p.catches == before.catches and p.goalIndex == before.goalIndex)
+	assert(p.zoneDuplicates.forest == 2 and not p.best.moonray and not p.records.moonray)
+	assert(table.concat(p.display, ",") == table.concat(before.display, ","))
+end)
+
+test("a reserved server species is rewarded without rolling a replacement", function()
+	local p = firstThree(); p.level = 3
+	local result = progression.catch(p, "Fine", "forest", "veilfin")
+	assert(result.speciesId == "veilfin" and result.rarity == "Mythical" and p.best.veilfin == 2)
+	assert(result.weightKg == Catalog.get("veilfin").WeightMin and saves.validate(p))
+end)
+
+test("invalid, locked and wrong-pond reservations cannot change rewards", function()
+	local p = firstThree()
+	for _, entry in { {"forged", "harbor"}, {"crownwhale", "summit"}, {"pufflet", "forest"}, {"pufflet", "forged"} } do
+		local before = progression.copy(p)
+		assert(not pcall(function() progression.catch(p, "Brilliant", entry[2], entry[1]) end))
+		assert(p.coins == before.coins and p.catches == before.catches and p.goalIndex == before.goalIndex)
+		assert(progression.snapshot(p).species == 3)
+	end
+end)
+
+test("Mythical and Secret catches are eligible through weights, never forced by pity", function()
+	local value = 0
+	local rolls = Progression.new(Catalog, function() return value end)
+	local p = rolls.create(); p.level, p.catches, p.duplicateCount = 3, 30, 99
+	for _, species in Catalog.Species do if species.DiscoveryProtection then p.best[species.Id] = 1 end end
+	p.zoneDuplicates.forest, p.zoneDuplicates.summit = 99, 99
+	assert(rolls.prepare(p, "forest").Id ~= "veilfin")
+	assert(rolls.prepare(p, "summit").Id ~= "eclipse")
+	value = .999999
+	assert(rolls.prepare(p, "forest").Id == "veilfin")
+	assert(rolls.prepare(p, "summit").Id == "eclipse")
+	assert(not p.best.veilfin and not p.best.eclipse and p.catches == 30)
+end)
+
+test("existing completed milestone records receive only the appended journal goal", function()
+	local p = progression.create(); p.level, p.catches, p.goalIndex = 3, 30, 11
+	for _, species in Catalog.Species do if species.DiscoveryProtection then p.best[species.Id] = 1 end end
+	local oldCoins = p.coins
+	assert(progression.snapshot(p).goal.target == #Catalog.Species and progression.snapshot(p).goal.progress == 15)
+	local veilfin = progression.catch(p, "Fine", "forest", "veilfin")
+	assert(veilfin.goalBonus == 0 and p.goalIndex == 11)
+	local eclipse = progression.catch(p, "Fine", "summit", "eclipse")
+	assert(eclipse.goalBonus == 75 and p.goalIndex == 12)
+	assert(p.coins == oldCoins + veilfin.coins + eclipse.coins + 75 and saves.validate(p))
+	assert(progression.catch(p, "Normal", "harbor").goalBonus == 0)
 end)
 
 print(string.format("%d progression/save tests passed; 0 skipped", passed))

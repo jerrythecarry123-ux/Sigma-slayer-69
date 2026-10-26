@@ -16,6 +16,23 @@ function Rules.centerFor(attemptId: number): number
 	return centers[(attemptId - 1) % #centers + 1]
 end
 
+-- Server and client evaluate the same modest, predictable fish resistance.
+-- Metadata contains no fish identity and never supplies a client timestamp.
+function Rules.centerAt(packet: any, now: number): number
+	local center = packet.timingCenter or 0.68
+	local motion = packet.timingMotion
+	if motion and packet.chargeAt then
+		local elapsed = math.max(0, now - packet.chargeAt)
+		center += math.sin(elapsed * motion.speed + motion.phase) * motion.amplitude
+	end
+	-- The complete Fine band stays inside the catchable section of the track.
+	return math.clamp(center, 0.45, 0.79)
+end
+
+function Rules.progressAt(packet: any, now: number): number
+	return math.clamp((now - (packet.chargeAt or now)) / (packet.duration or 2.8), 0, 1)
+end
+
 function Rules.qualityAt(progress: number, center: number?): string?
 	if progress ~= progress or progress < Rules.NormalMin or progress > Rules.NormalMax then
 		return nil

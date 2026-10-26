@@ -100,11 +100,34 @@ function Audio.new()
 			if generation == rewardGeneration then ambience(if reeling then 0.006 else 0.018) end
 		end)
 	end
+	local function setEnabled(enabled: boolean)
+		if muted == not enabled then return end
+		muted = not enabled
+		group.Volume = if muted then 0 else 0.75
+		-- Muting also invalidates scheduled notes. Turning sound back on must not
+		-- replay the tail of an old reward or a still-alive one-shot voice.
+		rewardGeneration += 1
+		melodyUntil = 0
+		for _, voice in voices do voice:Destroy() end
+		table.clear(voices)
+		ambience(if reeling then 0.006 else 0.018)
+	end
 	return {
 		play = play, setReeling = setReeling,
+		setEnabled = setEnabled,
+		isEnabled = function(): boolean return not muted end,
 		catch = function(quality: string, rarity: string?, _discovery: boolean?)
-			local pitch = if rarity == "Epic" then 1.08 elseif quality == "Brilliant" then 1 else 0.88
-			phrase({ pitch, pitch * 1.25 }, 0.36)
+			-- Distinct, restrained phrases share the same shipped chime. They do
+			-- not depend on unlicensed uploads or louder high-rarity samples.
+			if rarity == "Secret" then phrase({ 0.74, 0.99, 1.32 }, 0.30)
+			elseif rarity == "Mythical" then phrase({ 0.82, 1.03, 1.38 }, 0.30)
+			elseif rarity == "Legendary" then phrase({ 0.88, 1.11, 1.32 }, 0.31)
+			elseif rarity == "Epic" then phrase({ 0.94, 1.18, 1.40 }, 0.30)
+			elseif rarity == "Rare" then phrase({ 0.94, 1.25 }, 0.30)
+			else
+				local pitch = if quality == "Brilliant" then 1 else 0.88
+				phrase({ pitch, pitch * 1.25 }, 0.28)
+			end
 		end,
 		ui = function(success: boolean?)
 			if os.clock() - lastUi < 0.14 then return end
@@ -118,8 +141,7 @@ function Audio.new()
 		end,
 		upgrade = function() phrase({ 0.82, 1, 1.25 }, 0.34) end,
 		toggle = function(): boolean
-			muted = not muted
-			group.Volume = if muted then 0 else 0.75
+			setEnabled(muted)
 			return muted
 		end,
 	}

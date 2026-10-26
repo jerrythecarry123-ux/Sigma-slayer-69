@@ -260,4 +260,120 @@ test("aquarium commands cannot display unowned fish or buy unaffordable themes",
 	assert(e:command(1, "Display", "forged", .6, true) == nil)
 end)
 
+local function resistanceSetup()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local source = table.clone(Catalog)
+	local species = table.clone(Catalog.get("pufflet"))
+	species.Difficulty, species.Behavior = .6, "Surge"
+	source.Species = { species }
+	local progression = Progression.new(source, function() return .5 end)
+	local profile = progression.create()
+	profile.catches, profile.best.pufflet, profile.level = 5, 1, 0
+	local engine = Engine.new(Config, Rules, progression, function() return .75 end)
+	engine:addPlayer(1, 0, profile)
+	return engine, progression, source
+end
+
+test("cast flight and seeded bite delay are separate, bounded server timings", function()
+	for _, value in { 0, .5, 1, 0 / 0, math.huge } do
+		local e = Engine.new(Config, Rules, nil, function() return value end)
+		e:addPlayer(1, 10)
+		local a = assert(e:command(1, "Start", nil, 10, true))
+		assert(a.castAt == 10 and a.castDuration == Config.CastDuration)
+		assert(a.readyAt >= 10 + Config.PreparationTime + Config.BiteDelayMin)
+		assert(a.readyAt <= 10 + Config.PreparationTime + Config.BiteDelayMax)
+		assert(a.castAt + a.castDuration < a.readyAt)
+	end
+end)
+
+test("difficult fish have bounded resistance evaluated identically by server rules", function()
+	local e = resistanceSetup()
+	local a = charge(e, 1, 0)
+	assert(a.difficulty == .6 and a.behavior == "Surge" and a.duration < Config.ChargeDuration)
+	assert(a.timingMotion and a.timingMotion.amplitude <= .0421)
+	local releaseAt = a.chargeAt
+	local bestDistance = math.huge
+	for index = 0, 10000 do
+		local time = a.chargeAt + a.duration * index / 10000
+		local center = Rules.centerAt(a, time)
+		assert(center - .2 >= Rules.NormalMin and center + .16 <= Rules.NormalMax)
+		local distance = math.abs(Rules.progressAt(a, time) - center)
+		if distance < bestDistance then bestDistance, releaseAt = distance, time end
+	end
+	local result = assert(e:command(1, "Release", a.attemptId, releaseAt, true))
+	assert(result.result.quality == "Brilliant" and result.result.speciesId == "pufflet")
+end)
+
+test("first three successful catches retain the static beginner timing window", function()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local source = table.clone(Catalog)
+	local species = table.clone(Catalog.get("pufflet")); species.Difficulty = .6
+	source.Species = { species }
+	local progression = Progression.new(source, function() return .5 end)
+	local e = Engine.new(Config, Rules, progression)
+	e:addPlayer(1, 0)
+	local time = 0
+	for _ = 1, 3 do
+		local a = charge(e, 1, time)
+		assert(a.duration == Config.ChargeDuration and a.difficulty == 0 and a.timingMotion == nil)
+		local result = assert(e:command(1, "Release", a.attemptId, a.chargeAt + a.duration * a.timingCenter, true))
+		time = result.nextStart
+	end
+	assert(charge(e, 1, time).timingMotion ~= nil)
+end)
+
+test("private fish reservation survives cancel, miss, travel, timeout and rod upgrades", function()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local selections = 0
+	local progression = Progression.new(Catalog, function() selections += 1; return .99 end)
+	local p = progression.create(); p.level, p.catches, p.coins = 0, 10, 1000
+	for _, species in Catalog.Species do if species.Level == 0 then p.best[species.Id] = 1 end end
+	local e = Engine.new(Config, Rules, progression)
+	e:addPlayer(1, 0, p)
+	local first = assert(e:command(1, "Start", nil, 0, true, "harbor"))
+	assert(selections == 1 and first.reservedId == nil and first.speciesId == nil and first.result == nil)
+	assert(first.profile.catches == 10 and first.profile.coins == 1000)
+	local ended = assert(e:command(1, "Cancel", first.attemptId, .1, true))
+	assert(e:command(1, "Upgrade", 0, ended.nextStart, true).purchase.success)
+	local a = assert(e:command(1, "Start", nil, 2, true, "harbor"))
+	local reel = assert(e:command(1, "Hold", a.attemptId, a.readyAt, true))
+	ended = assert(e:command(1, "Release", a.attemptId, reel.chargeAt, true))
+	assert(ended.result == nil and selections == 1)
+	local elsewhere = assert(e:command(1, "Start", nil, ended.nextStart, true, "blossom"))
+	assert(selections == 2)
+	ended = assert(e:tick(1, elsewhere.expiresAt + .1, false))
+	local retried = assert(e:command(1, "Start", nil, ended.nextStart, true, "harbor"))
+	assert(selections == 2, "switching ponds or upgrading rerolled the pending fish")
+	reel = assert(e:command(1, "Hold", retried.attemptId, retried.readyAt, true))
+	local result = assert(e:command(1, "Release", reel.attemptId, reel.chargeAt + reel.duration * Rules.centerAt(reel, reel.chargeAt + reel.duration * .6), true))
+	assert(result.result.speciesId == "emberfin" and result.profile.catches == 11)
+	-- Reward rolls occur only now; a later successful cast may select afresh.
+	local before = selections
+	assert(e:command(1, "Start", nil, result.nextStart, true, "harbor"))
+	assert(selections == before + 1)
+end)
+
+test("snapshots cannot mutate resistance or reveal the private reserved fish", function()
+	local e = resistanceSetup()
+	local a = charge(e, 1, 0)
+	assert(a.reservedId == nil and a.speciesId == nil)
+	local amplitude = a.timingMotion.amplitude
+	a.timingMotion.amplitude, a.difficulty, a.duration = 1000, 1000, .01
+	local stored = assert(e:snapshot(1))
+	assert(stored.timingMotion.amplitude == amplitude and stored.difficulty == .6 and stored.duration > 2)
+end)
+
+test("Sync and stale releases never select or reward an extra fish", function()
+	local e = resistanceSetup()
+	local a = charge(e, 1, 0)
+	local cancelled = assert(e:command(1, "Cancel", a.attemptId, a.chargeAt + .1, true))
+	assert(e:command(1, "Release", a.attemptId, a.chargeAt + 1.8, true) == nil)
+	local sync = assert(e:command(1, "Sync", nil, cancelled.nextStart, true))
+	assert(sync.phase == "Idle" and sync.catches == 5 and sync.profile.catches == 5)
+	assert(sync.result == nil and sync.reservedId == nil and sync.timingMotion == nil)
+end)
+
 print(string.format("%d tests passed; 0 skipped", passed))

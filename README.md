@@ -1,10 +1,58 @@
-# Cloud Anglers — v1.6
+# Cloud Anglers — v1.7
 
-[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.6.rbxlx)
+[Download the Roblox Studio file on GitHub](https://github.com/jerrythecarry123-ux/Sigma-slayer-69/blob/main/artifacts/Cloud-Anglers-v1.7.rbxlx)
 
 Choose **Download raw file**, open the `.rbxlx` in Roblox Studio and press **Play**.
 The world is generated at Play; an empty Edit viewport before Play is expected.
 No plugins, model imports, API keys or animation uploads are needed.
+
+## New in v1.7 — fish behavior and exceptional catches
+
+The existing world now supports a more deliberate fishing loop. A server-owned
+fish is bound before the bite. Its behavior changes anticipation, rod response,
+reeling duration and a modestly drifting gold target. The first three successful
+catches retain static, forgiving timing. Misses and cancelled casts keep the same
+private fish choice in that pond until a successful catch; no reward is granted
+before a valid release. Reservations last for the server session, not across
+rejoins. See [the fishing protocol](docs/fishing-loop.md) for the actual formulas
+and latency limits.
+
+All seven rarity tiers have shared presentation data: **Common, Uncommon, Rare,
+Epic, Legendary, Mythical and Secret**. The original fifteen fish keep their IDs,
+rarities and values. **Veilfin** adds a flowing segmented eel with paired veil fins
+to Evergreen Reach; **Eclipse** adds a crescent-backed disk with an asymmetric
+comet tail to Starfall Lookout. Both need the Aurora Rod. They use weighted
+selection and do not receive the original collection's duplicate protection.
+[Offline geometry review of the exceptional fish](docs/images/fish-silhouettes-v1.7.png)
+shows the actual production shapes and colors; it does not reproduce Roblox
+shaders or the in-game interface.
+
+Species now have explicit behavior, difficulty, procedural model/animation and
+presentation references. These are real generated models, not unconfigured asset
+IDs. Every species remains within the 50-Part cap.
+
+Epic and higher catches receive short, skippable 3D portrait sequences, with
+species movement and restrained rarity accents. Their camera belongs exclusively
+to a ViewportFrame; your world camera and movement remain yours. First reveals
+last 1.9–3.5 seconds, repeats at most 1.5 seconds, and reduced effects use a still
+0.85-second presentation. Skip, death, travel, menus and replacement characters
+cancel or complete without duplicating rewards or reopening stale cards.
+
+**SETTINGS** provides session sound and reduced-effects controls. Roblox Reduce
+Motion is also respected. Journal, settings and catch cards gain keyboard/gamepad
+close and focus handling; short landscape screens use a horizontal catch card
+with physical touch targets of at least 44 pixels at the checked sizes. The same
+six shipped sounds receive quieter, distinct tier phrases, bounded voices and
+mute cancellation. No audio uploads or additional clip library is required.
+
+The server save namespace, old milestones, coins, rods, displays, lighting and
+five-island layout remain compatible. A final 17-species goal is appended after
+the ten original milestones. Native rendering, animation feel, audio and real
+phone/iPad performance still require the Studio/client checklist.
+
+The long-term roadmap and honest research/validation gaps are saved in
+[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), [PROGRESS.md](PROGRESS.md),
+[NEXT_STEPS.md](NEXT_STEPS.md) and [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 ## New in v1.6 — surface textures and fitted world details
 
@@ -195,13 +243,13 @@ and color only; they do not emulate Roblox material texture maps or normal maps.
 
 1. Start beside the water. Tap **CAST LINE**, or press E / gamepad RT.
 2. When the bobber bites, hold the button, then release inside the colored zone.
-   Gold earns Brilliant quality. The target changes between casts: watch the meter.
+   Gold earns Brilliant quality. The target changes between casts and may drift with fish resistance: watch the meter.
 3. Your first three species automatically fill your personal aquarium. Open
    **MY AQUARIUM** to pick three favorites, then **VISIT MY TANK** to see them.
 4. After three different fish, buy the Breeze Rod through **JOURNAL → Rod workshop**
    or the dockside upgrade stand. The next goal always appears in the HUD.
 5. Step into a **POND PORTAL** and choose another island. Each pond has its own
-   three species, with starter fish available on every island. Islands are free.
+   population, with starter fish available on every island. Islands are free.
 
 Fine and Brilliant catches build a skill chain with a bounded coin bonus. Failed
 or cancelled attempts clear that chain. Species have different weight ranges;
@@ -210,19 +258,21 @@ first three catches have normal appearances so the introduction teaches real
 progress. Afterward, Golden is 2.5% and Prismatic is 0.5%, from gameplay only.
 A missed fish never removes money or collected fish.
 
-## Fifteen fish, five habitats
+## Seventeen fish, five habitats
 
 | Island | Its collection |
 | --- | --- |
 | Sundrift Harbor | Pufflet, Mintfin, Emberfin |
 | Petalwind Grove | Petalperch, Ribbon Koi, Starwhisker (Breeze Rod) |
-| Evergreen Reach | Mossback, Pinepike, Moonray (Breeze Rod) |
+| Evergreen Reach | Mossback, Pinepike, Moonray (Breeze Rod), Veilfin (Aurora Rod) |
 | Tideglass Cove | Bubble Squid, Sunskipper, Coralcrown (Nimbus Rod) |
-| Starfall Lookout | Cloudmoth, Aurorafin (Nimbus Rod), Crownwhale (Aurora Rod) |
+| Starfall Lookout | Cloudmoth, Aurorafin (Nimbus Rod), Crownwhale and Eclipse (Aurora Rod) |
 
 The journal shows habitats, rod requirements, best grades and weight records.
-Discovery protection guarantees an unseen eligible fish after at most two
-consecutive duplicates while eligible undiscovered fish remain in that pond.
+Discovery protection guarantees an unseen eligible original species after at most
+two consecutive duplicates while protected undiscovered fish remain in that pond.
+Veilfin and Eclipse are weighted-only discoveries; the journal does not promise
+them within three catches.
 Collection points reward better grades rather than duplicate grinding. Other
 players' collections appear on the leaderboard; there is no PvP.
 
@@ -279,18 +329,27 @@ see [return-play design](docs/discovery-and-return-play.md).
 
 ## Validation and limits
 
-105 automated tests cover fishing, locations, progression/saving, responsive layout,
-travel authorization and place export. All 34 production modules/scripts and six
-Luau suites compile. Separate checks execute unchanged production code for:
+122 automated tests cover catalog data, fishing, locations, progression/saving,
+responsive layout, travel authorization and place export. All 36 production
+modules/scripts and seven Luau suites compile. Separate checks execute unchanged production code for:
 
 - 29 portal/gallery server scenarios: authorization, streaming failure, concurrent
   requests, character replacement, departure and movement during loading.
 - Dark transitions, control restoration, stale callbacks, gamepad focus and
   timeouts with UI/event/tween doubles.
-- All 15 fish: distinct geometry, at most 35 Parts each, readable variant patterns,
+- All 17 fish: distinct geometry, at most 35 Parts each, readable variant patterns,
   repeatable appearances and animation at distant pivots.
+- Actual fishing service: private fish reservations, public timing metadata,
+  single authoritative rewards, late observers and movement/death/travel guards.
+- Actual fishing controller: 16 input/protocol scenarios including release before
+  Hold acknowledgement, lost responses, system/local preferences, active-device
+  hints and stale rewards after interruption.
+- Actual audio: nine event cases covering voice caps, loop ownership, mute/unmute,
+  cancelled notes and bounded tier phrases. These do not judge native sound quality.
+- Actual catch/presentation modules: private-camera framing, skip/repeat/reduced
+  paths, death/travel/resize cleanup, rod/line motion and transient ownership.
 - Actual fishing UI: catalog totals, every timing target, region changes, accurate
-  rewards, cancelled reveals and repeat-catch dismissal.
+  rewards, cancelled reveals, settings, gamepad focus and touch-target arithmetic.
 - Player aquariums: independent owners, profile caching, theme changes, plot reuse,
   dynamic rows, supported arrivals, swim bounds, local animation and streaming rebind.
 - Existing residents: 1,503 finite animation steps, nearby-character reactions,
@@ -337,7 +396,7 @@ python tools/package_release.py
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Outputs: `artifacts/Cloud-Anglers-v1.6.rbxlx` and `artifacts/Cloud-Anglers-v1.6.zip`.
+Outputs: `artifacts/Cloud-Anglers-v1.7.rbxlx` and `artifacts/Cloud-Anglers-v1.7.zip`.
 With the official Luau CLI, run every `tests/*.luau` suite, then:
 
 ```powershell
@@ -345,6 +404,11 @@ python tools/check_startup.py --luau /path/to/luau
 python tools/check_travel.py --luau /path/to/luau
 python tools/check_portal_interface.py --luau /path/to/luau
 python tools/check_fishing_interface.py --luau /path/to/luau
+python tools/check_fishing_service.py --luau /path/to/luau
+python tools/check_fishing_client.py --luau /path/to/luau
+python tools/check_fishing_audio.py --luau /path/to/luau
+python tools/check_catch_cinematic.py --luau /path/to/luau
+python tools/check_fishing_presentation.py --luau /path/to/luau
 python tools/check_fish_models.py --luau /path/to/luau
 python tools/check_aquarium.py --luau /path/to/luau
 python tools/check_residents.py --luau /path/to/luau

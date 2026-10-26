@@ -19,6 +19,40 @@ local function near(a,b) return (a-b).Magnitude<.00001 end
 local function sameFrame(a,b) return near(a.Position,b.Position) and near(a.RightVector,b.RightVector) and near(a.UpVector,b.UpVector) end
 local function sameColor(a,b) return math.abs(a.R-b.R)<.00001 and math.abs(a.G-b.G)<.00001 and math.abs(a.B-b.B)<.00001 end
 local function luminance(color) return color.R*.2126+color.G*.7152+color.B*.0722 end
+local motionSignatures={}
+local jointSamples,bodyJoins,exceptionalContacts,veinFootprints=0,0,0,0
+local function insideEllipsoid(part,point)
+ local localPoint=part.CFrame:PointToObjectSpace(point)
+ local p=Vector3.new(localPoint.X*2/part.Size.X,localPoint.Y*2/part.Size.Y,localPoint.Z*2/part.Size.Z)
+ return p:Dot(p)<.999
+end
+local function insideShape(part,point)
+ if not part:IsA('WedgePart') then return insideEllipsoid(part,point) end
+ local localPoint=part.CFrame:PointToObjectSpace(point)
+ local p=Vector3.new(localPoint.X/part.Size.X,localPoint.Y/part.Size.Y,localPoint.Z/part.Size.Z)
+ -- Native wedges have their full-height end at local +Z and a sloping Y=Z face.
+ return math.abs(p.X)<.499 and p.Y>-.499 and p.Z<.499 and p.Z>-.499 and p.Y<p.Z-.001
+end
+local function joined(a,b)
+ for sample=0,300 do
+  local point=a.Position:Lerp(b.Position,sample/300)
+  if insideShape(a,point) and insideShape(b,point) then return true end
+ end
+ -- A wedge's box centre is on its diagonal face, so a centre-to-centre ray
+ -- alone can miss a genuine root contact. Search its real triangular volume.
+ for _,candidate in {a,b} do
+  if not candidate:IsA('WedgePart') then continue end
+  for zStep=0,24 do
+   local z=-.48+zStep*.96/24
+   for yStep=0,24 do
+    local y=-.48+(z+.478)*yStep/24
+    local point=candidate.CFrame*(Vector3.new(0,y,z)*candidate.Size)
+    if insideShape(a,point) and insideShape(b,point) then return true end
+   end
+  end
+ end
+ return false
+end
 for _,species in modules.FishCatalog.Species do
  local fish=modules.FishModel.create(workspace,nil,species.Id)
  local faceColors={}
@@ -65,18 +99,99 @@ for _,species in modules.FishCatalog.Species do
   end
  end
  local lo,hi=Vector3.new(math.huge,math.huge,math.huge),Vector3.new(-math.huge,-math.huge,-math.huge)
+ local groups,relative={},{}
+ for _,p in fish:GetChildren() do
+  local group=p:GetAttribute('FishMotionGroup')
+  if group~=nil then
+   groups[group]=groups[group] or {};table.insert(groups[group],p)
+  end
+ end
+ for group,parts in groups do
+  relative[group]={}
+  for _,p in parts do relative[group][p]=parts[1].CFrame:Inverse()*p.CFrame end
+ end
+ local firstMotion,changed=false,false
  for frame=0,120 do
   modules.FishModel.animate(fish,frame*.05)
+  for group,parts in groups do
+   for _,p in parts do
+    assert(sameFrame(parts[1].CFrame:Inverse()*p.CFrame,relative[group][p]),'a fitted membrane left its animated segment')
+    jointSamples+=1
+   end
+  end
+  if species.Id=='veilfin' then
+   local previous=fish.PrimaryPart
+   local segments={}
+   for _,p in fish:GetChildren() do
+    if p.Name=='VeilSegment' then
+     local shared=false
+     for sample=0,100 do
+      local point=previous.Position:Lerp(p.Position,sample/100)
+      if insideEllipsoid(previous,point) and insideEllipsoid(p,point) then shared=true;break end
+     end
+     assert(shared,'Veilfin has an open body joint during its wave')
+     bodyJoins+=1;previous=p;segments[p:GetAttribute('FishMotionGroup')]=p
+    end
+   end
+   for _,p in fish:GetChildren() do
+    local support=nil
+    if p.Name=='VeilMembrane' or p.Name=='VeilSpine' then support=segments[p:GetAttribute('FishMotionGroup')]
+    elseif p.Name=='VeilStreamer' then support=previous
+    elseif p.Name=='VeilHeadFin' or p.Name=='VeilCrest' then support=fish.PrimaryPart end
+    if support then
+     assert(joined(support,p),'Veilfin detail is detached from its actual support skin: '..p.Name)
+     exceptionalContacts+=1
+    end
+   end
+  elseif species.Id=='eclipse' then
+   local previous=fish.PrimaryPart
+   local wings={}
+   for _,p in fish:GetChildren() do
+    if p.Name=='EclipseWing' then wings[p:GetAttribute('FishMotionGroup')]=p end
+    if p.Name=='CometTail' then
+     assert(joined(previous,p),'Eclipse has an open ellipsoid tail joint')
+     exceptionalContacts+=1;previous=p
+    end
+   end
+   for _,p in fish:GetChildren() do
+    if p.Name=='CometStreamer' or p.Name=='CometPearl' then
+     assert(joined(previous,p),'Eclipse terminal detail is detached from the actual tail skin: '..p.Name)
+     exceptionalContacts+=1
+    elseif p.Name=='CrescentRim' or p.Name=='EclipseWing' then
+     assert(joined(fish.PrimaryPart,p),'Eclipse fitted detail is detached from actual body skin: '..p.Name)
+     exceptionalContacts+=1
+    elseif p.Name=='EclipseWingVein' then
+     local wing=wings[p:GetAttribute('FishMotionGroup')]
+     assert(joined(wing,p),'Eclipse vein is detached from its actual wing skin')
+     for _,y in {-1,1} do for _,z in {-1,1} do
+      local q=wing.CFrame:PointToObjectSpace(p.CFrame*Vector3.new(0,y*p.Size.Y*.5,z*p.Size.Z*.5))
+      assert(q.Y>-.5*wing.Size.Y and q.Z>-.5*wing.Size.Z and q.Z<.5*wing.Size.Z
+       and q.Y/wing.Size.Y<q.Z/wing.Size.Z,'Eclipse vein footprint overhangs the actual triangular wing')
+      veinFootprints+=1
+     end end
+     exceptionalContacts+=1
+    end
+   end
+  end
+  local motion={}
   for _,p in fish:GetChildren() do
    assert((p.Position-pivot.Position).Magnitude<7,"fish joint escaped at distant pivot")
    assert(p.Size.X>0 and p.Size.Y>0 and p.Size.Z>0,"fish size invalid")
+   if p:GetAttribute('FinRest') then
+    local f=pivot:Inverse()*p.CFrame
+    table.insert(motion,string.format('%.4f/%.4f/%.4f/%.4f/%.4f',f.Position.X,f.Position.Y,f.Position.Z,f.UpVector.X,f.LookVector.X))
+   end
    for _,x in {-1,1} do for _,y in {-1,1} do for _,z in {-1,1} do
     local v=pivot:PointToObjectSpace(p.CFrame*(p.Size*Vector3.new(x,y,z)*.5))
     lo=Vector3.new(math.min(lo.X,v.X),math.min(lo.Y,v.Y),math.min(lo.Z,v.Z))
     hi=Vector3.new(math.max(hi.X,v.X),math.max(hi.Y,v.Y),math.max(hi.Z,v.Z))
    end end end
   end
+  local signature=table.concat(motion,';')
+  if frame==0 then firstMotion=signature else changed=changed or signature~=firstMotion end
+  if frame==39 then motionSignatures[species.Id]=signature end
  end
+ assert(changed,'a production species has no animated parts')
  local pupil=fish:FindFirstChild("Pupil")
  assert(pupil.Color.R<.2 and pupil.Color.G<.3,"variant made eyes unreadable")
  local parts=#fish:GetChildren()
@@ -85,16 +200,20 @@ for _,species in modules.FishCatalog.Species do
  print(string.format("%-13s %2d parts; maximum-weight animated box %.2f x %.2f x %.2f",species.Id,parts,extents.X,extents.Y,extents.Z))
  count+=1;totalParts+=parts;maxParts=math.max(maxParts,parts)
 end
-for _,pair in {{"pufflet","petalperch"},{"mintfin","pinepike"},{"sunskipper","cloudmoth"},{"coralcrown","crownwhale"}} do
+for _,pair in {{"pufflet","petalperch"},{"mintfin","pinepike"},{"sunskipper","cloudmoth"},{"coralcrown","crownwhale"},{"veilfin","ribbonkoi"},{"eclipse","moonray"}} do
  assert(silhouettes[pair[1]]~=silhouettes[pair[2]],"related species only differ by color")
 end
+assert(motionSignatures.veilfin~=motionSignatures.eclipse,'exceptional fish share an animation')
 print("PASS",count,"production species:",totalParts,"parts total,",maxParts,"maximum; distinct geometry, stable appearance/animation, readable variant faces and markings, no physics/Neon")
+print('PASS',jointSamples,'grouped membrane/wing/tail samples and',bodyJoins,'continuous Veilfin body joins; all species actually animate')
+print('PASS',exceptionalContacts,'exceptional-fish actual ellipsoid/wedge contacts: fins, membranes, crests, tail, fork roots and crescent')
+print('PASS',veinFootprints,'complete vein-footprint corners contained inside the actual triangular wings')
 '''
 
 
 def check(luau: str) -> None:
     program = (ROOT / "tools/preview_roblox.luau").read_text()
-    program += "\nlocal nativeTypeof=typeof\nlocal typeof=function(v) return if getmetatable(v)==CF then \"CFrame\" else nativeTypeof(v) end\n"
+    program += "\nlocal nativeTypeof=typeof\nlocal typeof=function(v) return if getmetatable(v)==CF then \"CFrame\" elseif getmetatable(v)==V then \"Vector3\" else nativeTypeof(v) end\n"
     for name, source in (("FishCatalog", "src/shared/FishCatalog.luau"),
                          ("FishModel", "src/shared/FishModel.luau")):
         program += f"\nmodules.{name}=(function()\n" + (ROOT / source).read_text() + "\nend)()\n"
@@ -104,6 +223,22 @@ def check(luau: str) -> None:
         path = Path(temporary) / "check_fish_models.luau"
         path.write_text(program)
         subprocess.run([luau, str(path)], check=True)
+        # Prove that the checks reject the two defects found in the art review,
+        # instead of merely checking relative transforms or intersecting boxes.
+        mutations = (
+            ("opposite comet-tail yaw", "tail.CFrame *= CFrame.Angles(0, .16 + index * .16, 0)",
+             "tail.CFrame *= CFrame.Angles(0, -.16 - index * .09, 0)",
+             "Eclipse has an open ellipsoid tail joint"),
+            ("mirrored veil root", "membrane.CFrame *= CFrame.Angles(0, side * -.25, -side * math.pi / 2)",
+             "membrane.CFrame *= CFrame.Angles(0, side * -.25, side * math.pi / 2)",
+             "Veilfin detail is detached from its actual support skin: VeilMembrane"),
+        )
+        for name, current, broken, expected in mutations:
+            assert program.count(current) == 1, f"Mutation target changed: {name}"
+            path.write_text(program.replace(current, broken))
+            result = subprocess.run([luau, str(path)], text=True, capture_output=True)
+            assert result.returncode and expected in result.stderr, f"Contact regression missed {name}"
+        print("PASS art-review regression mutations: opposite comet-tail yaw and mirrored veil roots are rejected")
 
 
 if __name__ == "__main__":

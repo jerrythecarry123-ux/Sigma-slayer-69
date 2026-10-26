@@ -2,9 +2,9 @@
 
 ## Automatiskt verifierat i molnmiljön
 
-- 105 automatiska tester: 24 fiske, 12 fiskeplatser, 31 progression/sparande,
-  5 layout, 15 reseregler, 14 världsdata och 4 Python-tester för platsbyggnad/material.
-- Alla 34 produktionsfiler och de sex Luau-sviterna accepteras av den officiella
+- 122 automatiska tester: 5 katalog, 30 fiske, 12 fiskeplatser, 36 progression/sparande,
+  6 layout, 15 reseregler, 14 världsdata och 4 Python-tester för platsbyggnad/material.
+- Alla 36 produktionsfiler och de sju Luau-sviterna accepteras av den officiella
   Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Separata kontroller kör produktionskod med geometri-/händelsedubblar för
   uppstart, resor, gränssnitt, fiskmodeller, akvarier, invånare och miljörörelser.
@@ -21,6 +21,44 @@ dubbla starter, för tidigt Hold, Release utan Hold, missade tidsfönster,
 förfalskade ID:n, avbrott, timeout, gamla meddelanden, cooldown, anropsbegränsning,
 separata spelare, frånkoppling, avatarbyte före nästa tick och att en snapshot
 inte ändrar serverns data.
+
+## v1.7 — prioriterad acceptans, ännu okörd i Roblox
+
+De automatiska kontrollerna omfattar även den faktiska serveradaptern,
+16 klientprotokollfall, nio ljudhändelsefall och produktionskod för fångstscener.
+De körs med dubblar och kan inte bevisa spelkänsla eller faktisk rendering.
+
+- [ ] Första tre lyckade fångsterna har stilla guldzon; senare fiskar ger lugnt,
+  glidande eller snabbare motstånd utan att ett nytt barn behöver fler knappar.
+- [ ] Kastbågen landar före hugget; varierande väntetid visar tydlig visuell nappsignal.
+- [ ] Träffa Normal/Fine/Brilliant på dator, gamepad, riktig telefon och iPad.
+  Upprepa med 50, 100 och 200 ms simulerad nätfördröjning. Notera serverns kvalitet
+  jämfört med det synliga släppet; scoring använder mottagningstid på servern.
+- [ ] Avbryt/missa kast, gå till en annan damm och tillbaka: samma privata val
+  ligger kvar per damm tills en lyckad fångst. Återanslutning får en ny session.
+- [ ] Alla 17 arter syns i journalen. Veilfin och Eclipse kräver Aurora Rod och
+  utlovas inte av skyddet mot dubbletter; de sju rariteterna har läsbara namn/rang.
+- [ ] Första Epic/Legendary/Mythical/Secret visas kort; upprepade arter snabbare.
+  CONTINUE, Escape och gamepad B/A avslutar en gång och belöningen ändras inte.
+- [ ] Dö under visningen, innan CharacterRemoving. Ingen gammal visning eller
+  fångstsammanfattning öppnas efter död, ny avatar, resa eller menybyte.
+- [ ] Spelarens vanliga kamera, zoom, rörelse och andra spelares vy påverkas inte.
+- [ ] Ny fiskmodell och dess fulla animation ryms i 3D-visningen vid porträtt,
+  kort landskap och iPad. Kontrollera även Golden/Prismatic och maxvikt.
+- [ ] Veilfins segment och Eclipse-svansen sitter ihop genom rörelsen; alla tre
+  akvarieplatser håller fenor/svans innanför glaset, även vid högsta vikt.
+- [ ] SETTINGS visar sessionens ljud/rörelseval. Roblox Reduce Motion gäller även
+  när det lokala rörelsevalet är av; timing och nappinformation finns kvar.
+- [ ] Tysta mitt i en melodi och slå på igen: inga gamla toner spelas upp.
+  Bedöm faktiskt ljud, volym och repetition i klienten.
+- [ ] Journal, verkstad, inställningar och fångstkort fungerar med gamepadfokus,
+  Escape/B och touch. Byt aktiv inmatning på en mobil med ansluten gamepad.
+- [ ] Kort landskap använder horisontellt fångstkort med läsbara texter och
+  tryckytor. Kontrollera större Roblox-text, skärmkanter och enhetsrotation.
+- [ ] Gammal profil med 15 arter behåller saldo/mål. Det nya 17-artsmålet ger
+  sin bonus en gång utan att betala gamla milstolpar igen.
+- [ ] Mät CPU/GPU-tid, minne och streaming på vald bastelefon under flera
+  samtidiga kast och när akvarierna är fulla. Dokumentera enhet/grafiknivå.
 
 ## Återstår att köra i Roblox Studio
 

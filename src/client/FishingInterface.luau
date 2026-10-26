@@ -1,6 +1,8 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 local Shared = ReplicatedStorage:WaitForChild("FishingShared")
 local Catalog = require(Shared:WaitForChild("FishCatalog"))
 local Rules = require(Shared:WaitForChild("FishingRules"))
@@ -40,6 +42,21 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	local totalSpecies = #Catalog.Species
 	local activeZoneId, activeZoneName = "harbor", "Sundrift Harbor"
 	local currentProfile: any = nil
+	local preferences = { reducedEffects = false, soundEnabled = true }
+	local systemReducedMotion = false
+	local function effectsReduced(): boolean return preferences.reducedEffects or systemReducedMotion end
+	local settingsOpen, journalOpen = false, false
+	local previousSelection: GuiObject? = nil
+	local function rememberSelection()
+		if not settingsOpen and not journalOpen then previousSelection = GuiService.SelectedObject end
+	end
+	local function restoreSelection(owner: Instance)
+		local selected = GuiService.SelectedObject
+		if selected and selected:IsDescendantOf(owner) then
+			GuiService.SelectedObject = if previousSelection and previousSelection.Parent then previousSelection else nil
+		end
+		previousSelection = nil
+	end
 	local function zoneName(id: string?): string
 		for _, zone in Catalog.Zones or {} do
 			if zone.Id == id then return zone.Name end
@@ -50,7 +67,9 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		for _, zone in (if profile then profile.zoneProgress or {} else {}) do
 			if zone.id == activeZoneId then return zone.count, zone.total end
 		end
-		return 0, 3
+		local total = 0
+		for _, species in Catalog.Species do if species.Zone == activeZoneId then total += 1 end end
+		return 0, total
 	end
 	local function nextStep(profile: any): string
 		if not profile or (profile.catches or 0) == 0 then return "CAST  >  HOLD AT THE BITE  >  RELEASE ON GOLD" end
@@ -80,18 +99,14 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			elseif amount >= 10000 then string.format("%.1fk", amount / 1000) else tostring(amount)
 	end)
 	local coinTween: Tween? = nil
-	local soundButton = Theme.button(gui, "SFX", UDim2.fromOffset(44, 48), UDim2.new(1, -190, 0, 12), Theme.Panel)
-	soundButton.TextColor3, soundButton.TextSize = Theme.Teal, 11
-	soundButton.Activated:Connect(function()
-		local muted = audio.toggle()
-		soundButton.Text = if muted then "OFF" else "SFX"
-		if not muted then audio.ui() end
-	end)
+	local settingsButton = Theme.button(gui, "SETTINGS", UDim2.fromOffset(64, 48), UDim2.fromOffset(344, 150), Theme.Panel)
+	settingsButton.Name, settingsButton.TextColor3, settingsButton.TextSize = "SettingsButton", Theme.Teal, 9
+	Theme.stroke(settingsButton)
 	local goalCard = Theme.frame(gui, "Adventure", UDim2.fromOffset(264, 64), UDim2.fromOffset(16, 72))
 	Theme.surface(goalCard)
 	local goalKicker = Theme.text(goalCard, "NEXT ADVENTURE", UDim2.new(1, -70, 0, 13), UDim2.fromOffset(14, 9), 9, Theme.Teal, true)
 	local goalTitle = Theme.text(goalCard, "Land your first fish", UDim2.new(1, -70, 0, 25), UDim2.fromOffset(14, 25), 13, nil, true)
-	local goalReward = Theme.text(goalCard, "+10", UDim2.fromOffset(42, 35), UDim2.new(1, -52, 0, 12), 15, Theme.rarity("Common"), true)
+	local goalReward = Theme.text(goalCard, "+10", UDim2.fromOffset(42, 35), UDim2.new(1, -52, 0, 12), 15, Theme.Teal, true)
 	goalReward.TextXAlignment = Enum.TextXAlignment.Right
 	local goalTrack = Theme.frame(goalCard, "Progress", UDim2.new(1, -28, 0, 3), UDim2.fromOffset(14, 55), Theme.Line)
 	goalTrack.ClipsDescendants = true
@@ -123,7 +138,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		timingAreas[zone[1]] = area
 	end
 	local function setTimingWindow(center: number?, width: number?)
-		local target = math.clamp(center or (Rules.BrilliantMin + Rules.BrilliantMax) / 2, 0.38, 0.79)
+		local target = math.clamp(center or (Rules.BrilliantMin + Rules.BrilliantMax) / 2, 0.45, 0.8)
 		local span = math.clamp(width or (Rules.BrilliantMax - Rules.BrilliantMin), 0.08, 0.22)
 		local fineMin, fineMax = math.max(Rules.NormalMin, target - 0.20), math.min(Rules.NormalMax, target + 0.16)
 		timingAreas.Fine.Position, timingAreas.Fine.Size = UDim2.fromScale(fineMin, 0), UDim2.fromScale(fineMax - fineMin, 1)
@@ -194,18 +209,23 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		local variant = if currentProfile and currentProfile.variants then currentProfile.variants[id] else nil
 		local recordText = if record then string.format("Best %.2f kg", record) else species.Hint
 		local special = if variant and variant.Prismatic then " · Prismatic found" elseif variant and variant.Golden then " · Golden found" else ""
-		hint.Text = species.Name .. " · " .. zoneName(species.Zone) .. "\n" .. recordText .. special
+		local known = currentProfile and currentProfile.best[id]
+		local identity = if known then species.Name else "Undiscovered " .. species.Rarity .. " fish"
+		local protection = if not known and species.DiscoveryProtection == false then " · Exceptional find: no discovery guarantee" else ""
+		hint.Text = identity .. " · " .. zoneName(species.Zone) .. "\n" .. recordText .. special .. protection
 	end
 	for index, species in Catalog.Species do
 		local card = Theme.button(collection, "", UDim2.fromOffset(200, 174), UDim2.fromOffset(0, 0), Theme.Soft)
 		card.Name, card.LayoutOrder = species.Id, index
 		local stroke = Theme.stroke(card)
-		local view, world = viewport(card, "Portrait", UDim2.new(1, -8, 1, -56), UDim2.fromOffset(4, 0))
+		local view, world = viewport(card, "Portrait", UDim2.new(1, -8, 1, -94), UDim2.fromOffset(4, 36))
 		view.Active = false
 		local fish = Fish.create(world, nil, species.Id)
 		fish:PivotTo(CFrame.Angles(0, -0.24, 0))
 		local badge = Theme.frame(card, "RarityDot", UDim2.fromOffset(7, 7), UDim2.fromOffset(12, 12), Theme.rarity(species.Rarity))
-		local habitat = Theme.text(card, string.upper(string.split(zoneName(species.Zone), " ")[1]), UDim2.new(1, -32, 0, 14), UDim2.fromOffset(24, 8), 8, Theme.Muted, true)
+		local rarityLabel = Theme.text(card, Theme.rarityLabel(species.Rarity), UDim2.new(1, -34, 0, 16), UDim2.fromOffset(24, 8), 9, Theme.Ink, true)
+		rarityLabel.Name, rarityLabel.TextTruncate = "RarityLabel", Enum.TextTruncate.AtEnd
+		local habitat = Theme.text(card, string.upper(string.split(zoneName(species.Zone), " ")[1]), UDim2.new(1, -24, 0, 14), UDim2.fromOffset(12, 24), 8, Theme.Muted, true)
 		habitat.TextTruncate = Enum.TextTruncate.AtEnd
 		local name = Theme.text(card, species.Name, UDim2.new(1, -20, 0, 23), UDim2.new(0, 10, 1, -51), 14, Theme.Ink, true)
 		local best = Theme.text(card, "Undiscovered", UDim2.new(1, -20, 0, 18), UDim2.new(0, 10, 1, -27), 11, Theme.Muted)
@@ -260,6 +280,14 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	Theme.text(income, "A little gift for your next visit", UDim2.new(1, -32, 0, 27), UDim2.fromOffset(16, 10), 15, Theme.Teal, true)
 	local incomeText = Theme.text(income, "Discover fish to earn coins while you are away.", UDim2.new(1, -32, 0, 52), UDim2.fromOffset(16, 40), 12, Theme.Muted)
 	local tab = "Collection"
+	local hideResult: () -> ()
+	local closeSettings: () -> ()
+	local function closeJournal()
+		if not journalOpen then return end
+		journalOpen, modal.Visible = false, false
+		panel.Visible = not settingsOpen
+		restoreSelection(book)
+	end
 	local function setTab(nextTab: string)
 		tab = nextTab
 		collection.Visible, workshop.Visible = tab == "Collection", tab == "Workshop"
@@ -273,14 +301,91 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	end
 	collectionTab.Activated:Connect(function() setTab("Collection"); audio.ui() end)
 	workshopTab.Activated:Connect(function() setTab("Workshop"); audio.ui() end)
+	-- Preferences use ordinary controls and stay session-local. The operating
+	-- system's Reduce Motion setting can additionally limit effects in the client.
+	local settingsOverlay = Instance.new("Frame")
+	settingsOverlay.Name, settingsOverlay.Size = "PreferencesOverlay", UDim2.fromScale(1, 1)
+	settingsOverlay.BackgroundColor3, settingsOverlay.BackgroundTransparency = Theme.Ink, 0.3
+	settingsOverlay.BorderSizePixel, settingsOverlay.ZIndex = 0, 20
+	settingsOverlay.Active, settingsOverlay.Visible, settingsOverlay.Parent = true, false, gui
+	local settings = Theme.frame(settingsOverlay, "PreferencesCard", UDim2.fromOffset(400, 380), UDim2.fromScale(0.5, 0.5))
+	settings.AnchorPoint = Vector2.new(0.5, 0.5)
+	Theme.surface(settings)
+	Theme.text(settings, "MAKE YOURSELF COMFORTABLE", UDim2.new(1, -90, 0, 16), UDim2.fromOffset(20, 17), 9, Theme.Teal, true)
+	Theme.text(settings, "Settings", UDim2.new(1, -90, 0, 32), UDim2.fromOffset(20, 35), 24, Theme.Ink, true)
+	local settingsClose = Theme.button(settings, "×", UDim2.fromOffset(44, 44), UDim2.new(1, -58, 0, 15), Theme.Soft)
+	settingsClose.Name, settingsClose.TextColor3, settingsClose.TextSize = "CloseSettings", Theme.Ink, 25
+	local settingsScroll = Instance.new("ScrollingFrame")
+	settingsScroll.Name, settingsScroll.Position = "PreferencesContent", UDim2.fromOffset(18, 80)
+	settingsScroll.Size, settingsScroll.BackgroundTransparency = UDim2.new(1, -36, 1, -96), 1
+	settingsScroll.CanvasSize, settingsScroll.AutomaticCanvasSize = UDim2.fromOffset(0, 260), Enum.AutomaticSize.None
+	settingsScroll.BorderSizePixel, settingsScroll.ScrollBarThickness, settingsScroll.ScrollBarImageColor3 = 0, 3, Theme.Teal
+	settingsScroll.Parent = settings
+	local function preferenceRow(name: string, titleText: string, description: string, y: number)
+		local row = Theme.frame(settingsScroll, name, UDim2.new(1, -6, 0, 84), UDim2.fromOffset(0, y), Theme.Soft)
+		Theme.text(row, titleText, UDim2.new(1, -112, 0, 26), UDim2.fromOffset(14, 10), 14, Theme.Ink, true)
+		Theme.text(row, description, UDim2.new(1, -112, 0, 36), UDim2.fromOffset(14, 35), 11, Theme.Muted)
+		local toggle = Theme.button(row, "ON", UDim2.fromOffset(72, 48), UDim2.new(1, -86, 0.5, -24), Theme.Teal)
+		toggle.Name, toggle.TextSize = name .. "Toggle", 12
+		return toggle
+	end
+	local soundToggle = preferenceRow("Sound", "Sound", "Fishing cues and the island soundscape.", 0)
+	local motionToggle = preferenceRow("ReducedEffects", "Reduced effects", "Calmer reveals. No sweeping camera motion.", 94)
+	local settingsNote = Theme.text(settingsScroll, "Preferences apply for this visit. Your catches and saved progress stay the same.", UDim2.new(1, -16, 0, 62), UDim2.fromOffset(8, 192), 11, Theme.Muted)
+	local function setPreferences(nextPreferences: any)
+		preferences.reducedEffects = nextPreferences.reducedEffects == true
+		preferences.soundEnabled = nextPreferences.soundEnabled ~= false
+		systemReducedMotion = nextPreferences.systemReducedMotion == true
+		Theme.setReducedEffects(effectsReduced())
+		soundToggle.Text = if preferences.soundEnabled then "ON" else "OFF"
+		soundToggle.BackgroundColor3 = if preferences.soundEnabled then Theme.Teal else Theme.Muted
+		motionToggle.Text = if preferences.reducedEffects then "ON" else "OFF"
+		motionToggle.BackgroundColor3 = if preferences.reducedEffects then Theme.Teal else Theme.Muted
+		settingsNote.Text = if systemReducedMotion then "Roblox Reduce Motion is enabled. Reveals stay calm. Sound preferences apply for this visit."
+			else "Preferences apply for this visit. Your catches and saved progress stay the same."
+	end
+	local function preferenceChanged(key: string)
+		local nextPreferences = table.clone(preferences)
+		nextPreferences[key] = not nextPreferences[key]
+		setPreferences({ reducedEffects = nextPreferences.reducedEffects, soundEnabled = nextPreferences.soundEnabled, systemReducedMotion = systemReducedMotion })
+		if handlers.settingsChanged then handlers.settingsChanged(nextPreferences) end
+		if preferences.soundEnabled then audio.ui() end
+	end
+	soundToggle.Activated:Connect(function() preferenceChanged("soundEnabled") end)
+	motionToggle.Activated:Connect(function() preferenceChanged("reducedEffects") end)
+	closeSettings = function()
+		if not settingsOpen then return end
+		settingsOpen, settingsOverlay.Visible = false, false
+		panel.Visible = not modal.Visible
+		restoreSelection(settings)
+	end
+	local function openSettings()
+		if settingsOpen then closeSettings(); return end
+		closeJournal()
+		hideResult()
+		if handlers.openSettings then handlers.openSettings() end
+		rememberSelection()
+		settingsOpen, settingsOverlay.Visible, panel.Visible = true, true, false
+		GuiService.SelectedObject = soundToggle
+	end
+	settingsButton.Activated:Connect(function() audio.ui(); openSettings() end)
+	settingsClose.Activated:Connect(function() audio.ui(); closeSettings() end)
 	local function openJournal(target: string?)
+		if settingsOpen then closeSettings() end
+		rememberSelection()
 		setTab(if target == "Workshop" then "Workshop" else "Collection")
 		handlers.openJournal()
 		audio.ui()
-		modal.Visible, panel.Visible = true, false
+		journalOpen, modal.Visible, panel.Visible = true, true, false
+		GuiService.SelectedObject = if target == "Workshop" then workshopTab else collectionTab
 	end
 	journalButton.Activated:Connect(function() openJournal("Collection") end)
-	close.Activated:Connect(function() audio.ui(); modal.Visible, panel.Visible = false, true end)
+	close.Activated:Connect(function() audio.ui(); closeJournal() end)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or (input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.ButtonB) then return end
+		if settingsOpen then closeSettings()
+		elseif modal.Visible then closeJournal() end
+	end)
 
 	local reveal = Theme.frame(gui, "DiscoveryCard", UDim2.fromOffset(360, 420), UDim2.fromScale(0.5, 0.48))
 	reveal.AnchorPoint, reveal.ZIndex, reveal.Visible = Vector2.new(0.5, 0.5), 5, false
@@ -306,11 +411,20 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	revealContinue.TextSize = 12
 	local revealGeneration, revealBaseScale = 0, 1
 	local revealTween: Tween? = nil
-	local function hideResult()
+	local revealSelection: GuiObject? = nil
+	hideResult = function()
 		revealGeneration += 1
 		if revealTween then revealTween:Cancel() end
-		reveal.Visible, panel.Visible = false, not modal.Visible
+		reveal.Visible, panel.Visible = false, not modal.Visible and not settingsOpen
+		local selected = GuiService.SelectedObject
+		if selected and selected:IsDescendantOf(reveal) then
+			GuiService.SelectedObject = if revealSelection and revealSelection.Parent then revealSelection else nil
+		end
+		revealSelection = nil
 	end
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed and reveal.Visible and (input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB) then hideResult() end
+	end)
 	closeReveal.Activated:Connect(hideResult)
 	revealContinue.Activated:Connect(function()
 		hideResult()
@@ -342,15 +456,22 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		button.Position = UDim2.new(0.5, 0, 0, if reeling then 104 else 46)
 		sessionText.Position = UDim2.fromOffset(12, if reeling then 159 else 101)
 		if panelTween then panelTween:Cancel() end
-		panelTween = TweenService:Create(panel, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = UDim2.fromOffset(panelWidth, if reeling then 180 else 122) })
-		panelTween:Play()
+		local size = UDim2.fromOffset(panelWidth, if reeling then 180 else 122)
+		if effectsReduced() then panel.Size = size
+		else
+			panelTween = TweenService:Create(panel, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = size })
+			panelTween:Play()
+		end
 	end
 	local function updateProfile(profile: any)
 		if not profile then return end
 		if not currentProfile or profile.coins ~= currentProfile.coins then
 			if coinTween then coinTween:Cancel() end
-			coinTween = TweenService:Create(coinValue, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Value = profile.coins })
-			coinTween:Play()
+			if effectsReduced() then coinValue.Value = profile.coins
+			else
+				coinTween = TweenService:Create(coinValue, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Value = profile.coins })
+				coinTween:Play()
+			end
 		end
 		currentProfile = profile
 		journalButton.Text = "JOURNAL  " .. profile.species .. "/" .. totalSpecies
@@ -362,7 +483,9 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		goalTitle.Text = profile.goal.title
 		goalKicker.Text = (if (profile.catches or 0) < 3 then "FIRST STEPS" else "NEXT ADVENTURE") .. "  ·  " .. profile.goal.progress .. "/" .. profile.goal.target
 		goalReward.Text = "+" .. profile.goal.reward
-		TweenService:Create(goalFill, TweenInfo.new(0.35), { Size = UDim2.fromScale(math.clamp(profile.goal.progress / math.max(1, profile.goal.target), 0, 1), 1) }):Play()
+		local progressSize = UDim2.fromScale(math.clamp(profile.goal.progress / math.max(1, profile.goal.target), 0, 1), 1)
+		if effectsReduced() then goalFill.Size = progressSize
+		else TweenService:Create(goalFill, TweenInfo.new(0.35), { Size = progressSize }):Play() end
 		for id, entry in entries do
 			local best = profile.best[id]
 			entry.view.ImageColor3 = if best then Color3.new(1, 1, 1) else Color3.fromRGB(83, 112, 108)
@@ -380,40 +503,46 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		upgradeButton.Text = if nextRod then "Upgrade · " .. nextRod.cost .. " coins" else "Fully upgraded"
 		upgradeButton.BackgroundColor3 = if nextRod and profile.coins >= nextRod.cost then Theme.Teal else Theme.Muted
 	end
-	local function showResult(result: any)
+	local function showResult(result: any, immediate: boolean?, silent: boolean?)
 		revealGeneration += 1
 		local generation = revealGeneration
-		audio.catch(result.quality, result.rarity, result.newDiscovery)
-		task.delay(0.65, function()
-			if generation ~= revealGeneration or modal.Visible then return end
+		if not silent then audio.catch(result.quality, result.rarity, result.newDiscovery) end
+		task.delay(if immediate or effectsReduced() then 0 else 0.65, function()
+			if generation ~= revealGeneration or modal.Visible or settingsOpen then return end
 			if revealFish then revealFish:Destroy() end
 			revealFish = Fish.create(fishWorld, nil, result.speciesId)
 			if Fish.applyAppearance then Fish.applyAppearance(revealFish, result.variant, nil) end
 			local variant = if result.variant and result.variant ~= "Normal" then result.variant else nil
 			local accent = if variant == "Prismatic" then Theme.Purple elseif variant == "Golden" then Theme.Gold else Theme.rarity(result.rarity or "Common")
 			revealTitle.Text = if variant then string.upper(variant) .. " CATCH" elseif result.newDiscovery then "A NEW DISCOVERY" elseif result.newRecord then "YOUR NEW SIZE RECORD" elseif result.improved then "YOUR NEW BEST GRADE" else "A FRESH CATCH"
-			revealTitle.TextColor3 = accent
+			revealTitle.TextColor3 = accent:Lerp(Theme.Ink, 0.6)
 			halo.BackgroundColor3 = accent:Lerp(Theme.Panel, 0.86)
 			revealName.Text = result.species
-			revealQuality.Text = (result.rarity or "Common") .. " · " .. result.quality .. (if (result.combo or 0) >= 2 then " · x" .. result.combo .. " CHAIN" else "")
+			revealQuality.Text = Theme.rarityLabel(result.rarity or "Common") .. " · " .. result.quality .. (if (result.combo or 0) >= 2 then " · x" .. result.combo .. " CHAIN" else "")
 			revealWeight.Text = string.format("%.2f kg", result.weightKg or 1) .. (if result.newRecord then "  ·  NEW RECORD" else "")
 			local bonus = result.goalBonus or 0
 			revealCoins.Text = "+" .. (result.coins or 0) .. " coins" .. (if bonus > 0 then "  +" .. bonus .. " bonus" else "")
+			if UserInputService.PreferredInput == Enum.PreferredInput.Gamepad then
+				if not reveal.Visible then revealSelection = GuiService.SelectedObject end
+				GuiService.SelectedObject = revealContinue
+			end
 			panel.Visible, reveal.Visible = false, true
-			revealScale.Scale = revealBaseScale * 0.85
 			if revealTween then revealTween:Cancel() end
-			revealTween = TweenService:Create(revealScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = revealBaseScale })
-			revealTween:Play()
+			revealScale.Scale = if effectsReduced() then revealBaseScale else revealBaseScale * 0.93
+			if not effectsReduced() then
+				revealTween = TweenService:Create(revealScale, TweenInfo.new(0.22, Enum.EasingStyle.Quad), { Scale = revealBaseScale })
+				revealTween:Play()
+			end
 			task.delay(if result.newDiscovery or variant then 2.8 else 1.4, function() if generation == revealGeneration then hideResult() end end)
 		end)
 	end
 	local lastWidth, lastHeight = 0, 0
 	local function animate(time: number, width: number, height: number)
-		if reveal.Visible and revealFish then
+		if reveal.Visible and revealFish and not effectsReduced() then
 			revealFish:PivotTo(CFrame.Angles(0, math.sin(time * 1.3) * 0.24, math.sin(time * 2) * 0.035))
 			Fish.animate(revealFish, time)
 		end
-		if modal.Visible and collection.Visible then
+		if modal.Visible and collection.Visible and not effectsReduced() then
 			local entry = entries[selectedId]
 			entry.model:PivotTo(CFrame.Angles(0, -0.24 + math.sin(time) * 0.18, math.sin(time * 1.5) * 0.035))
 			Fish.animate(entry.model, time)
@@ -426,7 +555,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		if panelTween then panelTween:Cancel() end
 		if revealTween then revealTween:Cancel() end
 		local layout = Layout.measure(safeWidth, safeHeight)
-		location.Size = UDim2.fromOffset(math.min(208, layout.width - (if layout.compact then 218 else 162)), 48)
+		location.Size = UDim2.fromOffset(math.min(208, layout.width - (if layout.compact then 242 else 162)), 48)
 		locationName.TextSize = if layout.narrow then 11 else 14
 		locationSub.TextSize = if layout.narrow then 8 else 9
 		goalCard.Size, goalCard.Visible = UDim2.fromOffset(layout.goalWidth, 64), not layout.compact
@@ -435,7 +564,9 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		journalButton.TextSize = if layout.narrow then 11 else 12
 		aquariumButton.Position, aquariumButton.Size = UDim2.fromOffset(layout.aquariumX, layout.aquariumY), UDim2.fromOffset(layout.navWidth, 48)
 		aquariumButton.TextSize = if layout.narrow then 10 else 12
-		soundButton.Position = UDim2.fromOffset(layout.soundX, layout.soundY)
+		settingsButton.Position = UDim2.fromOffset(layout.soundX, layout.soundY)
+		settingsButton.Size = UDim2.fromOffset(layout.settingsWidth, 48)
+		settings.Size = UDim2.fromOffset(layout.settingsDialogWidth, layout.settingsDialogHeight)
 		panelWidth = layout.panelWidth
 		panel.Size = UDim2.fromOffset(panelWidth, if lastPhase == "Reeling" then 180 else 122)
 		panel.Position = UDim2.new(0.5, 0, 1, -layout.panelBottom)
@@ -455,8 +586,39 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		toast.Position = UDim2.new(0.5, 0, 0, if layout.compact then 64 else 72)
 		revealBaseScale = layout.revealScale
 		revealScale.Scale = revealBaseScale
+		reveal.Size = UDim2.fromOffset(layout.revealWidth, layout.revealHeight)
+		revealQuality.TextSize = math.max(12, 12 / revealBaseScale)
+		revealAquarium.TextSize, revealContinue.TextSize = 12 / revealBaseScale, 12 / revealBaseScale
 		closeReveal.Size = UDim2.fromOffset(44 / revealBaseScale, 44 / revealBaseScale)
 		closeReveal.Position = UDim2.new(1, -4 - 44 / revealBaseScale, 0, 3)
+		local actionHeight = math.max(46, 44 / revealBaseScale)
+		if layout.compact then
+			-- A horizontal card keeps real text and 44px actions on a short phone
+			-- canvas instead of shrinking the portrait card into tiny controls.
+			revealTitle.Position, revealTitle.Size = UDim2.fromOffset(210, 16), UDim2.fromOffset(280, 18)
+			revealTitle.TextXAlignment = Enum.TextXAlignment.Left
+			halo.Position, halo.Size = UDim2.fromOffset(24, 42), UDim2.fromOffset(160, 160)
+			view.Position, view.Size = UDim2.fromOffset(4, 25), UDim2.fromOffset(200, 176)
+			revealName.Position, revealName.Size = UDim2.fromOffset(210, 42), UDim2.fromOffset(334, 34)
+			revealQuality.Position, revealQuality.Size = UDim2.fromOffset(210, 79), UDim2.fromOffset(334, 22)
+			revealWeight.Position, revealWeight.Size = UDim2.fromOffset(210, 108), UDim2.fromOffset(334, 24)
+			revealName.TextXAlignment, revealQuality.TextXAlignment, revealWeight.TextXAlignment = Enum.TextXAlignment.Left, Enum.TextXAlignment.Left, Enum.TextXAlignment.Left
+			earnings.Position, earnings.Size = UDim2.fromOffset(210, 140), UDim2.fromOffset(334, 34)
+			revealAquarium.Position, revealAquarium.Size = UDim2.fromOffset(210, 230 - actionHeight), UDim2.fromOffset(162, actionHeight)
+			revealContinue.Position, revealContinue.Size = UDim2.fromOffset(382, 230 - actionHeight), UDim2.fromOffset(162, actionHeight)
+		else
+			revealTitle.Position, revealTitle.Size = UDim2.fromOffset(32, 18), UDim2.new(1, -64, 0, 22)
+			revealTitle.TextXAlignment = Enum.TextXAlignment.Center
+			halo.Position, halo.Size = UDim2.new(0.5, -80, 0, 49), UDim2.fromOffset(160, 160)
+			view.Position, view.Size = UDim2.fromOffset(0, 39), UDim2.new(1, 0, 0, 176)
+			revealName.Position, revealName.Size = UDim2.fromOffset(16, 213), UDim2.new(1, -32, 0, 36)
+			revealQuality.Position, revealQuality.Size = UDim2.fromOffset(16, 250), UDim2.new(1, -32, 0, 22)
+			revealWeight.Position, revealWeight.Size = UDim2.fromOffset(16, 278), UDim2.new(1, -32, 0, 24)
+			revealName.TextXAlignment, revealQuality.TextXAlignment, revealWeight.TextXAlignment = Enum.TextXAlignment.Center, Enum.TextXAlignment.Center, Enum.TextXAlignment.Center
+			earnings.Position, earnings.Size = UDim2.fromOffset(20, 310), UDim2.new(1, -40, 0, 40)
+			revealAquarium.Position, revealAquarium.Size = UDim2.fromOffset(20, 406 - actionHeight), UDim2.fromOffset(154, actionHeight)
+			revealContinue.Position, revealContinue.Size = UDim2.fromOffset(186, 406 - actionHeight), UDim2.fromOffset(154, actionHeight)
+		end
 		upgradeName.TextSize = if layout.compact then 23 else 27
 		upgradeName.Position = UDim2.fromOffset(0, if layout.compact then 22 else 30)
 		upgradeDesc.Position = UDim2.fromOffset(0, if layout.compact then 62 else 75)
@@ -468,15 +630,18 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		shopBody.Size = UDim2.new(1, -6, 0, if vertical then 462 else 362)
 		income.Position = UDim2.fromOffset(0, if vertical then 356 else 248)
 	end
+	setPreferences(preferences)
 	setState("Connecting")
 	return {
 		button = button, status = status, marker = marker, legend = legend, buttonScale = buttonScale,
 		hideResult = hideResult, showResult = showResult, updateProfile = updateProfile,
 		updateLocation = updateLocation, setTimingWindow = setTimingWindow,
 		notify = notify, setState = setState, animate = animate, openJournal = openJournal,
-		closeJournal = function() modal.Visible,panel.Visible=false,true end,
+		closeJournal = closeJournal,
 		isJournalOpen = function() return modal.Visible end,
 		isResultOpen = function() return reveal.Visible end,
+		setPreferences = setPreferences, openSettings = openSettings, closeSettings = closeSettings,
+		isSettingsOpen = function() return settingsOpen end,
 	}
 end
 return Interface

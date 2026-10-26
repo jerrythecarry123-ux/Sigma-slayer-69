@@ -22,7 +22,8 @@ check("aquarium and journal navigation retain separate touch targets", function(
 		local w,h=viewport[1],viewport[2]
 		local l=Layout.measure(w,h)
 		assert(l.navWidth >= 100 and l.navWidth <= 156)
-		assert(l.aquariumX+l.navWidth <= w-16 and l.soundX+44 <= w-16)
+		assert(l.aquariumX+l.navWidth <= w-16 and l.soundX+l.settingsWidth <= w-16)
+		assert(l.settingsWidth >= 44 and l.settingsDialogWidth <= w-24 and l.settingsDialogHeight <= h-24)
 		if l.compact then
 			assert(l.aquariumX > (w+l.panelWidth)/2, "aquarium covers fishing controls")
 			assert(16+l.navWidth < (w-l.panelWidth)/2, "journal covers fishing controls")
@@ -30,6 +31,12 @@ check("aquarium and journal navigation retain separate touch targets", function(
 		else
 			assert(l.aquariumX >= 16+l.navWidth+8 and l.soundX >= l.aquariumX+l.navWidth+8)
 		end
+	end
+end)
+check("short landscape catch reveals retain readable text and full touch controls", function()
+	for _, viewport in {{568,280},{667,335},{844,335}} do
+		local l=Layout.measure(viewport[1],viewport[2])
+		assert(l.revealWidth==560 and l.revealHeight==240 and l.revealScale>=.9,"landscape catch card was shrunk from portrait")
 	end
 end)
 check("portrait fishing stays above the thumb controls", function()

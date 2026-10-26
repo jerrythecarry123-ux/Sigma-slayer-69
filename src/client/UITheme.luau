@@ -1,5 +1,8 @@
 --!strict
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Rarity = require(ReplicatedStorage:WaitForChild("FishingShared"):WaitForChild("FishRarity"))
+local reducedEffects = false
 local Theme = {
 	Ink = Color3.fromRGB(31, 63, 66), Panel = Color3.fromRGB(255, 250, 237),
 	Text = Color3.fromRGB(36, 66, 66), Muted = Color3.fromRGB(90, 111, 106),
@@ -58,13 +61,16 @@ function Theme.button(parent: Instance, value: string, size: UDim2, position: UD
 	button.Text = value
 	button.AutoLocalize = false
 	button.AutoButtonColor = false
+	button.Selectable = true
 	button.BorderSizePixel = 0
 	button.Parent = parent
 	Theme.round(button, 14)
 	button.MouseEnter:Connect(function()
+		if reducedEffects then return end
 		TweenService:Create(button, TweenInfo.new(0.14), { BackgroundTransparency = 0.12 }):Play()
 	end)
 	button.MouseLeave:Connect(function()
+		if reducedEffects then button.BackgroundTransparency = 0; return end
 		TweenService:Create(button, TweenInfo.new(0.14), { BackgroundTransparency = 0 }):Play()
 	end)
 	return button
@@ -79,7 +85,13 @@ function Theme.coin(parent: Instance, position: UDim2, diameter: number)
 	mark.TextXAlignment = Enum.TextXAlignment.Center
 end
 function Theme.rarity(name: string): Color3
-	return if name == "Legendary" then Theme.Gold elseif name == "Epic" then Theme.Purple elseif name == "Rare" then Theme.Blue
-		elseif name == "Uncommon" then Theme.Teal else Color3.fromRGB(132, 94, 34)
+	local color = Rarity.get(name).Color
+	return Color3.fromRGB(color[1], color[2], color[3])
+end
+function Theme.rarityLabel(name: string): string
+	return tostring(Rarity.get(name).Rank) .. " / " .. string.upper(name)
+end
+function Theme.setReducedEffects(enabled: boolean)
+	reducedEffects = enabled
 end
 return Theme

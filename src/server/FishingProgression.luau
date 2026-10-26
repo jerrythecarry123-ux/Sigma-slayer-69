@@ -129,9 +129,10 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 			} else { title = "Journal complete! Show your finest fish and chase records.", progress = 1, target = 1, reward = 0 },
 		}
 	end
-	local function catch(profile: Profile, quality: string, zoneId: string?)
-		assert(ranks[quality], "Unknown catch quality")
-		normalize(profile)
+	-- Selection is separate from the reward. The engine reserves this candidate
+	-- before the cast and keeps it across failed/cancelled attempts in this pond.
+	-- This function reads progress only: casting never grants collection or money.
+	local function prepare(profile: Profile, zoneId: string?)
 		local zoneKnown = zoneId == nil
 		for _, zone in catalog.Zones or {} do if zone.Id == zoneId then zoneKnown = true end end
 		assert(zoneKnown, "Unknown fishing zone")
@@ -142,14 +143,17 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 			if species.Level <= profile.level and (zoneId == nil or species.Zone == zoneId) then
 				table.insert(available, species)
 				totalWeight += species.Weight
-				if not profile.best[species.Id] then table.insert(unseen, species) end
+				if not profile.best[species.Id] and species.DiscoveryProtection ~= false
+					and species.Rarity ~= "Mythical" and species.Rarity ~= "Secret" then
+					table.insert(unseen, species)
+				end
 			end
 		end
 		assert(#available > 0, "Every accessible zone needs an available species")
-		local duplicates = if zoneId then profile.zoneDuplicates[zoneId] or 0 else profile.duplicateCount
+		local duplicates = if zoneId then (if profile.zoneDuplicates then profile.zoneDuplicates[zoneId] or 0 else 0) else profile.duplicateCount
 		local picked = available[1]
-		-- Teach the first three catches; afterwards an unlocked discovery is never
-		-- more than two duplicates away in the player's current island pool.
+		-- Teach the first three catches; original species keep bounded discovery
+		-- protection. Mythical/Secret remain genuinely uncommon earned discoveries.
 		if #unseen > 0 and (profile.catches < 3 or duplicates >= 2) then
 			picked = unseen[1]
 		else
@@ -159,6 +163,22 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 				if choice < 0 then picked = species; break end
 			end
 		end
+		return picked
+	end
+	local function catch(profile: Profile, quality: string, zoneId: string?, reservedId: string?)
+		assert(ranks[quality], "Unknown catch quality")
+		normalize(profile)
+		local picked = nil
+		if reservedId then
+			for _, candidate in catalog.Species do
+				if candidate.Id == reservedId and candidate.Level <= profile.level
+					and (zoneId == nil or candidate.Zone == zoneId) then picked = candidate; break end
+			end
+			assert(picked, "Reserved catch must be eligible for its server-bound pond")
+		else
+			picked = prepare(profile, zoneId)
+		end
+		local duplicates = if zoneId then profile.zoneDuplicates[zoneId] or 0 else profile.duplicateCount
 		local previous = profile.best[picked.Id]
 		local discovery = previous == nil
 		profile.best[picked.Id] = math.max(previous or 0, ranks[quality])
@@ -244,7 +264,7 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		normalize(profile)
 		profile.combo = 0
 	end
-	return { create = create, snapshot = snapshot, catch = catch, upgrade = upgrade, copy = copy,
+	return { create = create, snapshot = snapshot, prepare = prepare, catch = catch, upgrade = upgrade, copy = copy,
 		display = display, style = style, miss = miss }
 end
 

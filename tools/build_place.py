@@ -12,12 +12,13 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-PLACE_NAME = "Cloud-Anglers-v1.6.rbxlx"
+PLACE_NAME = "Cloud-Anglers-v1.7.rbxlx"
 SOURCES = {
     "ReplicatedStorage/FishingShared/FishingConfig": ("ModuleScript", "src/shared/FishingConfig.luau"),
     "ReplicatedStorage/FishingShared/FishingRules": ("ModuleScript", "src/shared/FishingRules.luau"),
     "ReplicatedStorage/FishingShared/FishModel": ("ModuleScript", "src/shared/FishModel.luau"),
     "ReplicatedStorage/FishingShared/FishCatalog": ("ModuleScript", "src/shared/FishCatalog.luau"),
+    "ReplicatedStorage/FishingShared/FishRarity": ("ModuleScript", "src/shared/FishRarity.luau"),
     "ReplicatedStorage/FishingShared/IslandTravelRules": ("ModuleScript", "src/shared/IslandTravelRules.luau"),
     "ServerScriptService/FishingEngine": ("ModuleScript", "src/server/FishingEngine.luau"),
     "ServerScriptService/WorldPrimitives": ("ModuleScript", "src/server/WorldPrimitives.luau"),
@@ -41,6 +42,7 @@ SOURCES = {
     "StarterPlayer/StarterPlayerScripts/FishingClient": ("LocalScript", "src/client/FishingClient.client.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingAudio": ("ModuleScript", "src/client/FishingAudio.luau"),
     "StarterPlayer/StarterPlayerScripts/FishingPresentation": ("ModuleScript", "src/client/FishingPresentation.luau"),
+    "StarterPlayer/StarterPlayerScripts/CatchCinematic": ("ModuleScript", "src/client/CatchCinematic.luau"),
     "StarterPlayer/StarterPlayerScripts/ResidentPresentation": ("ModuleScript", "src/client/ResidentPresentation.luau"),
     "StarterPlayer/StarterPlayerScripts/IslandTravelInterface": ("ModuleScript", "src/client/IslandTravelInterface.luau"),
     "StarterPlayer/StarterPlayerScripts/AquariumInterface": ("ModuleScript", "src/client/AquariumInterface.luau"),

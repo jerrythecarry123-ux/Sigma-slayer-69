@@ -4,30 +4,40 @@ type Config = {
 	read PreparationTime: number, read BiteTimeout: number, read ChargeLeadTime: number,
 	read ChargeDuration: number, read StartCooldown: number, read RequestCapacity: number,
 	read RequestsPerSecond: number, read SpeciesName: string,
-	read DynamicTiming: boolean?,
+	read DynamicTiming: boolean?, read DynamicBites: boolean?, read CastDuration: number?,
+	read BiteDelayMin: number?, read BiteDelayMax: number?,
 }
 type Attempt = {
 	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?, zoneId: string?, timingCenter: number?,
+	castAt: number, castDuration: number, duration: number, difficulty: number, behavior: string,
+	timingMotion: { amplitude: number, speed: number, phase: number }?, reservedId: string?,
 }
 type Session = {
 	attempt: Attempt?, catches: number, nextStart: number, tokens: number,
 	tokenTime: number,
 	profile: any?,
+	reservations: { [string]: any },
 }
 type Packet = { [string]: any }
+type TimingRules = {
+	read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)?,
+	read centerAt: ((any, number) -> number)?,
+}
 local Engine = {}
 Engine.__index = Engine
 type EngineData = {
 	config: Config,
-	rules: { read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)? },
+	rules: TimingRules,
 	sessions: { [number]: Session },
 	sequence: number,
 	progression: any?,
+	randomRoll: () -> number,
 }
 export type FishingEngine = typeof(setmetatable({} :: EngineData, Engine))
 
-function Engine.new(config: Config, rules: { read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)? }, progression: any?): FishingEngine
-	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0, progression = progression }, Engine)
+function Engine.new(config: Config, rules: TimingRules, progression: any?, randomRoll: (() -> number)?): FishingEngine
+	return setmetatable({ config = config, rules = rules, sessions = {}, sequence = 0, progression = progression,
+		randomRoll = randomRoll or function() return 0.5 end }, Engine)
 end
 
 function Engine.addPlayer(self: FishingEngine, userId: number, now: number, initialProfile: any?)
@@ -35,6 +45,7 @@ function Engine.addPlayer(self: FishingEngine, userId: number, now: number, init
 	self.sessions[userId] = {
 		attempt = nil, catches = 0, nextStart = now,
 		tokens = self.config.RequestCapacity, tokenTime = now,
+		reservations = {},
 		profile = if self.progression then (if initialProfile then self.progression.copy(initialProfile) else self.progression.create()) else nil,
 	}
 	if initialProfile then self.sessions[userId].catches = initialProfile.catches end
@@ -59,10 +70,17 @@ function Engine.snapshot(self: FishingEngine, userId: number): Packet?
 		packet.phase = attempt.phase
 		packet.attemptId = attempt.id
 		packet.readyAt = attempt.readyAt
+		packet.castAt = attempt.castAt
+		packet.castDuration = attempt.castDuration
 		packet.expiresAt = attempt.expiresAt
 		packet.chargeAt = attempt.chargeAt
-		packet.duration = self.config.ChargeDuration
+		packet.duration = attempt.duration
 		packet.timingCenter = attempt.timingCenter
+		packet.difficulty, packet.behavior = attempt.difficulty, attempt.behavior
+		if attempt.timingMotion then
+			local motion = attempt.timingMotion
+			packet.timingMotion = { amplitude = motion.amplitude, speed = motion.speed, phase = motion.phase }
+		end
 	end
 	return packet
 end
@@ -148,9 +166,38 @@ function Engine.command(
 			return packet
 		end
 		self.sequence += 1
-		local readyAt = now + self.config.PreparationTime
+		local reservationKey = zoneId or "*"
+		local candidate = session.reservations[reservationKey]
+		local prepare = if self.progression then self.progression.prepare else nil
+		if not candidate and session.profile and type(prepare) == "function" then
+			candidate = prepare(session.profile, zoneId)
+			session.reservations[reservationKey] = candidate
+		end
+		-- Failed attempts cannot reroll a suspected rare fish. Reservations are
+		-- private, per pond, and survive movement, Cancel, timeout and upgrades.
+		-- They are transient session state; only successful rewards are saved.
+		local novice = not session.profile or session.profile.catches < 3
+		local difficulty = if candidate and not novice then math.clamp(candidate.Difficulty or 0, 0, 0.6) else 0
+		local behavior = if candidate then candidate.Behavior or "Drift" else "Drift"
+		local duration = self.config.ChargeDuration - difficulty * 0.6
+		local delay = 0
+		if self.config.DynamicBites then
+			local value = self.randomRoll()
+			local roll = if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 0.5
+			local low, high = self.config.BiteDelayMin or 0.35, self.config.BiteDelayMax or 1.05
+			delay = low + (high - low) * roll + difficulty * 0.18
+		end
+		local readyAt = now + self.config.PreparationTime + delay
+		local motion = nil
+		if self.config.DynamicTiming and difficulty > 0.15 then
+			local speed = if behavior == "Dart" then 3.1 elseif behavior == "Surge" then 2.5 elseif behavior == "Glide" then 1.6 else 2
+			motion = { amplitude = difficulty * 0.07, speed = speed, phase = (self.sequence % 7) * 0.53 }
+		end
 		session.attempt = {
 			id = self.sequence, phase = "Waiting", readyAt = readyAt,
+			castAt = now, castDuration = self.config.CastDuration or 0.65,
+			duration = duration, difficulty = difficulty, behavior = behavior,
+			timingMotion = motion, reservedId = if candidate then candidate.Id else nil,
 			expiresAt = readyAt + self.config.BiteTimeout,
 			zoneId = zoneId,
 			timingCenter = if self.config.DynamicTiming and self.rules.centerFor then self.rules.centerFor(self.sequence) else nil,
@@ -166,16 +213,20 @@ function Engine.command(
 		attempt.phase = "Reeling"
 		local chargeAt = now + self.config.ChargeLeadTime
 		attempt.chargeAt = chargeAt
-		attempt.expiresAt = chargeAt + self.config.ChargeDuration
+		attempt.expiresAt = chargeAt + attempt.duration
 		return self:snapshot(userId)
 	elseif action == "Release" and attempt.phase == "Reeling" then
-		-- No client-supplied quality, timestamp, species or reward is trusted.
-		local progress = (now - (attempt.chargeAt :: number)) / self.config.ChargeDuration
-		local quality = self.rules.qualityAt(progress, attempt.timingCenter)
+		-- Receipt-time scoring: no client-supplied quality, timestamp, species or
+		-- reward is trusted. Forgiving bands remain; native high-latency play still
+		-- needs device testing before any bounded lag compensation is introduced.
+		local progress = (now - (attempt.chargeAt :: number)) / attempt.duration
+		local center = if self.rules.centerAt then self.rules.centerAt(attempt, now) else attempt.timingCenter
+		local quality = self.rules.qualityAt(progress, center)
 		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
 		session.catches += 1
-		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality, attempt.zoneId)
+		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality, attempt.zoneId, attempt.reservedId)
 			else { species = self.config.SpeciesName, quality = quality }
+		session.reservations[attempt.zoneId or "*"] = nil
 		-- A successful catch ends its attempt without resetting the quality chain.
 		session.attempt = nil
 		session.nextStart = now + self.config.StartCooldown

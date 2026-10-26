@@ -234,7 +234,7 @@ for speciesIndex,species in modules.FishCatalog.Species do
  end
 end
 print("PASS production aquarium: first-catch display, ten independent plots, unchanged-profile cache, themes, cleanup and slot reuse")
-print("PASS all 15 species fit the glass at maximum weight across three slots:",boundsSteps,"animated poses")
+print("PASS all",#modules.FishCatalog.Species,"species fit the glass at maximum weight across three slots:",boundsSteps,"animated poses")
 -- Exercise real UI handlers and its local streamed-fish animator.
 local calls={display=0,style=0,visit=0,close=0}
 local ui=modules.AquariumInterface.new(pgui,{
@@ -316,6 +316,7 @@ def check(luau: str) -> None:
     program += PREPARE
     for name, path in (
         ("FishCatalog", "src/shared/FishCatalog.luau"),
+        ("FishRarity", "src/shared/FishRarity.luau"),
         ("FishModel", "src/shared/FishModel.luau"),
         ("WorldPrimitives", "src/server/WorldPrimitives.luau"),
         ("FishingProgression", "src/server/FishingProgression.luau"),

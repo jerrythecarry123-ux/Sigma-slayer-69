@@ -44,7 +44,7 @@ function Service.start()
 	local action, state, visual = remote("FishingAction"), remote("FishingState"), remote("FishingVisual")
 	local random = Random.new()
 	local progression = Progression.new(Catalog, function() return random:NextNumber() end)
-	local engine = Engine.new(Config, Rules, progression)
+	local engine = Engine.new(Config, Rules, progression, function() return random:NextNumber() end)
 	local saving = Config.EnableSaving and (not RunService:IsStudio() or Config.SaveInStudio)
 	local store = if saving then ProfileStore.new(Catalog, progression, RunService:IsStudio()) else nil
 	local sessions: { [Player]: any } = {}
@@ -84,7 +84,9 @@ function Service.start()
 		return decorate(player, {
 			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId,
 			readyAt = packet.readyAt, chargeAt = packet.chargeAt,
-			timingCenter = packet.timingCenter, duration = packet.duration,
+			castAt = packet.castAt, castDuration = packet.castDuration,
+			timingCenter = packet.timingCenter, timingMotion = packet.timingMotion, duration = packet.duration,
+			difficulty = packet.difficulty, behavior = packet.behavior,
 			rodLevel = if packet.profile then packet.profile.level else 0,
 			result = if result then {
 				species = result.species, speciesId = result.speciesId, quality = result.quality,
