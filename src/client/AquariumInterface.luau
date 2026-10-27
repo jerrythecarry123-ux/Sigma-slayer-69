@@ -63,6 +63,11 @@ local function startWorldAnimation()
 			if not model.Parent then forget(model); continue end
 			local delta=data.origin.Position-camera.CFrame.Position
 			if delta:Dot(delta)>120*120 then continue end
+				if Theme.effectsReduced() then
+					if not data.quiet then model:PivotTo(data.origin); Fish.animate(model,0); data.quiet=true end
+					continue
+				end
+				data.quiet=false
 			local phase=data.phase
 			model:PivotTo(data.origin*CFrame.new(math.sin(time*.65+phase)*.55,math.sin(time*1.1+phase)*.22,math.cos(time*.55+phase)*.3)
 				*CFrame.Angles(0,math.sin(time*.55+phase)*.22,math.sin(time*.9+phase)*.025))
@@ -85,15 +90,18 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 	local backdrop=Instance.new("TextButton")
 	backdrop.Name,backdrop.Text,backdrop.Size="Backdrop","",UDim2.fromScale(1,1)
 	backdrop.BackgroundColor3,backdrop.BackgroundTransparency,backdrop.BorderSizePixel=Theme.Ink,.2,0
+	backdrop.Selectable,backdrop.AutoButtonColor=false,false
 	backdrop.Parent=gui
 	local card=Theme.frame(gui,"AquariumStudio",UDim2.fromOffset(640,600),UDim2.fromScale(.5,.5))
 	card.AnchorPoint,card.Active=Vector2.new(.5,.5),true
 	Theme.stroke(card)
+	Theme.selectionGroup(card)
 	local title=Theme.text(card,"Your little ocean",UDim2.new(1,-76,0,32),UDim2.fromOffset(20,14),25,Theme.Ink,true)
 	local sub=Theme.text(card,"Choose three favorites. Friends can see them in the gallery.",UDim2.new(1,-40,0,34),UDim2.fromOffset(20,47),12,Theme.Muted)
 	local closeButton=Theme.button(card,"×",UDim2.fromOffset(44,44),UDim2.new(1,-54,0,10),Theme.Soft)
 	closeButton.TextColor3,closeButton.TextSize=Theme.Ink,25
 	local profile: any=nil
+	local compactLayout=false
 	local selectedSlot=1
 	local activeTab="Fish"
 	local oldSelection: GuiObject?=nil
@@ -114,8 +122,10 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 		world.Parent=view
 		local name=center(Theme.text(button,"SLOT "..slot,UDim2.new(1,-12,0,22),UDim2.new(0,6,1,-24),11,Theme.Muted,true))
 		name.TextTruncate=Enum.TextTruncate.AtEnd
-		slots[slot]={button=button,stroke=stroke,world=world,name=name,fish=nil,signature=""}
-		button.Activated:Connect(function() selectedSlot=slot; refresh() end)
+		slots[slot]={button=button,stroke=stroke,world=world,view=view,camera=camera,name=name,fish=nil,signature="",portrait=nil,quiet=false}
+		button.Activated:Connect(function()
+			if profile and slot<=math.min(3,#profile.display+1) then selectedSlot=slot; refresh() end
+		end)
 	end
 	local fishTab=Theme.button(card,"Choose fish",UDim2.new(.5,-22,0,42),UDim2.fromOffset(14,210),Theme.Ink)
 	local stylesTab=Theme.button(card,"Tank themes",UDim2.new(.5,-22,0,42),UDim2.new(.5,8,0,210),Theme.Soft)
@@ -143,6 +153,8 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 		local name=Theme.text(button,species.Name,UDim2.new(1,-98,0,24),UDim2.fromOffset(28,6),15,Theme.Ink,true)
 		name.TextTruncate=Enum.TextTruncate.AtEnd
 		local detail=Theme.text(button,"Catch this fish to display it",UDim2.new(1,-98,0,19),UDim2.fromOffset(28,32),10,Theme.Muted)
+		detail.Name="FishDetail"
+		detail.TextWrapped,detail.TextTruncate=false,Enum.TextTruncate.AtEnd
 		local badge=Theme.text(button,"LOCKED",UDim2.fromOffset(65,30),UDim2.new(1,-75,.5,-15),10,Theme.Muted,true)
 		badge.TextXAlignment=Enum.TextXAlignment.Right
 		rows[species.Id]={button=button,detail=detail,badge=badge,name=name,species=species}
@@ -167,11 +179,16 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 		styleRows[style.Id]={button=button,name=name,detail=detail,badge=badge,style=style}
 		button.Activated:Connect(function()
 			if not profile then return end
+			if profile.equippedStyle==style.Id then return end
 			local owned=profile.styles and profile.styles[style.Id]
 			if owned or profile.coins>=style.Cost then handlers.style(style.Id) end
 		end)
 	end
 	local visit=Theme.button(card,"VISIT MY TANK",UDim2.new(1,-28,0,48),UDim2.new(0,14,1,-62),Theme.Teal)
+	local function updateVisitText()
+		visit.Text=if profile then (if compactLayout then "VISIT TANK" else "VISIT MY TANK")
+			else (if compactLayout then "LOADING..." else "LOADING COLLECTION...")
+	end
 	local function close()
 		if not gui.Enabled then return end
 		gui.Enabled=false
@@ -194,25 +211,35 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 		refresh()
 	end
 	refresh=function()
+		local availableSlots=if profile and profile.display then math.min(3,#profile.display+1) else 1
+		selectedSlot=math.min(selectedSlot,availableSlots)
 		instruction.Text=if activeTab=="Fish" then "Choose a fish for slot "..selectedSlot else "Cosmetic themes · earned coins · no fishing advantage"
 		for slot,data in slots do
-			local accessible=not profile or not profile.display or slot<=math.min(3,#profile.display+1)
+			local accessible=profile~=nil and slot<=availableSlots
 			data.button.Active,data.button.Selectable=accessible,accessible
+			if not accessible and GuiService.SelectedObject==data.button then
+				GuiService.SelectedObject=if profile then slots[selectedSlot].button else closeButton
+			end
 			data.stroke.Color=if slot==selectedSlot then Theme.Teal else Theme.Line
 			data.stroke.Thickness=if slot==selectedSlot then 2 else 1
 			local id=profile and profile.display and profile.display[slot]
+			local species=if type(id)=="string" then Catalog.get(id) else nil
+			local validDisplay=species and species.Id==id and profile.best and profile.best[id]
 			local variants=profile and profile.variants and id and profile.variants[id]
 			local variant=if variants and variants.Prismatic then "Prismatic" elseif variants and variants.Golden then "Golden" else "Normal"
 			local signature=tostring(id)..variant..tostring(profile and profile.records and id and profile.records[id] or 0)
+				..tostring(validDisplay~=nil and validDisplay~=false)
 			if signature~=data.signature then
 				if data.fish then data.fish:Destroy();data.fish=nil end
-				if id and profile.best[id] then
+				data.portrait=nil;data.quiet=false
+				if validDisplay then
 					data.fish=Fish.create(data.world,nil,id)
 					if Fish.applyAppearance then Fish.applyAppearance(data.fish,variant,profile.records and profile.records[id],.82) end
+					data.portrait=Theme.portraitBounds(data.fish)
 				end
 				data.signature=signature
 			end
-			data.name.Text=if id then Catalog.get(id).Name else "SLOT "..slot
+			data.name.Text=if validDisplay then species.Name else "SLOT "..slot
 		end
 		for id,row in rows do
 			local unlocked=profile and profile.best and profile.best[id]
@@ -236,8 +263,11 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 			row.badge.TextColor3=if owned or afford then Theme.Teal else Theme.Muted
 			row.button.Active,row.button.Selectable=not equipped and (owned or afford)==true,not equipped and (owned or afford)==true
 			row.button.BackgroundColor3=if equipped then Color3.fromRGB(209,231,217) else Theme.Soft
+			if equipped and GuiService.SelectedObject==row.button then GuiService.SelectedObject=stylesTab end
 		end
-		visit.Text=if profile then "VISIT MY TANK" else "LOADING COLLECTION..."
+		updateVisitText()
+		visit.Active,visit.Selectable=profile~=nil,profile~=nil
+		if not profile and GuiService.SelectedObject==visit then GuiService.SelectedObject=closeButton end
 	end
 	fishTab.Activated:Connect(function() setTab("Fish") end)
 	stylesTab.Activated:Connect(function() setTab("Styles") end)
@@ -247,46 +277,68 @@ function Aquarium.new(playerGui: Instance, handlers: any)
 	player.CharacterAdded:Connect(close)
 	player:SetAttribute("AquariumMenuOpen",false)
 	gui.Parent=playerGui
-	local function animate(time: number,width: number,height: number)
+	local lastWidth,lastHeight=-1,-1
+	local fallbackWidth,fallbackHeight=640,600
+	local function updateLayout()
 		local canvas=gui.AbsoluteSize
-		local w=if canvas.X>0 then canvas.X else width
-		local h=if canvas.Y>0 then canvas.Y else height
+		local w=if canvas.X>0 then canvas.X else fallbackWidth
+		local h=if canvas.Y>0 then canvas.Y else fallbackHeight
+		if w==lastWidth and h==lastHeight then return end
+		lastWidth,lastHeight=w,h
 		local compact=h<450
+		compactLayout=compact
 		card.Size=UDim2.fromOffset(math.min(640,math.max(280,w-24)),math.min(600,math.max(228,h-(if compact then 12 else 24))))
 		title.Text,title.TextSize=if compact then "Aquarium" else "Your little ocean",if compact then 16 elseif w<420 then 20 else 25
 		title.Size=UDim2.new(1,if compact then -210 else -76,0,32)
 		sub.Visible=not compact
-		local slotY=if compact then 56 else 88
-		local slotHeight=if compact then 34 else 110
+		local slotY=if compact then 58 else 88
+		local slotHeight=if compact then 44 else 110
 		for slot,data in slots do
 			data.button.Position=UDim2.new((slot-1)/3,14,0,slotY)
 			data.button.Size=UDim2.new(1/3,-18,0,slotHeight)
-			data.button:FindFirstChild("FishPreview").Visible=not compact
-			if gui.Enabled and data.fish then
+			data.view.Visible=not compact
+			data.name.Position=if compact then UDim2.fromOffset(6,11) else UDim2.new(0,6,1,-24)
+		end
+		local tabsY=slotY+slotHeight+(if compact then 8 else 12)
+		fishTab.Position,stylesTab.Position=UDim2.fromOffset(14,tabsY),UDim2.new(.5,8,0,tabsY)
+		fishTab.Size,stylesTab.Size=UDim2.new(.5,-22,0,44),UDim2.new(.5,-22,0,44)
+		instruction.Visible=not compact
+		instruction.Position=UDim2.fromOffset(16,tabsY+49)
+		local contentY=tabsY+(if compact then 50 else 80)
+		fishList.Position,styleList.Position=UDim2.fromOffset(14,contentY),UDim2.fromOffset(14,contentY)
+		local bottom=if compact then 6 else 74
+		fishList.Size,styleList.Size=UDim2.new(1,-28,1,-contentY-bottom),UDim2.new(1,-28,1,-contentY-bottom)
+		visit.Position=if compact then UDim2.new(1,-182,0,10) else UDim2.new(0,14,1,-62)
+		visit.Size=if compact then UDim2.fromOffset(116,44) else UDim2.new(1,-28,0,48)
+		visit.TextSize=if compact then 12 else 14
+		updateVisitText()
+	end
+	local function animate(time: number,width: number,height: number)
+		-- Remember the caller's inset-safe fallback while this ScreenGui is hidden.
+		-- Static layout is refreshed on opening or an effective canvas change.
+		fallbackWidth,fallbackHeight=width,height
+		if not gui.Enabled then return end
+		updateLayout()
+		for slot,data in slots do
+			if not data.view.Visible or not data.fish then continue end
+			if Theme.effectsReduced() then
+				if not data.quiet then data.fish:PivotTo(CFrame.identity);Fish.animate(data.fish,0);data.quiet=true end
+			else
+				data.quiet=false
 				data.fish:PivotTo(CFrame.Angles(0,math.sin(time+slot)*.2,math.sin(time*1.3+slot)*.025))
 				Fish.animate(data.fish,time)
 			end
+			if data.portrait then Theme.fitPortrait(data.view,data.camera,data.fish,data.portrait) end
 		end
-		local tabsY=slotY+slotHeight+12
-		fishTab.Position,stylesTab.Position=UDim2.fromOffset(14,tabsY),UDim2.new(.5,8,0,tabsY)
-		fishTab.Size,stylesTab.Size=UDim2.new(.5,-22,0,if compact then 32 else 42),UDim2.new(.5,-22,0,if compact then 32 else 42)
-		instruction.Visible=not compact
-		instruction.Position=UDim2.fromOffset(16,tabsY+49)
-		local contentY=tabsY+(if compact then 38 else 80)
-		fishList.Position,styleList.Position=UDim2.fromOffset(14,contentY),UDim2.fromOffset(14,contentY)
-		local bottom=if compact then 12 else 74
-		fishList.Size,styleList.Size=UDim2.new(1,-28,1,-contentY-bottom),UDim2.new(1,-28,1,-contentY-bottom)
-		visit.Position=if compact then UDim2.new(1,-170,0,14) else UDim2.new(0,14,1,-62)
-		visit.Size=if compact then UDim2.fromOffset(106,36) else UDim2.new(1,-28,0,48)
-		visit.TextSize=if compact then 10 else 14
-		visit.Text=if profile then (if compact then "VISIT TANK" else "VISIT MY TANK") else "LOADING..."
 	end
 	refresh()
 	return {
 		open=function()
 			if not gui.Enabled then oldSelection=GuiService.SelectedObject end
-			gui.Enabled=true;player:SetAttribute("AquariumMenuOpen",true);refresh()
-			if UserInputService.GamepadEnabled then GuiService.SelectedObject=slots[selectedSlot].button end
+			gui.Enabled=true;player:SetAttribute("AquariumMenuOpen",true);updateLayout();refresh()
+			if UserInputService.PreferredInput==Enum.PreferredInput.Gamepad then
+				GuiService.SelectedObject=if profile then slots[selectedSlot].button else closeButton
+			end
 		end,
 		close=close,isOpen=function() return gui.Enabled end,
 		updateProfile=function(value: any) profile=value;refresh() end,

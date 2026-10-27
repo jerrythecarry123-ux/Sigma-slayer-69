@@ -64,6 +64,7 @@ function Cinematic.new(playerGui: PlayerGui, audio: any)
 	local selectedBefore: GuiObject? = nil
 	local connections: { RBXScriptConnection } = {}
 	local seen: { [string]: boolean } = {}
+	local layoutWidth, layoutHeight = 0, 0
 	local death: RBXScriptConnection? = nil
 	local characterChild: RBXScriptConnection? = nil
 	local function systemReduced(): boolean
@@ -89,6 +90,8 @@ function Cinematic.new(playerGui: PlayerGui, audio: any)
 	local function layout()
 		local canvas = gui.AbsoluteSize
 		local width, height = math.max(240, canvas.X), math.max(220, canvas.Y)
+		if width == layoutWidth and height == layoutHeight then return end
+		layoutWidth, layoutHeight = width, height
 		local short = height < 430
 		local horizontal = short and width >= 480
 		stage.Size = UDim2.fromOffset(math.min(584, width - 24), math.min(470, height - 20))
@@ -170,6 +173,9 @@ function Cinematic.new(playerGui: PlayerGui, audio: any)
 	end
 	local function play(result: any, onComplete: (() -> ())?): boolean
 		if destroyed or not gui:IsDescendantOf(playerGui) or type(result) ~= "table" then return false end
+		local character = player.Character
+		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+		if not humanoid or humanoid.Health <= 0 then close(false); return false end
 		local tier = Rarity.get(result.rarity or "Common")
 		if tier.Rank < 4 then close(false); return false end
 		close(false)
@@ -247,9 +253,17 @@ function Cinematic.new(playerGui: PlayerGui, audio: any)
 		stop = function(_reason: string?) close(false) end,
 		setReducedEffects = function(value: boolean)
 			reduced = value == true
-			if active and systemReduced() then
+			if active and systemReduced() and not active.quietDeadline then
+				local previous = active
+				active.quietDeadline = true
 				active.duration = math.min(active.duration, active.elapsed + .55)
 				for _, mote in motes do mote.Visible = false end
+				-- RenderStepped can be suspended in a backgrounded client. A newly
+				-- requested reduced-effects path still has its own short wall-time
+				-- exit, rather than waiting for the original long reveal watchdog.
+				task.delay(.55, function()
+					if not destroyed and active == previous then close(true) end
+				end)
 			end
 		end,
 		isPlaying = function(): boolean return active ~= nil end,

@@ -347,7 +347,9 @@ function Architecture.cottage(parent, cf, width, depth, tint, kind)
 	for i = -1, 1 do
 		local x = i * (w - 4) / 3
 		local potColor = if i == 0 then C.Gold else C.Roof
-		Kit.disk(model, "GlazedStoragePot", 0.72, 0.72, 0.85, cf:PointToWorldSpace(Vector3.new(x, 5.15, d / 2 - 0.8)), potColor, { material = SMOOTH })
+		-- The native pot base enters the shelf slightly; the old 5.15-stud
+		-- centre left a small, measurable air gap under every storage pot.
+		Kit.disk(model, "GlazedStoragePot", 0.72, 0.72, 0.85, cf:PointToWorldSpace(Vector3.new(x, 5.13, d / 2 - 0.8)), potColor, { material = SMOOTH })
 		if i ~= 0 then
 			Kit.disk(model, "PotteryLip", 0.85, 0.85, 0.12, cf:PointToWorldSpace(Vector3.new(x, 5.58, d / 2 - 0.8)), potColor:Lerp(C.Cream, 0.2), { material = SMOOTH })
 		end

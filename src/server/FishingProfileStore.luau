@@ -24,7 +24,8 @@ function Store.new(catalog: any, progression: any, studio: boolean)
 		return nil, "unavailable"
 	end
 	local function load(userId: number): (any?, string?)
-		local id = HttpService:GenerateGUID(false)
+		local issued, id = pcall(function() return HttpService:GenerateGUID(false) end)
+		if not issued then return nil, "unavailable" end
 		local key = "player_" .. userId
 		local record, reason = update(key, function(old) return rules.acquire(old, id, os.time()) end)
 		for _ = 1, 3 do
@@ -42,9 +43,23 @@ function Store.new(catalog: any, progression: any, studio: boolean)
 		if session.closed or session.busy then return false, "busy" end
 		session.busy = true
 		-- Keep a single snapshot across UpdateAsync retries.
-		local copy = progression.copy(profile)
+		local copied, copy = pcall(function()
+			-- Validate before the whitelist copy as well. A malformed optional
+			-- field must not become a valid default simply because copying drops it.
+			if not rules.validate(profile) then return nil end
+			return progression.copy(profile)
+		end)
+		if not copied or copy == nil then session.busy = false; return false, "invalid_data" end
+		-- One operation identity survives callback/transport retries. The receipt
+		-- distinguishes an acknowledged release from an unrelated unlocked record.
+		local releaseOperationId = nil
+		if release then
+			local issued, identity = pcall(function() return HttpService:GenerateGUID(false) end)
+			if not issued then session.busy = false; return false, "unavailable" end
+			releaseOperationId = identity
+		end
 		local record, reason = update(session.key, function(old)
-			return rules.save(old, copy, session.id, os.time(), release)
+			return rules.save(old, copy, session.id, os.time(), release, releaseOperationId)
 		end)
 		session.busy = false
 		if not record then return false, reason or "unavailable" end

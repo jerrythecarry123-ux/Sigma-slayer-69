@@ -40,6 +40,7 @@ function Scenery.start()
 	local glints: { [Instance]: Glint } = {}
 	local surrenderedGlints: { [Instance]: boolean } = {}
 	local listeners: { [Instance]: { RBXScriptConnection } } = {}
+	local motionRoots: { [Instance]: RBXScriptConnection } = {}
 	local worldConnections: { RBXScriptConnection } = {}
 	local surfaces: {[Instance]: {original: string, last: string}} = {}
 	local surfaceWaiting: {[Instance]: {RBXScriptConnection}} = {}
@@ -92,6 +93,8 @@ function Scenery.start()
 
 	local function forget(instance: Instance)
 		forgetSurface(instance)
+		local rootConnection = motionRoots[instance]
+		if rootConnection then rootConnection:Disconnect(); motionRoots[instance] = nil end
 		local flow=flows[instance]
 		if flow and flow.alphaOwned and flow.part.Parent and math.abs(flow.part.Transparency-flow.last)<.0001 then
 			flow.part.Transparency=flow.original
@@ -154,6 +157,15 @@ function Scenery.start()
 				glints[instance] = nil
 			end
 		elseif instance:IsA("Model") then
+			local motionExpected = instance.Name == "SkySail" or instance:GetAttribute("SceneryMotion") == "Boat"
+				or instance:GetAttribute("SwayOrigin") ~= nil or instance:GetAttribute("SpinOrigin") ~= nil
+			if motionExpected and not motionRoots[instance] then
+				-- PrimaryPart can arrive/change after children and attributes. Only
+				-- authored moving models need this extra readiness connection.
+				motionRoots[instance] = instance:GetPropertyChangedSignal("PrimaryPart"):Connect(function() refresh(instance) end)
+			elseif not motionExpected and motionRoots[instance] then
+				motionRoots[instance]:Disconnect(); motionRoots[instance] = nil
+			end
 			-- Models can replicate before their attributes and body parts. Keep their listeners
 			-- until removal so either arrival order can make the actor ready.
 			local root=instance.PrimaryPart or instance:FindFirstChildWhichIsA("BasePart",true)
@@ -231,6 +243,7 @@ function Scenery.start()
 		for instance in listeners do table.insert(tracked, instance) end
 		for instance in surfaces do table.insert(tracked,instance) end
 		for instance in surfaceWaiting do table.insert(tracked,instance) end
+		for instance in motionRoots do table.insert(tracked,instance) end
 		for _, instance in tracked do forget(instance) end
 		world = nil
 	end

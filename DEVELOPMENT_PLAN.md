@@ -1,5 +1,11 @@
 # Cloud Anglers — development roadmap
 
+Active v1.8 work implements optional cast strength/accuracy, meaningful earned
+rod control and finishes, saved sound/effects preferences and a whole-project
+quality audit. The user
+requires two active hours across interruptions; see `WORK_LOG.md`. Final native
+acceptance and a new packaged checkpoint remain pending.
+
 Current code checkpoint: v1.7, fishing identity and catch presentation, built on
 v1.6 (`7c39c2a`). The six priorities below are implemented and checked in the
 available environment; native acceptance remains open. This is a continuing
@@ -14,7 +20,7 @@ progress, portal travel, public aquariums and the calm, shaded art direction.
 | 2 | Fishing feel | Server-bound fish, varied readable anticipation, species resistance, forgiving first catches; cancel/retry never grants rewards or rerolls rare fish. |
 | 3 | Fish identity | Seven data-driven rarity tiers, two finished species for the missing tiers, distinct silhouettes and motion; no save reset or paid lottery. |
 | 4 | Rare-catch presentation | Short local reveals, immediate skip, reduced effects, reliable cancellation and no takeover of another player's view or the world camera. |
-| 5 | Interface | Readable moving timing zones, rarity words plus rank, working desktop/touch/gamepad navigation and session audio/effects settings. |
+| 5 | Interface | Readable separate cast/reel zones, rarity words plus rank, desktop/touch/gamepad modal ownership, compact cards and saved audio/effects choices with honest pending status. |
 | 6 | Integration and release | Production code checks, exact source/place packaging, continuity docs, downloadable GitHub Studio file. Native acceptance remains mandatory before public launch. |
 
 ## Later milestones
@@ -25,8 +31,9 @@ progress, portal travel, public aquariums and the calm, shaded art direction.
 2. Profile the existing world on those devices before adding more scenery.
    Measure memory, draw calls, frame time, streaming and allocation hotspots.
    Revisit the 768-stud target radius using measurements, rather than guessing.
-3. Improve rod control with an experimentally validated cast-accuracy mechanic
-   and richer resistance input if it improves the current accessible timing game.
+3. Validate the v1.8 cast-accuracy and wider earned-rod windows with actual
+   players and measured latency. Tune from observations before introducing
+   richer resistance input or another minigame layer.
 4. Commission or author licensed custom animation/audio/mesh assets where the
    procedural approach cannot meet the visual standard. Validate permissions and
    loading before enabling assets; do not leave fake IDs in the shipped place.

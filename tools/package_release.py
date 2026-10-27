@@ -9,8 +9,8 @@ from build_place import ROOT, PLACE_NAME, build
 def package() -> Path:
     place = ROOT / "artifacts" / PLACE_NAME
     build(place)
-    output = ROOT / "artifacts/Cloud-Anglers-v1.7.zip"
-    files = [ROOT / name for name in ("README.md", ".gitignore", "DEVELOPMENT_PLAN.md", "PROGRESS.md", "NEXT_STEPS.md", "KNOWN_ISSUES.md")]
+    output = place.with_suffix(".zip")
+    files = [ROOT / name for name in ("README.md", ".gitignore", "DEVELOPMENT_PLAN.md", "PROGRESS.md", "NEXT_STEPS.md", "KNOWN_ISSUES.md", "WORK_LOG.md", "WORK_LOG.json")]
     for folder in ("src", "docs", "tools", "tests"):
         files.extend(path for path in (ROOT / folder).rglob("*")
                      if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc")

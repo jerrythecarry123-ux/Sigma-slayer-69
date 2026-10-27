@@ -334,6 +334,23 @@ local peerPart=modules.WorldPrimitives.part(peer,'IndependentRotorRoot',Vector3.
 peer:SetAttribute('SpinOrigin',peerOrigin);peer:SetAttribute('SpinRate',.31)
 world.DescendantAdded:Fire(peer);world.DescendantAdded:Fire(peerPart)
 local peerBefore=peerPart.CFrame
+-- A streamed Model can assign its PrimaryPart after all child Parts arrive.
+-- Property-only root changes must refresh readiness without another descendant
+-- or attribute notification. An old detached root must not freeze its replacement.
+local swap=Instance.new('Model');swap.Name='LatePrimaryRotor';swap.Parent=world
+local swapOrigin=CFrame.new(12,16,7)
+local swapOld=modules.WorldPrimitives.part(swap,'OldRoot',Vector3.new(.2,2,.2),swapOrigin,Color3.new(.4,.5,.6))
+local swapNew=modules.WorldPrimitives.part(swap,'ReplacementRoot',Vector3.new(.2,3,.2),swapOrigin,Color3.new(.4,.5,.6))
+swap.PrimaryPart=swapOld;swap:SetAttribute('SpinOrigin',swapOrigin);swap:SetAttribute('SpinRate',.27)
+world.DescendantAdded:Fire(swap);world.DescendantAdded:Fire(swapOld);world.DescendantAdded:Fire(swapNew)
+step(1800000103.1)
+swapOld.Parent=nil
+swapNew.CFrame=swapOrigin;swap.PrimaryPart=swapNew
+local replacementBefore=swapNew.CFrame
+step(1800000103.2)
+assert((swapNew.CFrame.RightVector-replacementBefore.RightVector).Magnitude>.001,'late PrimaryPart assignment did not refresh motion readiness')
+world.DescendantRemoving:Fire(swap);swap.Parent=nil
+assert(swap:GetPropertyChangedSignal('PrimaryPart'):Count()==0,'removed motion retained its root property listener')
 world.DescendantRemoving:Fire(rotorPart);rotorPart.Parent=nil
 local removedFrame=rotor:GetPivot();step(1800000104)
 assert(rotor:GetPivot().r[1][1]==removedFrame.r[1][1],'missing-root model still animates')
@@ -360,6 +377,7 @@ local frozen=boat:GetPivot().Position
 world.Parent=nil;world.AncestryChanged:Fire();step(1800000106)
 assert((boat:GetPivot().Position-frozen).Magnitude==0,'unbound world still animates')
 assert(boat.AttributeChanged:Count()==0 and flow.AttributeChanged:Count()==0,'removed world retained readiness listeners')
+assert(boat:GetPropertyChangedSignal('PrimaryPart'):Count()==0,'removed world retained motion-root listeners')
 assert(flow.Transparency==.47 and glint.Transparency==.21,'world cleanup overwrote external opacity')
 assert(lateMaterial.MaterialVariant=='' and styled.MaterialVariant=='OtherClientSurface','world cleanup lost material ownership')
 world.Parent=workspace;workspace.ChildAdded:Fire(world);step(1800000107)

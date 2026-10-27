@@ -9,6 +9,30 @@ local function uint(value: any, maximum: number): boolean
 	return type(value) == "number" and value == value and value >= 0 and value <= maximum and value % 1 == 0
 end
 
+local function operationIdValid(value: any): boolean
+	if type(value) ~= "string" or #value ~= 36 then return false end
+	local a, b, c, d, e = string.match(value, "^(%x+)%-(%x+)%-(%x+)%-(%x+)%-(%x+)$")
+	return a ~= nil and b ~= nil and c ~= nil and d ~= nil and e ~= nil
+		and #a == 8 and #b == 4 and #c == 4 and #d == 4 and #e == 12
+end
+
+local function releaseReceiptValid(value: any): boolean
+	return type(value) == "table" and type(value.leaseId) == "string"
+		and #value.leaseId > 0 and #value.leaseId <= 128 and operationIdValid(value.operationId)
+end
+
+local function preferencesValid(value: any): boolean
+	if type(value) ~= "table" or type(rawget(value, "soundEnabled")) ~= "boolean"
+		or type(rawget(value, "reducedEffects")) ~= "boolean" then return false end
+	local key: any = nil
+	for _ = 1, 3 do
+		key = next(value, key)
+		if key == nil then return true end
+		if key ~= "soundEnabled" and key ~= "reducedEffects" then return false end
+	end
+	return false
+end
+
 function SaveRules.new(catalog: any, progression: any)
 	local speciesById: { [string]: any } = {}
 	for _, species in catalog.Species do speciesById[species.Id] = species end
@@ -63,6 +87,7 @@ function SaveRules.new(catalog: any, progression: any)
 				or (profile.equippedStyle ~= "lagoon" and (not profile.styles or not profile.styles[profile.equippedStyle])) then return false end
 		end
 		if profile.combo ~= nil and not uint(profile.combo, 100) then return false end
+		if profile.preferences ~= nil and not preferencesValid(profile.preferences) then return false end
 		if profile.zoneDuplicates ~= nil then
 			if type(profile.zoneDuplicates) ~= "table" then return false end
 			for id, count in profile.zoneDuplicates do if not zones[id] or not uint(count, 1000000000) then return false end end
@@ -74,6 +99,9 @@ function SaveRules.new(catalog: any, progression: any)
 			or not uint(record.lastSeen, 100000000000) then return false end
 		local lease = record.lease
 		local award = record.offlineAward
+		-- Optional version-1 metadata acknowledges a final write whose response
+		-- was lost. An active lease must never carry another operation's receipt.
+		if record.releaseReceipt ~= nil and (lease ~= nil or not releaseReceiptValid(record.releaseReceipt)) then return false end
 		if award ~= nil and (type(award) ~= "table" or type(award.leaseId) ~= "string"
 			or not uint(award.coins, SaveRules.MaxOfflineCoins)
 			or not uint(award.seconds, SaveRules.MaxOfflineSeconds)) then return false end
@@ -105,12 +133,22 @@ function SaveRules.new(catalog: any, progression: any)
 			offlineAward = { leaseId = leaseId, coins = earned, seconds = elapsed },
 		}, nil
 	end
-	local function save(old: any, profile: any, leaseId: string, now: number, release: boolean): (any?, string?)
+	local function save(old: any, profile: any, leaseId: string, now: number, release: boolean, releaseOperationId: string?): (any?, string?)
 		if not recordValid(old) or not validate(profile) then return nil, "invalid_data" end
+		if releaseOperationId ~= nil and (not release or not operationIdValid(releaseOperationId)) then return nil, "invalid_operation" end
+		local receipt = old.releaseReceipt
+		if release and releaseOperationId and old.lease == nil and receipt
+			and receipt.leaseId == leaseId and receipt.operationId == releaseOperationId then
+			-- Acknowledge only this operation's already committed result. Never
+			-- rewrite it with the caller's potentially older snapshot or timestamp.
+			return { version = 1, profile = progression.copy(old.profile), lastSeen = old.lastSeen,
+				releaseReceipt = { leaseId = receipt.leaseId, operationId = receipt.operationId } }, nil
+		end
 		if not old.lease or old.lease.id ~= leaseId then return nil, "lost_lease" end
 		return {
 			version = 1, profile = progression.copy(profile), lastSeen = now,
 			lease = if release then nil else { id = leaseId, expires = now + SaveRules.LeaseSeconds },
+			releaseReceipt = if release and releaseOperationId then { leaseId = leaseId, operationId = releaseOperationId } else nil,
 		}, nil
 	end
 	return { acquire = acquire, save = save, validate = validate }

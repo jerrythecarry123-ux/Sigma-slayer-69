@@ -82,7 +82,9 @@ local function signal()
   Count=function() return #callbacks end}
 end
 local originalIndex=mt.__index
+local primaryPartReads=0
 mt.__index=function(self,key)
+ if key=="PrimaryPart" then primaryPartReads+=1 end
  if key=="AttributeChanged" or key=="ChildAdded" or key=="DescendantAdded" or key=="DescendantRemoving" or key=="AncestryChanged" then
   if not self.props[key] then self.props[key]=signal() end
   return self.props[key]
@@ -141,6 +143,9 @@ lateActor:SetAttribute("AmbientKind",nil)
 local lateJoint=lateActor:FindFirstChild("ArmRight")
 local savedRest=lateJoint:GetAttribute("AmbientRest")
 lateJoint:SetAttribute("AmbientRest",nil)
+local lateEye=lateActor:FindFirstChild("HeadPose"):FindFirstChild("Eye")
+local savedEyeSize=lateEye:GetAttribute("AmbientEyeSize")
+lateEye:SetAttribute("AmbientEyeSize",nil)
 '''
 
 CHECK = r'''
@@ -174,7 +179,13 @@ step(0.01)
 assert((lateActor:GetPivot().Position-lateBefore).Magnitude==0,"actor animated before required attributes")
 lateActor:SetAttribute("AmbientKind","Resident"); lateActor.AttributeChanged:Fire("AmbientKind")
 lateJoint:SetAttribute("AmbientRest",savedRest); lateJoint.AttributeChanged:Fire("AmbientRest")
-for i=1,600 do step(i*0.05) end
+lateEye:SetAttribute("AmbientEyeSize",savedEyeSize); lateEye.AttributeChanged:Fire("AmbientEyeSize")
+local lateBlinkObserved=false
+for i=1,600 do
+ step(i*0.05)
+ if lateEye.Size.Y<savedEyeSize.Y*.2 then lateBlinkObserved=true end
+end
+assert(lateBlinkObserved,"eye metadata arriving after its part never activated blinking")
 local relativeArm=lateActor:GetPivot():Inverse()*lateJoint:GetPivot()
 assert(math.abs(relativeArm.r[2][3])>.015,"late joint failed to acquire its restrained working pose")
 local workspaces=world:FindFirstChild("ResidentWorkspaces")
@@ -222,9 +233,11 @@ world.Parent=nil; world.AncestryChanged:Fire()
 step(54)
 assert((lateActor:GetPivot().Position-worldFrozen).Magnitude==0,"removed world still animated")
 assert(lateActor.AttributeChanged:Count()==0,"world unbind retained actor listeners")
+assert(lateEye.AttributeChanged:Count()==0,"world unbind retained late-eye readiness listeners")
 world.Parent=workspace; workspace.ChildAdded:Fire(world)
 step(55)
 assert((lateActor:GetPivot().Position-worldFrozen).Magnitude>0.001,"returning world failed to resume")
+assert(lateEye.AttributeChanged:Count()==1,"returning world duplicated or lost its eye readiness listener")
 -- Reactions follow a living local character, not a free camera. A short greeting
 -- uses the empty hand and has both a cooldown and a leave/re-enter requirement.
 local function roll(joint,actor)
@@ -271,6 +284,17 @@ assert(eye.Size.Y<openSize.Y*.2,"eyes never close during a blink")
 lateActor.AttributeChanged:Fire("AmbientPeriod");step(blinkTime+.02)
 step(blinkTime+.2)
 assert(math.abs(eye.Size.Y-openSize.Y)<1e-6,"blink refresh adopted a squashed eye as its new rest size")
+-- Stream a large unrelated decoration batch. Removal must not inspect every
+-- resident joint merely because a plank or leaf left the generated world.
+local decorations={}
+for index=1,500 do
+ local part=Instance.new("Part");part.Name="UnrelatedStreamedPlank";part.Parent=world
+ table.insert(decorations,part)
+end
+local readsBefore=primaryPartReads
+for _,part in decorations do world.DescendantRemoving:Fire(part);part.Parent=nil end
+local decorationRootReads=primaryPartReads-readsBefore
+assert(decorationRootReads<20,"unrelated scenery removal scanned all resident joint roots: "..decorationRootReads)
 -- Captain Pip's rod moves, but its line end is tied to the bobber on native water.
 local captain=group:FindFirstChild("Resident_CaptainPip")
 local line=captain:FindFirstChild("FineFishingLine")
@@ -285,6 +309,16 @@ for index=1,100 do
  assert((endPoint-bobber.Position).Magnitude<.0001 and (startPoint-tip).Magnitude<.0001,"fishing line detached from its rod or water bobber")
  assert(math.abs(bobber.Position.Y-8.2)<=.026,"resident bobber hangs above or below the lagoon")
 end
+-- A detached cached prop must stop driving the line even if notification arrives
+-- after reparenting. The resident may continue its own work animation.
+rod.Parent=workspace;world.DescendantRemoving:Fire(rod)
+local orphanedLine=captain:GetPivot():Inverse()*line.CFrame
+step(105.2)
+local retainedLine=captain:GetPivot():Inverse()*line.CFrame
+assert((retainedLine.Position-orphanedLine.Position).Magnitude<.00001
+ and (retainedLine.RightVector-orphanedLine.RightVector).Magnitude<.00001,
+ "cached rod outside its resident kept driving the fishing line")
+rod.Parent=captain:FindFirstChild("ArmRight");world.DescendantAdded:Fire(rod)
 -- Juniper's loaded tray remains level while the empty hand acknowledges a customer.
 humanoid.Health=100;localPlayer.Character=character
 workspace.CurrentCamera.CFrame=CFrame.new(-44,18,-3)
@@ -322,11 +356,15 @@ workspace.CurrentCamera.CFrame=CFrame.new(45,18,-6)
 -- An individual actor root may leave before the rest of an Atomic model. Its
 -- readiness listener must stop movement and recover when that root returns.
 local actorRoot=lateActor.PrimaryPart
+world.DescendantRemoving:Fire(actorRoot)
+actorRoot.Parent=nil
+local rootFrozen=actorRoot.CFrame.Position
+step(126.9)
+assert((actorRoot.CFrame.Position-rootFrozen).Magnitude==0,"stale PrimaryPart reference moved a detached actor root")
 lateActor.PrimaryPart=nil
 lateActor:GetPropertyChangedSignal("PrimaryPart"):Fire()
 world.DescendantRemoving:Fire(actorRoot)
 actorRoot.Parent=nil
-local rootFrozen=actorRoot.CFrame.Position
 step(127)
 assert((actorRoot.CFrame.Position-rootFrozen).Magnitude==0,"unloaded actor root was still moved")
 actorRoot.Parent=lateActor
@@ -343,7 +381,6 @@ workspace.CurrentCamera.CFrame=gull:GetAttribute("AmbientOrigin")
 step(129)
 local gullFrozen=gull:GetPivot().Position
 world.DescendantRemoving:Fire(gull)
-for _,child in gull:GetDescendants() do world.DescendantRemoving:Fire(child) end
 gull.Parent=nil
 step(130)
 assert((gull:GetPivot().Position-gullFrozen).Magnitude==0,"streamed-out gull still moves")
@@ -371,6 +408,7 @@ end
 assert(gullMinRoll<-.48 and gullMaxRoll>.60,"gull detail checks did not exercise both flap extremes")
 print("Production animation:",steps,"finite steps; late attributes, stable jobs, real-character greetings/cooldown, blinks, water endpoints, ground contact, LOD and streaming recovery passed")
 print("Native gull wing prisms remained joined and rigid through both flap extremes and gull streaming recovery:",gullMinRoll,gullMaxRoll)
+print("Resident streaming audit: late eye metadata, whole-model listener cleanup, detached props/roots and 500 unrelated removals with",decorationRootReads,"joint-root reads passed")
 print("These are geometry/event-double checks; Roblox rendering and engine behavior require Studio.")
 '''
 

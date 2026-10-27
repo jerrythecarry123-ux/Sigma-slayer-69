@@ -6,10 +6,25 @@ type Profile = {
 	records: { [string]: number }, variants: { [string]: { [string]: boolean } },
 	display: { string }, styles: { [string]: boolean }, equippedStyle: string,
 	combo: number, zoneDuplicates: { [string]: number },
+	preferences: { soundEnabled: boolean, reducedEffects: boolean },
 }
 local Progression = {}
 local ranks = { Normal = 1, Fine = 2, Brilliant = 3 }
 local MAX_COINS = 1000000000
+
+-- Settings requests are a fixed-size protocol. Inspect at most three keys so
+-- unknown fields and oversized tables cannot turn validation into a full scan.
+local function preferencesValid(value: any): boolean
+	if type(value) ~= "table" or type(rawget(value, "soundEnabled")) ~= "boolean"
+		or type(rawget(value, "reducedEffects")) ~= "boolean" then return false end
+	local key: any = nil
+	for _ = 1, 3 do
+		key = next(value, key)
+		if key == nil then return true end
+		if key ~= "soundEnabled" and key ~= "reducedEffects" then return false end
+	end
+	return false
+end
 
 function Progression.new(catalog: any, randomRoll: () -> number)
 	local function roll(): number
@@ -23,6 +38,7 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		profile.equippedStyle = profile.equippedStyle or "lagoon"
 		profile.combo = profile.combo or 0
 		profile.zoneDuplicates = profile.zoneDuplicates or {}
+		profile.preferences = profile.preferences or { soundEnabled = true, reducedEffects = false }
 		if not profile.display then
 			profile.display = {}
 			for _, species in catalog.Species do
@@ -35,6 +51,7 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 			coins = 0, level = 0, catches = 0, brilliant = 0, goalIndex = 1, best = {}, duplicateCount = 0,
 			records = {}, variants = {}, display = {}, styles = { lagoon = true }, equippedStyle = "lagoon",
 			combo = 0, zoneDuplicates = {},
+			preferences = { soundEnabled = true, reducedEffects = false },
 		}
 	end
 	local function collection(profile: Profile): (number, number)
@@ -82,8 +99,9 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 			table.insert(names, goal.Title)
 			profile.goalIndex += 1
 		end
-		profile.coins = math.min(MAX_COINS, profile.coins + reward)
-		return reward, names
+		local paid = math.min(MAX_COINS - profile.coins, reward)
+		profile.coins += paid
+		return paid, names
 	end
 	local function copy(profile: Profile): Profile
 		local out = create()
@@ -107,7 +125,18 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		for id, owned in profile.styles or {} do out.styles[id] = owned end
 		out.equippedStyle, out.combo = profile.equippedStyle or "lagoon", profile.combo or 0
 		for id, count in profile.zoneDuplicates or {} do out.zoneDuplicates[id] = count end
+		if profile.preferences then
+			out.preferences = {
+				soundEnabled = profile.preferences.soundEnabled,
+				reducedEffects = profile.preferences.reducedEffects,
+			}
+		end
 		return out
+	end
+	local function timingWidth(profile: Profile): number
+		local rod = catalog.Rods[profile.level + 1]
+		local width = if rod then rod.TimingWidth else nil
+		return if type(width) == "number" and width == width and math.abs(width) < math.huge then math.clamp(width, .08, .22) else .14
 	end
 	local function snapshot(profile: Profile)
 		local safe = copy(profile)
@@ -118,10 +147,13 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 			coins = profile.coins, level = profile.level, species = found, points = points, best = safe.best,
 			records = safe.records, variants = safe.variants, display = safe.display,
 			styles = safe.styles, equippedStyle = safe.equippedStyle, combo = safe.combo,
+			preferences = safe.preferences,
 			catches = profile.catches, zoneProgress = zoneProgress(profile),
 			rod = catalog.Rods[profile.level + 1].Name,
+			timingWidth = timingWidth(profile),
 			nextUpgrade = if nextRod then {
 				name = nextRod.Name, cost = nextRod.Cost, description = nextRod.Description,
+				timingWidth = nextRod.TimingWidth or .14,
 			} else nil,
 			goal = if goal then {
 				title = goal.Title, progress = math.min(goalValue(profile, goal.Kind), goal.Target),
@@ -165,7 +197,7 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		end
 		return picked
 	end
-	local function catch(profile: Profile, quality: string, zoneId: string?, reservedId: string?)
+	local function catch(profile: Profile, quality: string, zoneId: string?, reservedId: string?, castBonusPercent: number?)
 		assert(ranks[quality], "Unknown catch quality")
 		normalize(profile)
 		local picked = nil
@@ -206,17 +238,26 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		profile.combo = if quality == "Normal" then 0 else math.min(100, profile.combo + 1)
 		local comboBonus = if profile.combo > 1 then math.min(20, (profile.combo - 1) * 2) else 0
 		local multiplier = 1 + catalog.Rods[profile.level + 1].Bonus / 100
-		local coins = math.floor(picked.Coins * multiplier
+		local fishCoins = math.floor(picked.Coins * multiplier
 			* (if quality == "Brilliant" then 1.6 elseif quality == "Fine" then 1.25 else 1)
 			* (if variant == "Prismatic" then 2.5 elseif variant == "Golden" then 1.8 else 1)
-			* (1 + sizeRoll * .25)) + comboBonus
-		profile.coins = math.min(MAX_COINS, profile.coins + coins)
+			* (1 + sizeRoll * .25))
+		-- This percentage comes from the engine's receipt-time cast grade, not
+		-- a client payload. It applies only to this fish, never goals or chains.
+		local castPercent = if type(castBonusPercent) == "number" and castBonusPercent == castBonusPercent and math.abs(castBonusPercent) < math.huge
+			then math.clamp(castBonusPercent, 0, 10) else 0
+		local castBonus = math.floor(fishCoins * castPercent / 100)
+		local coins = math.min(MAX_COINS - profile.coins, fishCoins + comboBonus + castBonus)
+		local paidCombo = math.min(comboBonus, math.max(0, coins - fishCoins))
+		local paidCast = math.min(castBonus, math.max(0, coins - fishCoins - comboBonus))
+		profile.coins += coins
 		local bonus, goals = resolveGoals(profile)
 		return {
 			species = picked.Name, speciesId = picked.Id, rarity = picked.Rarity, quality = quality,
 			coins = coins, goalBonus = bonus, milestones = goals, newDiscovery = discovery,
 			improved = previous ~= nil and ranks[quality] > previous,
-			weightKg = weightKg, variant = variant, newRecord = newRecord, combo = profile.combo, comboBonus = comboBonus,
+			weightKg = weightKg, variant = variant, newRecord = newRecord, combo = profile.combo, comboBonus = paidCombo,
+			castBonus = paidCast,
 			zoneId = picked.Zone,
 		}
 	end
@@ -264,8 +305,14 @@ function Progression.new(catalog: any, randomRoll: () -> number)
 		normalize(profile)
 		profile.combo = 0
 	end
-	return { create = create, snapshot = snapshot, prepare = prepare, catch = catch, upgrade = upgrade, copy = copy,
-		display = display, style = style, miss = miss }
+	local function setPreferences(profile: Profile, value: any): boolean
+		if not preferencesValid(value) then return false end
+		profile.preferences = { soundEnabled = value.soundEnabled, reducedEffects = value.reducedEffects }
+		return true
+	end
+	return { create = create, snapshot = snapshot, prepare = prepare, catch = catch, upgrade = upgrade, copy = copy, timingWidth = timingWidth,
+		display = display, style = style, miss = miss,
+		setPreferences = setPreferences, preferencesValid = preferencesValid }
 end
 
 return Progression

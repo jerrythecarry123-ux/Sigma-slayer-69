@@ -138,6 +138,12 @@ local function find(root,name)
  for _,child in root.children do local result=find(child,name);if result then return result end end
 end
 local button=find(gui,'blossom');local close=find(gui,'Close');local cover=find(gui,'PortalTransition');local banner=find(gui,'Arrival')
+local card=find(gui,'DestinationCard')
+assert(card.SelectionGroup==true,'portal card has no native gamepad selection boundary')
+for _,direction in {'Up','Down','Left','Right'} do
+ assert(card['SelectionBehavior'..direction]==Enum.SelectionBehavior.Stop,
+  'portal permits directional selection outside its modal card: '..direction)
+end
 local function open()
  event.OnClientEvent:Fire('Open','harbor')
  assert(gui.Enabled and player:GetAttribute('IslandTravelMenuOpen') and not controls.controlsEnabled,'menu did not lock controls')
@@ -200,6 +206,7 @@ close.Activated:Fire()
 local oldSelection=Instance.new('TextButton');oldSelection.Parent=pgui
 GuiService.SelectedObject=oldSelection;input.GamepadEnabled=true
 open();assert(GuiService.SelectedObject==button,'gamepad did not select an available pond')
+assert(GuiService.SelectedObject:IsDescendantOf(card),'portal selected a control outside its selection group')
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.ButtonB},false)
 assert(GuiService.SelectedObject==oldSelection and controls.controlsEnabled and not gui.Enabled,'gamepad close lost focus or movement')
 -- Direct gallery visits use the same cover, cancellation and control lifecycle,
@@ -229,6 +236,7 @@ close.Activated:Fire()
 print('PASS production portal interface: dark-cover send timing, ID-only payload, arrival reveal and movement restoration')
 print('PASS cancellation before send, pending-close guard, death/respawn, rejection, transport failure and timeout recovery')
 print('PASS repeated Open, late arrival, stale timeout/banner callbacks and pre-disabled controls ownership')
+print('PASS native portal selection-group/Stop contract and owned gamepad focus restoration; directional engine navigation remains untested')
 print('PASS direct gallery shortcut: no menu flash, covered ID-only send, pending exclusion and death/rejection/timeout recovery')
 print('UI/event/tween doubles only; actual rendering, native input and PlayerModule integration still require Studio.')
 '''

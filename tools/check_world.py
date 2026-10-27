@@ -353,22 +353,34 @@ def validate(scene):
                 and min(p['size'][0],p['size'][2])>3 and abs(p['rotation'][1][1])>.9):
             assert p['alpha']==1, p['path']+' is an invisible walking plane'
             visible_floors+=1
-    # A fixed target could still lie below an unseen plate or inside scenery.
-    # Keep the entire vertical space above all authoritative bobber lanes clear.
+    # Evaluate the actual production strength-to-depth rule across its entire
+    # input range, not an unrelated hand-written list of target distances.
+    # Every landing footprint must occupy real native water and be unobstructed.
     cast_samples=0
     waters={water['Id']:water for water in layout['Waters']}
+    cast_depths=scene.get('castDepths', [])
+    assert len(cast_depths)==101, 'Capture actual casting rules before checking the charged water lanes'
+    water_surfaces = {surface['id']: surface for surface in scene['waterSurfaces']}
     for dock in layout['Docks']:
         water=waters[dock['Id']]
+        surface=water_surfaces[dock['Id']]
+        resolution=surface['resolution']
+        occupied={(round(p[0]/resolution-.5),round(p[2]/resolution-.5)) for p in surface['cells']}
         for lane in (-3,-1,1,3):
-            x=dock['Spot'][0]+math.cos(dock['Yaw'])*lane-math.sin(dock['Yaw'])*14
-            z=dock['Spot'][2]-math.sin(dock['Yaw'])*lane-math.cos(dock['Yaw'])*14
-            for dx,dz in ((0,0),(-.5,0),(.5,0),(0,-.5),(0,.5)):
-                for p,x0,x1,z0,z1 in colliders:
-                    if x0<=x+dx<=x1 and z0<=z+dz<=z1:
-                        hit=interval(p,x+dx,z+dz)
-                        assert not hit or hit[1]<water['Center'][1]+.05 or hit[0]>dock['Spot'][1]+5, \
-                            dock['Id']+' casting water is obstructed by '+p['path']
-                cast_samples+=1
+            for sample in cast_depths:
+                depth=sample['depth']
+                assert math.isfinite(depth) and 12-EPS<=depth<=15.4+EPS, 'Cast rule escaped the validated water lanes'
+                x=dock['Spot'][0]+math.cos(dock['Yaw'])*lane-math.sin(dock['Yaw'])*depth
+                z=dock['Spot'][2]-math.sin(dock['Yaw'])*lane-math.cos(dock['Yaw'])*depth
+                for dx,dz in ((0,0),(-.5,0),(.5,0),(0,-.5),(0,.5)):
+                    assert (math.floor((x+dx)/resolution),math.floor((z+dz)/resolution)) in occupied, \
+                        dock['Id']+' strength target misses actual occupied native water'
+                    for p,x0,x1,z0,z1 in colliders:
+                        if x0<=x+dx<=x1 and z0<=z+dz<=z1:
+                            hit=interval(p,x+dx,z+dz)
+                            assert not hit or hit[1]<water['Center'][1]+.05 or hit[0]>dock['Spot'][1]+9, \
+                                dock['Id']+' casting water is obstructed by '+p['path']
+                    cast_samples+=1
 
     # Every masonry prism must connect to the visible basin, directly or by
     # true face/edge contact with the other triangulated bank pieces. Merely
@@ -378,7 +390,6 @@ def validate(scene):
     fence_posts = [p for p in parts if p['name'] == 'LagoonFencePost']
     basin_faces = [p for p in parts if p['name'] == 'WalkableMeadow' and '/SuspendedLagoon/' in p['path']]
     assert boundaries and fence_posts and basin_faces, 'Missing supported lagoon boundary'
-    water_surfaces = {surface['id']: surface for surface in scene['waterSurfaces']}
     assert set(water_surfaces) == set(waters), 'Every native-water region needs its exact captured footprint'
     rim_samples, bank_samples, wet_edge_samples, air_cells = 0, 0, 0, 0
     for zone, water in waters.items():

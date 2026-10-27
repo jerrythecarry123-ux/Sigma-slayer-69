@@ -90,9 +90,17 @@ local function fern(parent: Instance, pos: Vector3, scale: number, yaw: number)
 	for i = 0, 3 do
 		local a = yaw + i * TAU / 4
 		local tip = pos + Vector3.new(math.cos(a) * 2.5, .8 + i % 2 * .35, math.sin(a) * 2.5) * scale
-		local frond = Kit.wedge(parent, "TaperedFernFrond", Vector3.new(.8, .18, 3.25) * scale,
-			CFrame.lookAt((pos + tip) / 2, tip) * CFrame.Angles(.1, 0, 0), C.Leaf:Lerp(C.Lime, i % 3 * .12), detail)
-		frond.CFrame *= CFrame.new(0, .3 * scale, 0)
+		local root = pos + Vector3.yAxis * .005 * scale
+		local frame = CFrame.lookAt((root + tip) / 2, tip)
+		local width = .8 * scale
+		-- Two thin triangular halves share one pointed tip and a broad grounded
+		-- root. The old shallow ramp had a rectangular footprint and looked like
+		-- a thick plank from the walking camera instead of a tapered leaf.
+		for _, side in {-1, 1} do
+			Kit.wedge(parent, "TaperedFernFrond", Vector3.new(.07 * scale, width / 2, (tip - root).Magnitude),
+				frame * CFrame.new(side * width / 4, 0, 0) * CFrame.Angles(0, 0, -side * math.pi / 2),
+				C.Leaf:Lerp(C.Lime, i % 3 * .12), detail)
+		end
 	end
 end
 

@@ -3,6 +3,8 @@
 return table.freeze({
 	PreparationTime = 0.8,
 	CastDuration = 0.65,
+	CastChargeDuration = 1.0,
+	CastChargeTimeout = 2.2,
 	DynamicBites = true,
 	BiteDelayMin = 0.35,
 	BiteDelayMax = 1.05,

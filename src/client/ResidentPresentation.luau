@@ -52,7 +52,9 @@ end
 
 local function pose(actor: Actor, body: CFrame, name: string, pitch: number, yaw: number, roll: number)
 	local joint = actor.joints[name]
-	if joint and joint.model.Parent and joint.model.PrimaryPart then
+	local root = if joint then joint.model.PrimaryPart else nil
+	if joint and joint.model.Parent and joint.model:IsDescendantOf(actor.model)
+		and root and root:IsDescendantOf(joint.model) then
 		joint.model:PivotTo(body * joint.rest * CFrame.Angles(pitch, yaw, roll))
 	end
 end
@@ -157,13 +159,14 @@ local function inhabitant(actor: Actor, time: number, viewer: Vector3?)
 	local cycle = t % (4.6 + math.abs(actor.phase) * .13)
 	local blink = if cycle < .16 then math.sin(cycle / .16 * math.pi) ^ 2 else 0
 	for _, eye in actor.eyes do
-		if eye.part.Parent then
+		if eye.part.Parent and eye.part:IsDescendantOf(actor.model) then
 			eye.part.Size = Vector3.new(eye.size.X, eye.size.Y * (1 - blink * .92), eye.size.Z)
 			if eye.glint then eye.part.Transparency = blink end
 		end
 	end
 	if actor.line and actor.rod and actor.bobber and actor.lineEnd
-		and actor.line.Parent and actor.rod.Parent and actor.bobber.Parent then
+		and actor.line:IsDescendantOf(actor.model) and actor.rod:IsDescendantOf(actor.model)
+		and actor.bobber:IsDescendantOf(actor.model) then
 		local rod, endpoint = actor.rod, actor.lineEnd + Vector3.yAxis * math.sin(t * 2.2) * .025
 		local tip = rod.Position + rod.CFrame.RightVector * rod.Size.X * .5
 		local length = (endpoint - tip).Magnitude
@@ -173,11 +176,11 @@ local function inhabitant(actor: Actor, time: number, viewer: Vector3?)
 			actor.bobber.Position = endpoint
 		end
 	end
-	if actor.spout and actor.spout.Parent and actor.waterTarget then
+	if actor.spout and actor.spout:IsDescendantOf(actor.model) and actor.waterTarget then
 		local spout = actor.spout
 		local start = spout.Position + spout.CFrame.RightVector * spout.Size.X * .5
 		for index, drop in actor.drops do
-			if not drop.Parent then continue end
+			if not drop:IsDescendantOf(actor.model) then continue end
 			local progress = (time * 1.5 + index / 3) % 1
 			drop.Position = start:Lerp(actor.waterTarget, progress) + Vector3.yAxis * math.sin(progress * math.pi) * .06
 			drop.Transparency = if pouring > .3 and progress > .08 and progress < .92 then .35 else 1
@@ -224,7 +227,9 @@ function Presentation.start()
 	local function refresh(instance: Instance)
 		if not world or not instance:IsA("Model") or not instance:IsDescendantOf(world) then return end
 		local kind, origin = instance:GetAttribute("AmbientKind"), instance:GetAttribute("AmbientOrigin")
-		if typeof(kind) ~= "string" or not ALLOWED_KINDS[kind] or typeof(origin) ~= "CFrame" or not instance.PrimaryPart then
+		local root = instance.PrimaryPart
+		if typeof(kind) ~= "string" or not ALLOWED_KINDS[kind] or typeof(origin) ~= "CFrame"
+			or not root or not root:IsDescendantOf(instance) then
 			actors[instance] = nil
 			return
 		end
@@ -290,12 +295,18 @@ function Presentation.start()
 		}
 	end
 
-	local function refreshAncestor(instance: Instance)
+	local function actorAncestor(instance: Instance): Instance?
 		local ancestor: Instance? = instance
 		while ancestor and ancestor ~= world do
-			if namedActor(ancestor) then refresh(ancestor); return end
+			if namedActor(ancestor) then return ancestor end
 			ancestor = ancestor.Parent
 		end
+		return nil
+	end
+
+	local function refreshAncestor(instance: Instance)
+		local ancestor = actorAncestor(instance)
+		if ancestor then refresh(ancestor) end
 	end
 
 	local function discover(instance: Instance)
@@ -304,6 +315,13 @@ function Presentation.start()
 				instance.AttributeChanged:Connect(function() refreshAncestor(instance) end),
 				instance:GetPropertyChangedSignal("PrimaryPart"):Connect(function() refreshAncestor(instance) end),
 			}
+		elseif instance:IsA("BasePart") and (instance.Name == "Eye" or instance.Name == "EyeSpark")
+			and actorAncestor(instance) and not listeners[instance] then
+			-- Eye Parts can arrive before their authored rest-size attribute. Only
+			-- the small named eye set needs this listener, not every scenery Part.
+			listeners[instance] = { instance.AttributeChanged:Connect(function(name)
+				if name == "AmbientEyeSize" then refreshAncestor(instance) end
+			end) }
 		end
 		if instance:IsA("Model") or instance:IsA("BasePart") then refreshAncestor(instance) end
 	end
@@ -315,11 +333,23 @@ function Presentation.start()
 			for _, connection in connections do connection:Disconnect() end
 			listeners[instance] = nil
 		end
-		-- A missing animated joint cannot be reused after an individual part unload.
-		for _, actor in actors do
+		-- DescendantRemoving precedes reparenting. Follow the removed object's
+		-- own actor ancestry; unrelated planks must not inspect every joint in
+		-- the world. Cached individual props also stop writing after removal.
+		local owner = actorAncestor(instance)
+		local actor = if owner then actors[owner] else nil
+		if actor then
 			for name, joint in actor.joints do
-				if joint.model == instance or joint.model.PrimaryPart == instance then actor.joints[name] = nil end
+				if joint.model == instance or (instance:IsA("BasePart") and joint.model.PrimaryPart == instance) then
+					actor.joints[name] = nil
+				end
 			end
+			for index = #actor.eyes, 1, -1 do if actor.eyes[index].part == instance then table.remove(actor.eyes, index) end end
+			for index = #actor.drops, 1, -1 do if actor.drops[index] == instance then table.remove(actor.drops, index) end end
+			if actor.line == instance then actor.line = nil end
+			if actor.rod == instance then actor.rod = nil end
+			if actor.bobber == instance then actor.bobber = nil end
+			if actor.spout == instance then actor.spout = nil end
 		end
 	end
 
@@ -337,7 +367,14 @@ function Presentation.start()
 		unbind()
 		world = candidate
 		table.insert(worldConnections, candidate.DescendantAdded:Connect(discover))
-		table.insert(worldConnections, candidate.DescendantRemoving:Connect(forget))
+		table.insert(worldConnections, candidate.DescendantRemoving:Connect(function(instance)
+			forget(instance)
+			-- Handle a whole streamed group even when the caller only observes
+			-- its root removal; repeated descendant notifications are harmless.
+			if instance:IsA("Model") then
+				for _, child in instance:GetDescendants() do forget(child) end
+			end
+		end))
 		table.insert(worldConnections, candidate.AncestryChanged:Connect(function()
 			if candidate.Parent ~= workspace and world == candidate then unbind() end
 		end))
@@ -363,7 +400,9 @@ function Presentation.start()
 		local viewer=if root and root:IsA("BasePart") and humanoid and humanoid.Health>0 and finiteVector(root.Position) then root.Position else nil
 		for _, actor in actors do
 			local distance = actor.origin.Position - position
-			if actor.model.Parent and actor.model.PrimaryPart and distance:Dot(distance) <= MAX_DISTANCE * MAX_DISTANCE then
+			local actorRoot = actor.model.PrimaryPart
+			if actor.model.Parent and actorRoot and actorRoot:IsDescendantOf(actor.model)
+				and distance:Dot(distance) <= MAX_DISTANCE * MAX_DISTANCE then
 				if actor.kind == "Resident" then inhabitant(actor, time, viewer) else wildlife(actor, time) end
 			end
 		end

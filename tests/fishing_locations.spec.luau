@@ -76,6 +76,28 @@ test("a successful Start binds only its server-selected location", function()
 	assert(locations:forAttempt(1, packet.attemptId + 1) == nil)
 end)
 
+test("charging binds the accepted server location and its launch cannot retarget", function()
+	local locations = Locations.new()
+	assert(locations:acceptStart(1, nil, { phase = "ChargingCast", attemptId = 71 }, grove))
+	assert(locations:forAttempt(1, 71) == grove)
+	assert(not locations:acceptStart(1, 71, { phase = "Waiting", attemptId = 71 }, harbor))
+	assert(not locations:acceptStart(1, 71, { phase = "ChargingCast", attemptId = 72 }, harbor))
+	assert(locations:forAttempt(1, 71) == grove and locations:last(1) == grove)
+end)
+
+test("rejected phases and malformed attempt IDs cannot overwrite a binding", function()
+	local locations = Locations.new()
+	assert(locations:acceptStart(1, nil, { phase = "Waiting", attemptId = 1 }, harbor))
+	for _, phase in { "Idle", "Reeling", "Connecting", "forged" } do
+		assert(not locations:acceptStart(1, nil, { phase = phase, attemptId = 2 }, grove))
+	end
+	for _, id in { 0, -1, .5, math.huge, -math.huge, 0/0, "2", {} } do
+		assert(not locations:acceptStart(1, nil, { phase = "ChargingCast", attemptId = id }, grove))
+	end
+	assert(not locations:acceptStart(1, nil, { phase = "ChargingCast" }, grove))
+	assert(locations:last(1) == harbor and locations:forAttempt(1, 1) == harbor)
+end)
+
 test("walking to a nearby dock cannot retarget an active cast", function()
 	local engine, locations = setup()
 	local packet = assert(command(engine, locations, 1, "Start", nil, 0, 0, { harbor, overlap }))

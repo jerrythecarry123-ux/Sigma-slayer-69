@@ -6,10 +6,12 @@ type Config = {
 	read RequestsPerSecond: number, read SpeciesName: string,
 	read DynamicTiming: boolean?, read DynamicBites: boolean?, read CastDuration: number?,
 	read BiteDelayMin: number?, read BiteDelayMax: number?,
+	read CastChargeDuration: number?, read CastChargeTimeout: number?,
 }
 type Attempt = {
-	id: number, phase: string, readyAt: number, expiresAt: number, chargeAt: number?, zoneId: string?, timingCenter: number?,
-	castAt: number, castDuration: number, duration: number, difficulty: number, behavior: string,
+	id: number, phase: string, readyAt: number?, expiresAt: number, chargeAt: number?, zoneId: string?, timingCenter: number?, timingWidth: number?,
+	castAt: number?, castDuration: number, duration: number, difficulty: number, behavior: string,
+	castChargeAt: number, castChargeDuration: number, castPower: number?, castGrade: string?, castBonusPercent: number?,
 	timingMotion: { amplitude: number, speed: number, phase: number }?, reservedId: string?,
 }
 type Session = {
@@ -20,8 +22,9 @@ type Session = {
 }
 type Packet = { [string]: any }
 type TimingRules = {
-	read qualityAt: (number, number?) -> string?, read centerFor: ((number) -> number)?,
+	read qualityAt: (number, number?, number?) -> string?, read centerFor: ((number) -> number)?,
 	read centerAt: ((any, number) -> number)?,
+	read castGradeAt: ((number) -> (string, number))?,
 }
 local Engine = {}
 Engine.__index = Engine
@@ -72,10 +75,13 @@ function Engine.snapshot(self: FishingEngine, userId: number): Packet?
 		packet.readyAt = attempt.readyAt
 		packet.castAt = attempt.castAt
 		packet.castDuration = attempt.castDuration
+		packet.castChargeAt, packet.castChargeDuration = attempt.castChargeAt, attempt.castChargeDuration
+		packet.castPower, packet.castGrade, packet.castBonusPercent = attempt.castPower, attempt.castGrade, attempt.castBonusPercent
 		packet.expiresAt = attempt.expiresAt
 		packet.chargeAt = attempt.chargeAt
 		packet.duration = attempt.duration
 		packet.timingCenter = attempt.timingCenter
+		packet.timingWidth = attempt.timingWidth
 		packet.difficulty, packet.behavior = attempt.difficulty, attempt.behavior
 		if attempt.timingMotion then
 			local motion = attempt.timingMotion
@@ -85,7 +91,7 @@ function Engine.snapshot(self: FishingEngine, userId: number): Packet?
 	return packet
 end
 
-function Engine.finish(self: FishingEngine, userId: number, now: number, message: string): Packet
+function Engine.finish(self: FishingEngine, userId: number, now: number, message: string, outcome: string?): Packet
 	local session = self.sessions[userId]
 	local miss = if self.progression then self.progression.miss else nil
 	if session.profile and type(miss) == "function" then miss(session.profile) end
@@ -93,13 +99,59 @@ function Engine.finish(self: FishingEngine, userId: number, now: number, message
 	session.nextStart = now + self.config.StartCooldown
 	local packet = self:snapshot(userId) :: Packet
 	packet.message = message
+	packet.outcome = outcome or "Missed"
 	return packet
 end
 
 function Engine.interrupt(self: FishingEngine, userId: number, now: number, message: string): Packet?
 	local session = self.sessions[userId]
 	if not session or not session.attempt then return nil end
-	return self:finish(userId, now, message)
+	return self:finish(userId, now, message, "Interrupted")
+end
+
+-- Transition once from the charging pose to a real cast. Only this transition
+-- selects/reserves a fish; starting or cancelling a wind-up never rolls one.
+function Engine.launch(self: FishingEngine, userId: number, now: number, power: number, grade: string, bonusPercent: number): Packet
+	local session = self.sessions[userId]
+	local attempt = session.attempt :: Attempt
+	assert(attempt.phase == "ChargingCast", "A cast may launch only once")
+	local zoneId = attempt.zoneId
+	local reservationKey = zoneId or "*"
+	local candidate = session.reservations[reservationKey]
+	local prepare = if self.progression then self.progression.prepare else nil
+	if not candidate and session.profile and type(prepare) == "function" then
+		candidate = prepare(session.profile, zoneId)
+		session.reservations[reservationKey] = candidate
+	end
+	-- Failed attempts cannot reroll a suspected rare fish. Reservations are
+	-- private, per pond, and survive movement, Cancel, timeout and upgrades.
+	-- They are transient session state; only successful rewards are saved.
+	local novice = not session.profile or session.profile.catches < 3
+	local rodWidth = if self.progression then self.progression.timingWidth else nil
+	attempt.timingWidth = if not novice and type(rodWidth) == "function" then rodWidth(session.profile) else .14
+	local difficulty = if candidate and not novice then math.clamp(candidate.Difficulty or 0, 0, 0.6) else 0
+	local behavior = if candidate then candidate.Behavior or "Drift" else "Drift"
+	local duration = self.config.ChargeDuration - difficulty * 0.6
+	local delay = 0
+	if self.config.DynamicBites then
+		local value = self.randomRoll()
+		local roll = if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 0.5
+		local low, high = self.config.BiteDelayMin or 0.35, self.config.BiteDelayMax or 1.05
+		delay = low + (high - low) * roll + difficulty * 0.18
+	end
+	local readyAt = now + self.config.PreparationTime + delay - math.min(0.10, bonusPercent * .01)
+	local motion = nil
+	if self.config.DynamicTiming and difficulty > 0.15 then
+		local speed = if behavior == "Dart" then 3.1 elseif behavior == "Surge" then 2.5 elseif behavior == "Glide" then 1.6 else 2
+		motion = { amplitude = difficulty * 0.07, speed = speed, phase = (attempt.id % 7) * 0.53 }
+	end
+	attempt.phase, attempt.castAt, attempt.readyAt = "Waiting", now, readyAt
+	attempt.castPower, attempt.castGrade, attempt.castBonusPercent = power, grade, bonusPercent
+	attempt.duration, attempt.difficulty, attempt.behavior = duration, difficulty, behavior
+	attempt.timingMotion, attempt.reservedId = motion, if candidate then candidate.Id else nil
+	attempt.expiresAt = readyAt + self.config.BiteTimeout
+	attempt.timingCenter = if self.config.DynamicTiming and self.rules.centerFor then self.rules.centerFor(attempt.id) else nil
+	return self:snapshot(userId) :: Packet
 end
 
 function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: boolean): Packet?
@@ -107,7 +159,12 @@ function Engine.tick(self: FishingEngine, userId: number, now: number, canFish: 
 	local attempt = if session then session.attempt else nil
 	if not attempt then return nil end
 	if not canFish then
-		return self:finish(userId, now, "Fishing stopped. Return to the glowing spot on the dock.")
+		return self:finish(userId, now, "Fishing stopped. Return to the glowing spot on the dock.", "Interrupted")
+	end
+	if attempt.phase == "ChargingCast" and now >= attempt.expiresAt then
+		-- A held or lost release cannot leave a child stuck winding up. An
+		-- automatic launch is always a plain cast, never a free accuracy bonus.
+		return self:launch(userId, now, .65, "Clean", 0)
 	end
 	if now > attempt.expiresAt then
 		return self:finish(userId, now, "It swam away. Cast again!")
@@ -128,6 +185,31 @@ function Engine.command(
 	session.tokens -= 1
 	if type(action) ~= "string" then return nil end
 	if action == "Sync" then return self:snapshot(userId) end
+	if action == "Preferences" then
+		local progression = self.progression
+		local validate = if progression then progression.preferencesValid else nil
+		local set = if progression then progression.setPreferences else nil
+		if not session.profile or type(validate) ~= "function" or type(set) ~= "function" then return nil end
+		-- Settings are independent of fishing. A late preference request cannot
+		-- launch a charging cast through tick(), reroll a fish or alter a reward.
+		if session.attempt then
+			if not validate(attemptId) then return nil end
+			local packet = self:snapshot(userId) :: Packet
+			packet.message = "Finish your cast before saving preferences."
+			return packet
+		end
+		if not set(session.profile, attemptId) then return nil end
+		local packet = self:snapshot(userId) :: Packet
+		packet.preferencesChanged = true
+		return packet
+	end
+	local winding = session.attempt
+	if action == "Cancel" and winding and winding.phase == "ChargingCast"
+		and type(attemptId) == "number" and attemptId == winding.id then
+		-- Give an explicit cancellation priority over the convenience timeout.
+		-- Opening a menu at 2.2 seconds must not launch/roll a fish first.
+		return self:finish(userId, now, "Cast cancelled. Ready when you are.", "Cancelled")
+	end
 	local aborted = self:tick(userId, now, canFish)
 	if aborted then return aborted end
 	if (action == "Display" or action == "Style") and self.progression and session.profile then
@@ -158,7 +240,7 @@ function Engine.command(
 		packet.message = purchase.message
 		return packet
 	end
-	if action == "Start" then
+	if action == "Start" or action == "BeginCast" then
 		if session.attempt or now < session.nextStart then return self:snapshot(userId) end
 		if not canFish then
 			local packet = self:snapshot(userId) :: Packet
@@ -166,50 +248,27 @@ function Engine.command(
 			return packet
 		end
 		self.sequence += 1
-		local reservationKey = zoneId or "*"
-		local candidate = session.reservations[reservationKey]
-		local prepare = if self.progression then self.progression.prepare else nil
-		if not candidate and session.profile and type(prepare) == "function" then
-			candidate = prepare(session.profile, zoneId)
-			session.reservations[reservationKey] = candidate
-		end
-		-- Failed attempts cannot reroll a suspected rare fish. Reservations are
-		-- private, per pond, and survive movement, Cancel, timeout and upgrades.
-		-- They are transient session state; only successful rewards are saved.
-		local novice = not session.profile or session.profile.catches < 3
-		local difficulty = if candidate and not novice then math.clamp(candidate.Difficulty or 0, 0, 0.6) else 0
-		local behavior = if candidate then candidate.Behavior or "Drift" else "Drift"
-		local duration = self.config.ChargeDuration - difficulty * 0.6
-		local delay = 0
-		if self.config.DynamicBites then
-			local value = self.randomRoll()
-			local roll = if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 0.5
-			local low, high = self.config.BiteDelayMin or 0.35, self.config.BiteDelayMax or 1.05
-			delay = low + (high - low) * roll + difficulty * 0.18
-		end
-		local readyAt = now + self.config.PreparationTime + delay
-		local motion = nil
-		if self.config.DynamicTiming and difficulty > 0.15 then
-			local speed = if behavior == "Dart" then 3.1 elseif behavior == "Surge" then 2.5 elseif behavior == "Glide" then 1.6 else 2
-			motion = { amplitude = difficulty * 0.07, speed = speed, phase = (self.sequence % 7) * 0.53 }
-		end
 		session.attempt = {
-			id = self.sequence, phase = "Waiting", readyAt = readyAt,
-			castAt = now, castDuration = self.config.CastDuration or 0.65,
-			duration = duration, difficulty = difficulty, behavior = behavior,
-			timingMotion = motion, reservedId = if candidate then candidate.Id else nil,
-			expiresAt = readyAt + self.config.BiteTimeout,
-			zoneId = zoneId,
-			timingCenter = if self.config.DynamicTiming and self.rules.centerFor then self.rules.centerFor(self.sequence) else nil,
+			id = self.sequence, phase = "ChargingCast", expiresAt = now + (self.config.CastChargeTimeout or 2.2),
+			zoneId = zoneId, castChargeAt = now, castChargeDuration = self.config.CastChargeDuration or 1,
+			castDuration = self.config.CastDuration or .65, duration = self.config.ChargeDuration,
+			difficulty = 0, behavior = "Drift",
 		}
+		if action == "Start" then return self:launch(userId, now, .65, "Clean", 0) end
 		return self:snapshot(userId)
 	end
 	local attempt = session.attempt
 	if not attempt or type(attemptId) ~= "number" or attemptId ~= attempt.id then return nil end
 	if action == "Cancel" then
-		return self:finish(userId, now, "Cast cancelled. Ready when you are.")
+		return self:finish(userId, now, "Cast cancelled. Ready when you are.", "Cancelled")
+	elseif (action == "Cast" or action == "QuickCast") and attempt.phase == "ChargingCast" then
+		local power = math.clamp((now - attempt.castChargeAt) / attempt.castChargeDuration, 0, 1)
+		local grade, bonusPercent = "Clean", 0
+		if action == "QuickCast" then power = .65
+		elseif self.rules.castGradeAt then grade, bonusPercent = self.rules.castGradeAt(power) end
+		return self:launch(userId, now, power, grade, bonusPercent)
 	elseif action == "Hold" then
-		if attempt.phase ~= "Waiting" or now < attempt.readyAt then return self:snapshot(userId) end
+		if attempt.phase ~= "Waiting" or now < (attempt.readyAt :: number) then return self:snapshot(userId) end
 		attempt.phase = "Reeling"
 		local chargeAt = now + self.config.ChargeLeadTime
 		attempt.chargeAt = chargeAt
@@ -221,11 +280,12 @@ function Engine.command(
 		-- needs device testing before any bounded lag compensation is introduced.
 		local progress = (now - (attempt.chargeAt :: number)) / attempt.duration
 		local center = if self.rules.centerAt then self.rules.centerAt(attempt, now) else attempt.timingCenter
-		local quality = self.rules.qualityAt(progress, center)
+		local quality = self.rules.qualityAt(progress, center, attempt.timingWidth)
 		if not quality then return self:finish(userId, now, "It got away! Release inside the colored zone.") end
 		session.catches += 1
-		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality, attempt.zoneId, attempt.reservedId)
+		local reward = if self.progression and session.profile then self.progression.catch(session.profile, quality, attempt.zoneId, attempt.reservedId, attempt.castBonusPercent)
 			else { species = self.config.SpeciesName, quality = quality }
+		reward.castPower, reward.castGrade, reward.castBonusPercent = attempt.castPower, attempt.castGrade, attempt.castBonusPercent
 		session.reservations[attempt.zoneId or "*"] = nil
 		-- A successful catch ends its attempt without resetting the quality chain.
 		session.attempt = nil
@@ -233,6 +293,7 @@ function Engine.command(
 		local packet = self:snapshot(userId) :: Packet
 		packet.message = "You caught a " .. reward.species .. "!"
 		packet.result = reward
+		packet.outcome = "Caught"
 		return packet
 	end
 	return nil

@@ -21,6 +21,10 @@ local typeof=function(value)
  return nativeTypeof(value)
 end
 local oldIndex,oldNewIndex=mt.__index,mt.__newindex
+local layoutWatchRoot=nil
+local layoutWrites=0
+local layoutProperties={Size=true,Position=true,Text=true,TextSize=true,Visible=true}
+local layoutClasses={Frame=true,TextButton=true,TextLabel=true,ScrollingFrame=true,ViewportFrame=true}
 local events={AttributeChanged=true,ChildAdded=true,ChildRemoved=true,DescendantAdded=true,DescendantRemoving=true,
  MouseEnter=true,MouseLeave=true,Activated=true,CharacterAdded=true}
 mt.__index=function(self,key)
@@ -35,6 +39,8 @@ local function ancestryEvent(parent,key,node)
  end
 end
 mt.__newindex=function(self,key,value)
+ if layoutWatchRoot and layoutProperties[key] and layoutClasses[self.ClassName]
+  and self:IsDescendantOf(layoutWatchRoot) then layoutWrites+=1 end
  local old=self.props[key]
  if key=="Parent" and old~=value and old then
   ancestryEvent(old,"DescendantRemoving",self)
@@ -68,6 +74,17 @@ function methods:IsDescendantOf(ancestor)
  local node=self.Parent
  while node do if node==ancestor then return true end;node=node.Parent end
  return false
+end
+function methods:GetBoundingBox()
+ local lo,hi=Vector3.new(math.huge,math.huge,math.huge),Vector3.new(-math.huge,-math.huge,-math.huge)
+ for _,p in self:GetDescendants() do if p:IsA('BasePart') then
+  for _,x in {-1,1} do for _,y in {-1,1} do for _,z in {-1,1} do
+   local v=p.CFrame*(p.Size*Vector3.new(x,y,z)*.5)
+   lo=Vector3.new(math.min(lo.X,v.X),math.min(lo.Y,v.Y),math.min(lo.Z,v.Z))
+   hi=Vector3.new(math.max(hi.X,v.X),math.max(hi.Y,v.Y),math.max(hi.Z,v.Z))
+  end end end
+ end end
+ return CFrame.new((hi+lo)/2),hi-lo
 end
 function methods:FindFirstChildWhichIsA(class,recursive)
  for _,child in self.children do if child:IsA(class) then return child end end
@@ -107,7 +124,7 @@ local members={}
 players.GetPlayers=function()return members end
 local heartbeat=signal()
 local runService={Heartbeat=heartbeat}
-local input={InputBegan=signal(),GamepadEnabled=false}
+local input={InputBegan=signal(),GamepadEnabled=false,PreferredInput=Enum.PreferredInput.KeyboardAndMouse}
 local guiService={SelectedObject=nil}
 local player=Instance.new("Player");player.UserId=1;player.DisplayName="Angler One";player.Parent=players
 players.LocalPlayer=player
@@ -243,9 +260,33 @@ local ui=modules.AquariumInterface.new(pgui,{
  visit=function()calls.visit+=1 end,close=function()calls.close+=1 end,
 })
 local screen=pgui:FindFirstChild("MyAquarium")
+local function resolvedSize(node)
+ if node==screen then return screen.AbsoluteSize end
+ local parent=resolvedSize(node.Parent)
+ return Vector2.new(parent.X*node.Size.X.Scale+node.Size.X.Offset,parent.Y*node.Size.Y.Scale+node.Size.Y.Offset)
+end
+local function resolvePortraits()
+ for _,node in screen:GetDescendants() do if node.ClassName=='ViewportFrame' then node.AbsoluteSize=resolvedSize(node) end end
+end
+local function action(card,value)
+ for _,node in card:GetDescendants() do if node.ClassName=='TextButton' and node.Text==value then return node end end
+end
 local rich=table.clone(fullSnapshot);rich.coins=1000
 ui.updateProfile(rich);ui.open()
 assert(screen.Enabled and player:GetAttribute("AquariumMenuOpen")==true,"aquarium open did not own its menu attribute")
+local slotOneWorld=find(find(screen,'DisplaySlot1'),'WorldModel')
+local firstPortrait=slotOneWorld:GetChildren()[1]
+local unowned=table.clone(rich);unowned.best=table.clone(rich.best);unowned.best[rich.display[1]]=nil
+ui.updateProfile(unowned)
+assert(#slotOneWorld:GetChildren()==0 and firstPortrait.Parent==nil,'cached portrait kept a fish after ownership changed')
+ui.updateProfile(rich)
+assert(#slotOneWorld:GetChildren()==1 and slotOneWorld:GetChildren()[1]~=firstPortrait,'cached portrait did not restore newly valid ownership')
+for _,row in find(screen,'OwnedFish'):GetChildren() do
+ if row.ClassName=='TextButton' then
+  local detail=find(row,'FishDetail')
+  assert(detail and not detail.TextWrapped and detail.TextTruncate==Enum.TextTruncate.AtEnd,'aquarium hint wraps into a clipped second line')
+ end
+end
 find(screen,"DisplaySlot3").Activated:Fire();find(find(screen,"OwnedFish"),"pufflet").Activated:Fire()
 assert(calls.id=="pufflet" and calls.slot==3,"fish selection changed the wrong slot")
 find(find(screen,"TankThemes"),"coral").Activated:Fire();assert(calls.styleId=="coral","theme selection did not send an ID")
@@ -254,12 +295,33 @@ for _,size in {{320,530},{568,280},{320,240},{844,335},{768,964},{1920,1040}} do
  local card=find(screen,"AquariumStudio");local list=find(card,"OwnedFish")
  assert(card.Size.X.Offset<=size[1] and card.Size.Y.Offset<=size[2],"aquarium card exceeds its safe canvas")
  assert(card.Size.Y.Offset+list.Size.Y.Offset>=62,"small screen cannot show a complete tap target")
+ for _,name in {'DisplaySlot1','DisplaySlot2','DisplaySlot3'} do
+  local button=find(card,name);assert(button.Size.Y.Offset>=44,'aquarium slot shrinks below touch size')
+ end
+ for _,name in {'Choose fish','Tank themes',if size[2]<450 then 'VISIT TANK' else 'VISIT MY TANK'} do
+  local button=action(card,name);assert(button and button.Size.Y.Offset>=44,'aquarium action shrinks below touch size: '..name)
+ end
+ assert(card.SelectionGroup and card.SelectionBehaviorDown==Enum.SelectionBehavior.Stop,'aquarium focus can escape to world HUD')
 end
 find(screen,"Backdrop").Activated:Fire();assert(not screen.Enabled and player:GetAttribute("AquariumMenuOpen")==false,"close leaked its menu attribute")
-local priorFocus=Instance.new("TextButton");priorFocus.Parent=pgui;guiService.SelectedObject=priorFocus;input.GamepadEnabled=true
+local priorFocus=Instance.new("TextButton");priorFocus.Parent=pgui;guiService.SelectedObject=priorFocus;input.GamepadEnabled=true;input.PreferredInput=Enum.PreferredInput.Gamepad
 ui.open();assert(guiService.SelectedObject and guiService.SelectedObject:IsDescendantOf(screen),"gamepad lacks an initial selection")
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.ButtonB},false)
 assert(not screen.Enabled and guiService.SelectedObject==priorFocus,"gamepad close lost prior focus")
+input.PreferredInput=Enum.PreferredInput.Touch
+ui.open();assert(guiService.SelectedObject==priorFocus,'connected gamepad stole focus from active touch input')
+ui.close();input.PreferredInput=Enum.PreferredInput.Gamepad
+ui.updateProfile(nil);ui.open()
+assert(guiService.SelectedObject.Text=='×','loading aquarium selected a disabled slot')
+assert(not find(screen,'DisplaySlot1').Selectable and not find(screen,'DisplaySlot3').Active,'loading aquarium exposed incomplete slot controls')
+ui.updateProfile(rich)
+find(screen,'DisplaySlot3').Activated:Fire()
+local small=table.clone(rich);small.display={'pufflet'}
+ui.updateProfile(small)
+assert(not find(screen,'DisplaySlot3').Active and not find(screen,'DisplaySlot3').Selectable,'profile change kept an inaccessible selected slot')
+find(find(screen,'OwnedFish'),'moonray').Activated:Fire()
+assert(calls.id=='moonray' and calls.slot==2,'profile change sent a no-longer-available slot')
+ui.updateProfile(rich);ui.close()
 ui.open();find(screen,"AquariumStudio"):GetChildren()
 local visit
 for _,node in screen:GetDescendants() do if node:IsA("TextButton") and (node.Text=="VISIT TANK" or node.Text=="VISIT MY TANK") then visit=node end end
@@ -272,6 +334,17 @@ local before=swimmer:GetPivot();now+=.3;heartbeat:Fire(.05)
 assert(not near(swimmer:GetPivot(),before),"nearby aquarium fish did not animate")
 workspace.CurrentCamera.CFrame=CFrame.new(2000,20,2000);before=swimmer:GetPivot();now+=.4;heartbeat:Fire(.05)
 assert(near(swimmer:GetPivot(),before),"distant aquarium fish ignored camera LOD")
+workspace.CurrentCamera.CFrame=CFrame.new(swimOrigin.Position)
+modules.UITheme.setReducedEffects(true);now+=.3;heartbeat:Fire(.05)
+assert(near(swimmer:GetPivot(),swimOrigin),'reduced effects left world tank swimming')
+local quietFrames={}
+for _,part in swimmer:GetDescendants() do if part:IsA('BasePart') then quietFrames[part]=part.CFrame end end
+now+=.3;heartbeat:Fire(.05)
+for part,frame in quietFrames do
+ assert(near(part.CFrame,frame) and (part.CFrame.RightVector-frame.RightVector).Magnitude<.00001,'reduced effects kept decorative world fins moving')
+end
+modules.UITheme.setReducedEffects(false);now+=.3;heartbeat:Fire(.05)
+assert(not near(swimmer:GetPivot(),swimOrigin),'world tank motion did not resume after reduced effects')
 -- Attributes and PrimaryPart may arrive independently on a streamed model.
 local late=modules.FishModel.create(workspace,"AquariumFish_late","pufflet")
 late:SetAttribute("AquariumSwimOrigin",CFrame.new(-12,15,0));late:SetAttribute("AquariumSwimPhase",.5)
@@ -284,7 +357,90 @@ assert((late:GetPivot().Position-Vector3.new(-12,15,0)).Magnitude<1,"returning r
 late:SetAttribute("AquariumSwimPhase",0/0);before=late:GetPivot();now+=.5;heartbeat:Fire(.05)
 assert(near(late:GetPivot(),before),"nonfinite swim phase reached a model transform")
 late:Destroy()
+-- Project the actual menu fish through their authored cameras at maximum weight.
+-- The three equal-width slots are sampled independently, including animation.
+local menuPoses,menuCorners=0,0
+ui.updateProfile(rich);ui.open()
+layoutWatchRoot=screen
+local fishAnimationCalls=0
+local originalFishAnimate=modules.FishModel.animate
+modules.FishModel.animate=function(model,time)
+ if model:IsDescendantOf(screen) then fishAnimationCalls+=1 end
+ originalFishAnimate(model,time)
+end
+-- Count attempted writes, including redundant assignments of equal values.
+-- Native layout invalidation/frame time is deliberately not inferred here.
+screen.AbsoluteSize=Vector2.new(844,535);ui.animate(now,844,535);resolvePortraits()
+layoutWrites,fishAnimationCalls=0,0
+for frame=1,120 do ui.animate(frame/60,844,535) end
+assert(layoutWrites==0,'unchanged aquarium canvas still rewrites static layout')
+assert(fishAnimationCalls==360,'visible full-size portraits stopped their normal three-fish animation')
+screen.AbsoluteSize=Vector2.new(844,335);ui.animate(now,844,335)
+assert(visit.Text=='VISIT TANK' and not find(find(screen,'DisplaySlot1'),'FishPreview').Visible,'compact resize left full-size controls or portraits')
+layoutWrites,fishAnimationCalls=0,0
+for frame=1,120 do ui.animate(frame/60,844,335) end
+assert(layoutWrites==0 and fishAnimationCalls==0,'compact hidden portraits still animate or repeat layout work')
+ui.updateProfile(nil)
+assert(visit.Text=='LOADING...' and not visit.Active,'compact loading text/control did not update without resize')
+ui.updateProfile(rich)
+assert(visit.Text=='VISIT TANK' and visit.Active,'compact profile arrival needs a resize to restore its visit control')
+screen.AbsoluteSize=Vector2.new(844,535);ui.animate(now,844,535)
+ui.updateProfile(nil)
+assert(visit.Text=='LOADING COLLECTION...' and not visit.Active,'full-size loading label does not follow profile changes')
+ui.updateProfile(rich)
+assert(visit.Text=='VISIT MY TANK' and visit.Active,'full-size profile arrival retained a loading label')
+ui.close();layoutWrites,fishAnimationCalls=0,0
+for frame=1,120 do ui.animate(frame/60,844,535) end
+assert(layoutWrites==0 and fishAnimationCalls==0,'closed aquarium performs layout or portrait animation work')
+-- A canvas can rotate while the menu is closed, and an unopened ScreenGui can
+-- report zero dimensions. Opening uses the effective canvas/fallback immediately.
+screen.AbsoluteSize=Vector2.new(0,0);ui.animate(now,320,530)
+assert(layoutWrites==0,'hidden resize eagerly rewrote the aquarium')
+ui.open()
+assert(find(screen,'AquariumStudio').Size.X.Offset==296 and find(screen,'AquariumStudio').Size.Y.Offset==506,'open did not apply the latest inset-safe fallback canvas')
+assert(visit.Text=='VISIT MY TANK','reopening retained stale compact text')
+screen.AbsoluteSize=Vector2.new(568,280);ui.close();ui.open()
+assert(find(screen,'AquariumStudio').Size.X.Offset==544 and visit.Text=='VISIT TANK','open did not apply a real canvas change while closed')
+layoutWatchRoot=nil
+for _,size in {{320,530},{375,625},{568,280},{844,335},{768,964},{1920,1040}} do
+ screen.AbsoluteSize=Vector2.new(size[1],size[2]);ui.animate(now,size[1],size[2]);resolvePortraits()
+ for _,species in modules.FishCatalog.Species do
+  local menu=table.clone(rich);menu.best={[species.Id]=3};menu.display={species.Id,species.Id,species.Id};menu.records={[species.Id]=species.WeightMax};menu.variants={[species.Id]={Prismatic=true}}
+  ui.updateProfile(menu)
+  for pose=0,11 do
+   ui.animate(pose*.237,size[1],size[2])
+   for slot=1,3 do
+    local button=find(screen,'DisplaySlot'..slot);local view=find(button,'FishPreview')
+    if view.Visible then
+     local world=view:FindFirstChild('WorldModel');local fish=world:GetChildren()[1]
+     local camera=view.CurrentCamera;local tangent=math.tan(math.rad(camera.FieldOfView*.5));local aspect=view.AbsoluteSize.X/view.AbsoluteSize.Y
+     assert(camera.CFrame.Position.Magnitude<100 and aspect>0,'aquarium portrait camera not finite/bounded')
+     for _,part in fish:GetDescendants() do if part:IsA('BasePart') then
+      for _,x in {-1,1} do for _,y in {-1,1} do for _,z in {-1,1} do
+       local point=camera.CFrame:PointToObjectSpace(part.CFrame*(part.Size*Vector3.new(x,y,z)*.5))
+       assert(point.Z<0 and math.abs(point.Y)<-point.Z*tangent*.99 and math.abs(point.X)<-point.Z*tangent*aspect*.99,'aquarium portrait clips '..species.Id..'/'..part.Name..' on '..size[1]..'x'..size[2])
+       menuCorners+=1
+      end end end
+     end end
+     menuPoses+=1
+    end
+   end
+  end
+ end
+end
+modules.UITheme.setReducedEffects(true);ui.animate(0,1920,1040)
+fishAnimationCalls=0
+local still={}
+for _,node in screen:GetDescendants() do if node:IsA('BasePart') then still[node]=node.CFrame end end
+for frame=1,120 do ui.animate(5+frame/60,1920,1040) end
+assert(fishAnimationCalls==0,'stable reduced-effects portraits still receive repeated animation calls')
+for node,frame in still do assert(near(node.CFrame,frame) and (node.CFrame.RightVector-frame.RightVector).Magnitude<.00001,'reduced-effects menu portrait still animated') end
+modules.UITheme.setReducedEffects(false);ui.animate(8,1920,1040)
+assert(fishAnimationCalls==3,'visible portrait motion did not resume after reduced effects')
+ui.close()
 print("PASS production aquarium UI: IDs/slots, themes, six screen sizes, visit/close/respawn, gamepad focus and streamed animation recovery")
+print('PASS aquarium 44px controls, loading/profile/focus guards, reduced menu/world motion,',menuPoses,'menu poses /',menuCorners,'projected corners')
+print('PASS 120-frame stable open/compact/closed layout probes: zero repeated layout writes; 360 visible fish animation calls, zero compact/closed calls; profile text and closed resize recovery')
 local function vec(v)return {v.X,v.Y,v.Z}end
 local function encode(v)
  if type(v)=="string" then return string.format("%q",v) end

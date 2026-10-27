@@ -439,4 +439,71 @@ test("existing completed milestone records receive only the appended journal goa
 	assert(progression.catch(p, "Normal", "harbor").goalBonus == 0)
 end)
 
+
+
+test("cast accuracy adds only a bounded earned-fish bonus already included in coins", function()
+	local function ready()
+		local p=progression.create();p.level,p.catches,p.goalIndex=3,30,#Catalog.Goals+1
+		for _,species in Catalog.Species do p.best[species.Id]=1 end
+		return p
+	end
+	local baseline=ready();local plain=progression.catch(baseline,"Brilliant","summit","crownwhale",0)
+	for _,percent in {5,10,1000} do
+		local p=ready();local reward=progression.catch(p,"Brilliant","summit","crownwhale",percent)
+		local expected=math.floor(plain.coins*math.min(percent,10)/100)
+		assert(reward.castBonus==expected and reward.coins==plain.coins+expected and p.coins==reward.coins)
+		assert(reward.goalBonus==0 and saves.validate(p))
+	end
+	for _,percent in {-5,0/0,math.huge,-math.huge} do
+		local p=ready();local reward=progression.catch(p,"Brilliant","summit","crownwhale",percent)
+		assert(reward.castBonus==0 and reward.coins==plain.coins)
+	end
+end)
+
+test("cast bonus never multiplies chain or milestone income", function()
+	local plain=progression.create();plain.level,plain.catches,plain.combo=3,30,10
+	for _,species in Catalog.Species do plain.best[species.Id]=1 end
+	plain.goalIndex=4 -- Already qualified for a Brilliant goal, then later collection goals.
+	local boosted=progression.copy(plain)
+	local a=progression.catch(plain,"Brilliant","summit","crownwhale",0)
+	local b=progression.catch(boosted,"Brilliant","summit","crownwhale",10)
+	assert(a.comboBonus==20 and b.comboBonus==20 and a.goalBonus==b.goalBonus)
+	assert(b.castBonus==math.floor((a.coins-a.comboBonus)*.1))
+	assert(boosted.coins-plain.coins==b.castBonus)
+end)
+
+test("reward summaries report only coins actually paid at the wallet cap", function()
+	local p=progression.create();p.level,p.catches,p.goalIndex=3,30,#Catalog.Goals+1
+	for _,species in Catalog.Species do p.best[species.Id]=1 end
+	p.coins,p.combo=1000000000-3,10
+	local r=progression.catch(p,"Brilliant","summit","crownwhale",10)
+	assert(r.coins==3 and r.goalBonus==0 and r.castBonus==0 and r.comboBonus==0)
+	assert(p.coins==1000000000 and saves.validate(p))
+	local zero=progression.catch(p,"Brilliant","summit","crownwhale",10)
+	assert(zero.coins==0 and zero.goalBonus==0 and zero.castBonus==0)
+	local fresh=progression.create();fresh.coins=1000000000-10
+	local goal=progression.catch(fresh,"Normal","harbor","pufflet",0)
+	assert(goal.coins==8 and goal.goalBonus==2 and fresh.coins==1000000000)
+end)
+
+
+
+test("rod timing traits are reported from earned level without adding saved fields", function()
+	local p=progression.create();p.coins=1000
+	local widths={.14,.156,.172,.188}
+	local costs={0,32,90,160}
+	local bonuses={0,15,30,45}
+	for level=0,3 do
+		local view=progression.snapshot(p)
+		assert(view.timingWidth==widths[level+1] and progression.timingWidth(p)==widths[level+1])
+		assert(Catalog.Rods[level+1].Cost==costs[level+1] and Catalog.Rods[level+1].Bonus==bonuses[level+1])
+		assert(p.timingWidth==nil,"a derived rod trait changed the save format")
+		if level<3 then
+			assert(view.nextUpgrade.timingWidth==widths[level+2])
+			assert(progression.upgrade(p).success)
+		else assert(view.nextUpgrade==nil) end
+	end
+	assert(saves.validate(p) and progression.copy(p).level==3)
+end)
+
 print(string.format("%d progression/save tests passed; 0 skipped", passed))

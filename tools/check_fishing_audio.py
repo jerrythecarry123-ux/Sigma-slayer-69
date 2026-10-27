@@ -177,6 +177,27 @@ test('reeling loop has one owner and repeated state does not duplicate it',funct
  assert(#active(true,'Reel')==0 and close(wind.Volume,.018),'normal ambience not restored')
  reset()
 end)
+test('reel pitch follows progress and resistance without extra voices, gain or unstable steps',function()
+ audio.setReeling(true);step(.3)
+ local reel=active(true,'Reel')[1]
+ local count,volume=#plays,reel.Volume
+ for _=1,60 do audio.updateReeling(0,0,1/60) end
+ local relaxed=reel.PlaybackSpeed
+ for _=1,60 do audio.updateReeling(1,.6,1/60) end
+ assert(reel.PlaybackSpeed>relaxed+.15 and reel.PlaybackSpeed<=1.20,'reel pitch did not reflect resistance')
+ assert(reel.PlaybackSpeed>=.98 and reel.Volume==volume and #plays==count,'pitch update changed gain or allocated a sound')
+ local unchanged=reel.PlaybackSpeed
+ audio.updateReeling(0/0,0/0,0/0)
+ assert(reel.PlaybackSpeed==unchanged,'invalid delta changed reel state')
+ for _=1,10 do audio.updateReeling(math.huge,math.huge,math.huge) end
+ assert(reel.PlaybackSpeed>=.98 and reel.PlaybackSpeed<=1.20,'large clock step escaped the mix')
+ audio.setEnabled(false);audio.updateReeling(.4,.2,.05)
+ assert(group.Volume==0 and #plays==count,'muted pitch update created an audible or duplicate voice')
+ audio.setReeling(false)
+ unchanged=reel.PlaybackSpeed;audio.updateReeling(1,.6,.1)
+ assert(reel.PlaybackSpeed==unchanged,'stopped loop still accepted motion ownership')
+ reset()
+end)
 test('UI clicks debounce but allow a later success or failure response',function()
  local before=#plays
  audio.ui();audio.ui(false);audio.ui();assert(#plays==before+1)
@@ -231,6 +252,48 @@ test('debris recovery removes unended one-shots and retains just ambient loop',f
  audio.play('Splash');assert(#active(false)==1)
  step(5.01);assert(#active(false)==0,'never-ended voice leaked')
  assert(#active(true)==1 and active(true)[1]==wind,'unexpected retained loop')
+end)
+test('muted bootstrap stays silent through delayed profile loading and enables without stale notes',function()
+ local boot=modules.FishingAudio.new(true)
+ local bootWind=plays[#plays].sound
+ local bootGroup,bootFolder=bootWind.SoundGroup,bootWind.Parent
+ assert(bootWind.Name=='Wind' and bootWind.Looped and bootGroup~=group,'bootstrap did not own its mixer')
+ assert(not boot.isEnabled() and bootGroup.Volume==0,'bootstrap started audibly before profile loading')
+ -- The real controller may yield for remotes or PlayerGui before hydrating
+ -- saved preferences. Let the constructor's complete fade elapse first.
+ for _=1,40 do
+  step(.1)
+  assert(bootGroup.Volume*bootWind.Volume==0,'startup wind escaped mute while waiting for a profile')
+ end
+ assert(close(bootWind.Volume,.018),'bootstrap never ran its actual ambient fade')
+ local before=#plays
+ boot.play('Cast');boot.ui();boot.catch('Fine','Secret',false);step(.1)
+ assert(#plays==before,'muted bootstrap queued an audible one-shot')
+ boot.setEnabled(true)
+ assert(boot.isEnabled() and bootGroup.Volume==.75,'saved enabled choice did not release bootstrap mute')
+ step(1.1)
+ assert(#plays==before and close(bootWind.Volume,.018),'enabling replayed a muted phrase or left ambience ducked')
+ boot.play('Cast');assert(#plays==before+1,'new actions did not resume after hydration')
+ boot.setEnabled(false);step(.1)
+ assert(not boot.isEnabled() and #recent(before)==1 and plays[#plays].sound.Destroyed,'bootstrap instance lost normal mute cleanup')
+ bootFolder:Destroy();bootGroup:Destroy()
+end)
+test('explicit early enable cancels startup fade without overriding active reeling ambience',function()
+ local boot=modules.FishingAudio.new(true)
+ local bootWind=plays[#plays].sound
+ local bootGroup,bootFolder=bootWind.SoundGroup,bootWind.Parent
+ step(.1);boot.setEnabled(true);boot.setReeling(true)
+ step(2.1)
+ assert(boot.isEnabled() and bootGroup.Volume==.75,'early local enable did not take effect')
+ assert(close(bootWind.Volume,.006),'old startup fade overwrote reeling ambience')
+ local playingReels=0
+ for _,voice in bootFolder:GetChildren() do
+  if voice:IsA('Sound') and voice.Name=='Reel' and voice.IsPlaying then playingReels+=1 end
+ end
+ assert(playingReels==1,'bootstrap duplicated or lost the owned reeling loop')
+ boot.setReeling(false);step(.5)
+ assert(close(bootWind.Volume,.018),'early bootstrap did not restore idle ambience')
+ boot.setEnabled(false);bootFolder:Destroy();bootGroup:Destroy()
 end)
 print(passed..' production fishing-audio cases passed; native rendering and mix are untested')
 '''

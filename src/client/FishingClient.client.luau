@@ -8,7 +8,9 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local GuiService = game:GetService("GuiService")
 local Shared = ReplicatedStorage:WaitForChild("FishingShared")
 local Rules = require(Shared:WaitForChild("FishingRules"))
-local audio = require(script.Parent:WaitForChild("FishingAudio")).new()
+-- Remote/profile/UI readiness can yield. Keep the mix quiet from construction,
+-- before those waits, until a loaded preference or explicit local choice exists.
+local audio = require(script.Parent:WaitForChild("FishingAudio")).new(true)
 local presentation = require(script.Parent:WaitForChild("FishingPresentation")).new(audio)
 local Interface = require(script.Parent:WaitForChild("FishingInterface"))
 local AquariumInterface = require(script.Parent:WaitForChild("AquariumInterface"))
@@ -24,16 +26,26 @@ local packet: any = { phase = "Connecting", catches = 0, nextStart = 0 }
 local ui: any = nil
 local aquariumUI: any = nil
 local preferences = { reducedEffects = false, soundEnabled = true }
+local profileReady, preferencesTouched, preferencesDirty = false, false, false
+local preferencesPersistent = false
+local preferenceSendAt = 0
+local preferenceSentAt: number? = nil
+local preferenceWriteId = 0
+local preferenceInFlightId: number? = nil
 local revealGeneration = 0
 local characterAlive = false
 local deathConnection: RBXScriptConnection? = nil
 local humanoidConnection: RBXScriptConnection? = nil
 local pendingSince: number? = nil
+local pendingVerb: string? = nil
 local heldInput: InputObject? = nil
+local heldStage: string? = nil
+local heldAt = 0
 local heldConnection: RBXScriptConnection? = nil
 local releasedBeforeAck = false
+local queuedCastVerb: string? = nil
 local visiblePrompts: {[ProximityPrompt]: boolean} = {}
-local message = "The pond is right ahead. Cast your first line!"
+local message = "Tap to cast. Hold and release on gold for a precision cast."
 local function keyHint(): string
 	local preferred = UserInputService.PreferredInput
 	return if preferred == Enum.PreferredInput.Touch then ""
@@ -46,13 +58,33 @@ end
 local function applyPreferences()
 	local systemReducedMotion = GuiService.ReducedMotionEnabled
 	local reduced = preferences.reducedEffects or systemReducedMotion
-	audio.setEnabled(preferences.soundEnabled)
+	-- Loading a returning player's saved mute choice must not begin with an
+	-- audible default mix. An explicit local choice can take effect immediately.
+	audio.setEnabled(preferences.soundEnabled and (profileReady or preferencesTouched))
 	presentation.setReducedEffects(reduced)
 	cinematic.setReducedEffects(reduced)
 	if ui then ui.setPreferences({
 		reducedEffects = preferences.reducedEffects, soundEnabled = preferences.soundEnabled,
 		systemReducedMotion = systemReducedMotion,
+		persistent = if profileReady then preferencesPersistent else nil,
+		savePending = preferencesDirty,
 	}) end
+end
+local function preferencesMatch(profile: any): boolean
+	local raw = if type(profile) == "table" then profile.preferences else nil
+	return type(raw) == "table" and raw.soundEnabled == preferences.soundEnabled
+		and raw.reducedEffects == preferences.reducedEffects
+end
+local function receivePreferences(profile: any)
+	if type(profile) ~= "table" then return end
+	local raw = profile.preferences
+	local remoteSound = if type(raw) == "table" and type(raw.soundEnabled) == "boolean" then raw.soundEnabled else true
+	local remoteReduced = type(raw) == "table" and raw.reducedEffects == true
+	if not profileReady and not preferencesTouched then
+		preferences.soundEnabled, preferences.reducedEffects = remoteSound, remoteReduced
+	end
+	profileReady, preferencesPersistent = true, profile.persistent == true
+	applyPreferences()
 end
 local function dismissResult()
 	revealGeneration += 1
@@ -60,7 +92,7 @@ local function dismissResult()
 	if ui then ui.hideResult() end
 end
 local function clearHeld()
-	heldInput = nil
+	heldInput, heldStage, heldAt = nil, nil, 0
 	if heldConnection then heldConnection:Disconnect() end
 	heldConnection = nil
 	if ui then
@@ -69,14 +101,16 @@ local function clearHeld()
 	end
 end
 local function request(verb: string, argument: any?)
-	pendingSince = now()
+	pendingSince, pendingVerb = now(), verb
 	action:FireServer(verb, if verb == "Upgrade" or verb == "Display" or verb == "Style" then argument else packet.attemptId)
 end
 local function cancel()
 	dismissResult()
 	clearHeld()
+	audio.setReeling(false)
 	releasedBeforeAck = false
-	if packet.attemptId then request("Cancel") end
+	queuedCastVerb = nil
+	if packet.attemptId and pendingVerb ~= "Cancel" then request("Cancel") end
 end
 local function stopWatchingCharacter()
 	if deathConnection then deathConnection:Disconnect(); deathConnection = nil end
@@ -133,6 +167,8 @@ ui = Interface.new(player:WaitForChild("PlayerGui"), audio, {
 	settingsChanged = function(updated)
 		preferences.reducedEffects = updated.reducedEffects == true
 		preferences.soundEnabled = updated.soundEnabled ~= false
+		preferencesTouched, preferencesDirty = true, true
+		preferenceSendAt = now() + .4
 		applyPreferences()
 	end,
 	castAgain = function()
@@ -160,8 +196,28 @@ end)
 task.spawn(TravelInterface.start)
 local function release()
 	if not heldInput then return end
+	local stage, duration = heldStage, math.max(0, now() - heldAt)
 	clearHeld()
-	if packet.phase == "Reeling" then request("Release") else releasedBeforeAck = true end
+	if stage == "Cast" then
+		-- A quick tap chooses a no-bonus standard cast. It is a convenience
+		-- mode, never a client claim about timing, strength or reward quality.
+		local verb = if duration <= 0.12 then "QuickCast" else "Cast"
+		if packet.phase == "ChargingCast" then request(verb)
+		elseif packet.phase == "Idle" then queuedCastVerb = verb end
+	elseif stage == "Reel" then
+		audio.setReeling(false)
+		if packet.phase == "Reeling" then request("Release") else releasedBeforeAck = true end
+	end
+end
+local function capture(input: InputObject, stage: string)
+	heldInput, heldStage, heldAt = input, stage, now()
+	if not (preferences.reducedEffects or GuiService.ReducedMotionEnabled) then
+		TweenService:Create(ui.buttonScale, TweenInfo.new(0.1), { Scale = 0.95 }):Play()
+	end
+	heldConnection = input.Changed:Connect(function()
+		if input.UserInputState == Enum.UserInputState.Cancel then cancel()
+		elseif input.UserInputState == Enum.UserInputState.End then release() end
+	end)
 end
 local function press(input: InputObject)
 	if travelling() or not characterAlive then return end
@@ -170,17 +226,13 @@ local function press(input: InputObject)
 	if heldInput or pendingSince then return end
 	if packet.phase == "Idle" and now() >= packet.nextStart then
 		ui.hideResult()
-		message = "Casting into the clouds..."
-		request("Start")
+		queuedCastVerb, releasedBeforeAck = nil, false
+		capture(input, "Cast")
+		message = "Tap to cast, or release on gold for a precision cast."
+		request("BeginCast")
 	elseif packet.phase == "Waiting" and now() >= (packet.readyAt or math.huge) then
-		heldInput, releasedBeforeAck = input, false
-		if not (preferences.reducedEffects or GuiService.ReducedMotionEnabled) then
-			TweenService:Create(ui.buttonScale, TweenInfo.new(0.1), { Scale = 0.95 }):Play()
-		end
-		heldConnection = input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.Cancel then cancel()
-			elseif input.UserInputState == Enum.UserInputState.End then release() end
-		end)
+		releasedBeforeAck = false
+		capture(input, "Reel")
 		request("Hold")
 	end
 end
@@ -213,12 +265,39 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, who)
 end)
 visual.OnClientEvent:Connect(presentation.apply)
 state.OnClientEvent:Connect(function(incoming)
+	if incoming.replyTo == "Preferences" then
+		local currentWrite = incoming.preferenceRequestId ~= nil and incoming.preferenceRequestId == preferenceInFlightId
+		if currentWrite then
+			preferenceSentAt, preferenceInFlightId = nil, nil
+			preferencesDirty = not (incoming.preferencesChanged == true and preferencesMatch(incoming.profile))
+			preferenceSendAt = now() + (if incoming.preferencesChanged then .4 else 1)
+		end
+		if incoming.preferencesChanged then
+			-- This is a private settings acknowledgement, not a cast transition.
+			-- It must not clear an input pressed while that acknowledgement flew.
+			receivePreferences(incoming.profile)
+			packet.profile = incoming.profile
+			ui.updateProfile(incoming.profile)
+			aquariumUI.updateProfile(incoming.profile)
+			return
+		end
+	end
 	local previousId, previousCatches = packet.attemptId, packet.catches
-	packet, pendingSince = incoming, nil
+	-- Location updates can cross an in-flight BeginCast. They are not its
+	-- acknowledgement and must not discard a held press or an early release.
+	local keepBegin = pendingVerb == "BeginCast" and incoming.phase == "Idle"
+		and incoming.replyTo ~= "BeginCast" and incoming.replyTo ~= "Sync"
+	local keepLaunch = (pendingVerb == "Cast" or pendingVerb == "QuickCast")
+		and incoming.phase == "ChargingCast" and incoming.replyTo ~= pendingVerb
+	local keepCancel = pendingVerb == "Cancel" and incoming.phase ~= "Idle"
+		and incoming.replyTo ~= "Cancel" and incoming.replyTo ~= "Sync"
+	packet = incoming
+	if not keepBegin and not keepLaunch and not keepCancel then pendingSince, pendingVerb = nil, nil end
+	receivePreferences(packet.profile)
 	ui.updateProfile(packet.profile)
 	aquariumUI.updateProfile(packet.profile)
 	ui.updateLocation(packet.location, packet.profile)
-	ui.setTimingWindow(Rules.centerAt(packet, now()), 0.14)
+	ui.setTimingWindow(Rules.centerAt(packet, now()), packet.timingWidth or 0.14)
 	ui.setState(packet.phase)
 	if packet.phase ~= "Idle" then dismissResult() end
 	if packet.result and packet.catches > previousCatches then
@@ -249,18 +328,52 @@ state.OnClientEvent:Connect(function(incoming)
 		ui.notify("Welcome back! Your collection earned " .. packet.offline.coins .. " coins.")
 		audio.coins()
 	end
-	if packet.phase == "Idle" or packet.attemptId ~= previousId then clearHeld(); releasedBeforeAck = false end
+	if packet.phase == "Idle" and not keepBegin then
+		clearHeld(); releasedBeforeAck, queuedCastVerb = false, nil
+	elseif packet.phase == "Waiting" and (heldStage == "Cast" or packet.attemptId ~= previousId) then
+		-- A timed-out charge launches automatically with the same attempt ID.
+		-- Its old press cannot become an unintended reel input at the bite.
+		clearHeld(); releasedBeforeAck, queuedCastVerb = false, nil
+	elseif packet.phase == "Reeling" and packet.attemptId ~= previousId then
+		clearHeld(); releasedBeforeAck, queuedCastVerb = false, nil
+	end
 	if packet.phase == "Waiting" and packet.attemptId ~= previousId then dismissResult() end
-	audio.setReeling(packet.phase == "Reeling")
-	if (ui.isJournalOpen() or ui.isSettingsOpen() or aquariumUI.isOpen() or travelling()) and packet.phase == "Waiting" then request("Cancel"); return end
+	audio.setReeling(packet.phase == "Reeling" and heldStage == "Reel" and not releasedBeforeAck and not keepCancel)
+	if (not characterAlive or ui.isJournalOpen() or ui.isSettingsOpen() or aquariumUI.isOpen() or travelling())
+		and (packet.phase == "Waiting" or packet.phase == "ChargingCast") then
+		if not keepCancel then request("Cancel") end
+		return
+	end
+	if packet.phase == "ChargingCast" then
+		if queuedCastVerb then
+			local verb = queuedCastVerb
+			queuedCastVerb = nil
+			request(verb)
+		elseif heldStage ~= "Cast" and not keepLaunch and not keepCancel then request("Cancel") end
+	end
 	if packet.phase == "Reeling" then
+		if keepCancel then return end
 		if releasedBeforeAck then releasedBeforeAck = false; request("Release")
 		elseif not heldInput then request("Cancel") end
 	end
 end)
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(deltaTime)
 	local time = now()
-	if pendingSince and time - pendingSince > 3 then clearHeld(); releasedBeforeAck = false; request("Sync") end
+	if pendingSince and time - pendingSince > 3 then
+		clearHeld(); releasedBeforeAck, queuedCastVerb = false, nil
+		request("Sync")
+	end
+	if preferenceSentAt and time - preferenceSentAt > 3 then
+		preferenceSentAt, preferenceInFlightId = nil, nil
+		preferenceSendAt = time + 1
+	end
+	if preferencesDirty and profileReady and not preferenceSentAt and not pendingSince
+		and packet.phase == "Idle" and time >= preferenceSendAt then
+		preferenceSentAt = time
+		preferenceWriteId = preferenceWriteId % 2147483647 + 1
+		preferenceInFlightId = preferenceWriteId
+		action:FireServer("Preferences", { soundEnabled = preferences.soundEnabled, reducedEffects = preferences.reducedEffects }, preferenceWriteId)
+	end
 	local camera = workspace.CurrentCamera
 	if camera then
 		ui.animate(time, camera.ViewportSize.X, camera.ViewportSize.Y)
@@ -268,7 +381,14 @@ RunService.RenderStepped:Connect(function()
 	end
 	ui.button.BackgroundColor3 = Color3.fromRGB(37, 119, 109)
 	ui.legend.Text = "NORMAL  ·  FINE  ·  BRILLIANT"
-	if packet.phase == "Waiting" then
+	if packet.phase == "ChargingCast" then
+		local power = Rules.castProgressAt(packet, time)
+		local grade = Rules.castGradeAt(power)
+		ui.setCastProgress(power)
+		ui.legend.Text = "CAST  " .. math.floor(power * 100 + 0.5) .. "%  ·  " .. string.upper(grade)
+		ui.status.Text = if pendingSince then "Launching your line..." else "Release on gold for a precision cast. A quick tap works too."
+		ui.button.Text = if pendingSince then "CASTING..." else "RELEASE TO CAST"
+	elseif packet.phase == "Waiting" then
 		if time < (packet.castAt or 0) + (packet.castDuration or 0.65) then
 			ui.status.Text, ui.button.Text = "Watch your bobber...", "CASTING..."
 		elseif time < (packet.readyAt or math.huge) then
@@ -279,10 +399,11 @@ RunService.RenderStepped:Connect(function()
 		end
 	elseif packet.phase == "Reeling" then
 		local progress = Rules.progressAt(packet, time)
+		audio.updateReeling(progress, packet.difficulty, deltaTime)
 		local center = Rules.centerAt(packet, time)
-		ui.setTimingWindow(center, 0.14)
+		ui.setTimingWindow(center, packet.timingWidth or 0.14)
 		ui.marker.Position = UDim2.fromScale(progress, 0)
-		local quality = Rules.qualityAt(progress, center)
+		local quality = Rules.qualityAt(progress, center, packet.timingWidth)
 		ui.legend.Text = "NOW: " .. string.upper(quality or "OUTSIDE THE ZONE")
 		ui.status.Text = if pendingSince then "Checking your catch..."
 			elseif packet.timingMotion and packet.timingMotion.amplitude > 0 then "Follow its rhythm. Release on gold!"

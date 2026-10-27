@@ -72,10 +72,18 @@ Catalog.Species = {
 		Difficulty = .60, Behavior = "Surge", Animation = "Orbit", Model = "eclipse", Requirements = { RodLevel = 3 }, Effects = { Style = "Eclipse" }, DiscoveryProtection = false },
 } :: { Species }
 Catalog.Rods = {
-	{ Name = "Driftwood Rod", Cost = 0, Bonus = 0, Description = "Catch starter species on all five islands." },
-	{ Name = "Breeze Rod", Cost = 32, Bonus = 15, Description = "Find Starwhisker and Moonray. Earn 15% more coins." },
-	{ Name = "Nimbus Rod", Cost = 90, Bonus = 30, Description = "Find Aurorafin and Coralcrown. Earn 30% more coins." },
-	{ Name = "Aurora Rod", Cost = 160, Bonus = 45, Description = "Seek Crownwhale, Veilfin and Eclipse. Earn 45% more coins." },
+	{ Name = "Driftwood Rod", Cost = 0, Bonus = 0, TimingWidth = .14, Description = "Catch starter species on all five islands.",
+		Finish = { Grip = { Color = {91, 69, 54}, Material = "Wood" }, Shaft = { Color = {155, 118, 73}, Material = "Wood" },
+			Reel = { Color = {163, 145, 109}, Material = "Metal" }, Hardware = { Color = {128, 136, 127}, Material = "Metal" } } },
+	{ Name = "Breeze Rod", Cost = 32, Bonus = 15, TimingWidth = .156, Description = "Find Starwhisker and Moonray. Wider gold zone. Earn 15% more coins.",
+		Finish = { Grip = { Color = {176, 143, 97}, Material = "Wood" }, Shaft = { Color = {62, 139, 143}, Material = "SmoothPlastic" },
+			Reel = { Color = {194, 205, 198}, Material = "Metal" }, Hardware = { Color = {38, 86, 92}, Material = "Metal" } } },
+	{ Name = "Nimbus Rod", Cost = 90, Bonus = 30, TimingWidth = .172, Description = "Find Aurorafin and Coralcrown. Wider gold zone. Earn 30% more coins.",
+		Finish = { Grip = { Color = {53, 65, 85}, Material = "Fabric" }, Shaft = { Color = {73, 97, 136}, Material = "SmoothPlastic" },
+			Reel = { Color = {215, 218, 210}, Material = "Metal" }, Hardware = { Color = {184, 158, 107}, Material = "Metal" } } },
+	{ Name = "Aurora Rod", Cost = 160, Bonus = 45, TimingWidth = .188, Description = "Seek Crownwhale, Veilfin and Eclipse. Widest gold zone. Earn 45% more coins.",
+		Finish = { Grip = { Color = {57, 51, 76}, Material = "Fabric" }, Shaft = { Color = {107, 87, 146}, Material = "SmoothPlastic" },
+			Reel = { Color = {211, 183, 119}, Material = "Metal" }, Hardware = { Color = {155, 207, 201}, Material = "Metal" } } },
 }
 -- Preserve all original ten goal positions/targets/rewards so saves retain earned
 -- milestones; the extended collection goal is appended rather than inserted.

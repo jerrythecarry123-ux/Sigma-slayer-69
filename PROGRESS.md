@@ -1,5 +1,65 @@
 # Development progress
 
+## Active request — v1.8 quality pass (in progress)
+
+The user's 26 October request requires **at least two hours of active work** on
+the premium directive, continuing across usage interruptions. `WORK_LOG.json`
+and `WORK_LOG.md` preserve sealed intervals; parallel agents do not multiply time.
+On every new continuation run `python tools/work_session.py resume` before recording
+more work. Unsealed time spanning an interruption is discarded, never counted.
+Do not mark this request complete until the verified cumulative target is met.
+
+Last published stable release remains v1.7 (`65d426d`). The v1.8 source now includes:
+
+- Server-authoritative optional cast charging, safe quick taps, a separate power
+  meter, bounded accuracy bonus and 101 power samples inside existing water lanes.
+  Earned rods bind wider gold windows with the same costs/IDs/unlocks.
+- Slow-autosave departure recovery, idempotent final-write receipts, safe exception
+  ownership and backwards-compatible optional saved preferences. No store reset.
+- Independent private preference write IDs, immediate local effects, quiet profile
+  loading and nonblocking retries. Rapid retoggles and old responses cannot clear
+  newer intent. Audio now starts muted before readiness waits; all 12 audio
+  cases passed, including delayed bootstrap and early explicit enabling.
+- Complete compact journal/result compositions, minimum tested touch targets,
+  padded actual-fish framing, outlined timing needles and owned modal focus.
+  Ready rod upgrades outrank chains; terminal journals get display guidance.
+- Aquarium layout caches effective canvas changes. A 120-call stable-size probe
+  makes zero repeated layout writes versus the old 3,720. Hidden/closed portraits
+  make zero fish-animation calls; visible/reduced/resumed behavior is preserved.
+- Fitted rod-tip casts/reel crank, bounded distant/crowded effects, no old cue
+  replay, quiet intentional interruption and streamed actor/scenery cleanup.
+  Four earned rod finishes use the same eight-Part rig. Supported round shaft
+  sections are in final integration; preserve the existing centers/endpoints.
+- All seventeen existing fish now have corrected fin hinges, forks, whiskers,
+  lure/squid roots and wing markings. Total 471 Parts/max35, without new species.
+- World refinements remove 79 redundant hidden trunk cores, shape 32 fern leaves
+  and seat 12 shelf pots. Initial geometry is 10,759 Parts / 2,275 colliders /
+  6,203 material bindings, 47 fewer Parts than v1.7.
+- A reflected native API/source/documentation review found and corrected the
+  compressor attack minimum. It does not substitute for a native client.
+
+Completed cloud evidence:
+
+- A consolidated 32-stage run passed with unchanged sources during that run:
+  167 core tests, 36 production files and nine Luau suites compiling, plus actual
+  module adapters/lifecycle/art/UI/world checks. Relevant follow-up checks run
+  after subsequent changes; full harness integration is pending the rod endpoint
+  refinement and shared Attachment shim correction.
+- Actual controller: 24 core and seven preference scenarios, plus a rejected
+  deliberately incorrect write-identity mutation.
+- Real complete fishing stack: 14 scenarios / 58 RPCs / 62 delivered states,
+  including ordered preference races, real purchases, aquarium and Epic reveal.
+- Actual store: 20 cases; service/store lifecycle: 10 plus rejected old departure
+  helper. Save transitions: 9; preference state/migration: 10.
+- All-fish solid contacts/hinges and 3,111 tank, 2,448 aquarium-menu, 4,998 journal/
+  catch and 750 cinematic poses pass. All walking/water/coping/rail/outlet guards,
+  residents, scenery, signs and portal ownership checks passed.
+
+Read `docs/v18-quality-review.md` and the linked focused reviews for exact scope
+and remaining gaps. These are not native Studio/client results. Final named
+artifact packaging, continuity totals and GitHub publication remain pending;
+continue useful quality work until the cumulative active-time target is met.
+
 ## Stable starting point
 
 v1.6, commit `7c39c2a`, is the last packaged checkpoint at the start of this work.

@@ -38,11 +38,12 @@ end
 function Locations.acceptStart(
 	self: LocationState, userId: number, previousAttemptId: number?, packet: any, location: any
 ): boolean
-	-- Commit only after the state machine accepts a new Start. Rejected requests,
+	-- Commit only after the state machine accepts a new Start/BeginCast. Rejected requests,
 	-- retries, cooldowns and completed casts must preserve the last visual target.
-	if previousAttemptId ~= nil or location == nil or packet == nil or packet.phase ~= "Waiting"
+	if previousAttemptId ~= nil or location == nil or packet == nil
+		or (packet.phase ~= "Waiting" and packet.phase ~= "ChargingCast")
 		or type(packet.attemptId) ~= "number" or packet.attemptId ~= packet.attemptId
-		or packet.attemptId <= 0 or packet.attemptId == math.huge then return false end
+		or packet.attemptId <= 0 or packet.attemptId == math.huge or packet.attemptId % 1 ~= 0 then return false end
 	self.bindings[userId] = { attemptId = packet.attemptId, location = location }
 	return true
 end

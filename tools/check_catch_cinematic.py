@@ -16,6 +16,7 @@ local typeof=function(v)
  return if getmetatable(v)==CF then "CFrame" elseif getmetatable(v)==V then "Vector3" else nativeTypeof(v)
 end
 local originalIndex,originalNewIndex=mt.__index,mt.__newindex
+local layoutWrites=0
 mt.__index=function(self,key)
  if key=='Activated' or key=='MouseEnter' or key=='MouseLeave' or key=='AncestryChanged' or key=='CharacterRemoving' or key=='CharacterAdded' or key=='Died' or key=='InputBegan' or key=='ChildAdded' then
   self.props[key]=self.props[key] or signal();return self.props[key]
@@ -23,6 +24,8 @@ mt.__index=function(self,key)
  return originalIndex(self,key)
 end
 mt.__newindex=function(self,key,value)
+ if (self.Name=='PortraitStage' or self.Name=='SkipCatch' or self.Name=='FishStage' or self.Name=='RarityBar')
+  and (key=='Size' or key=='Position' or key=='TextSize') then layoutWrites+=1 end
  originalNewIndex(self,key,value)
  if key=='Parent' and self.props.AncestryChanged then self.props.AncestryChanged:Fire(self,value) end
 end
@@ -76,7 +79,7 @@ end}
 local player=Instance.new('Player');player.UserId=101
 local pgui=Instance.new('PlayerGui');pgui.Parent=player
 local character=Instance.new('Model');player.Character=character
-local humanoid=Instance.new('Humanoid');humanoid.Parent=character
+local humanoid=Instance.new('Humanoid');humanoid.Health=100;humanoid.Parent=character
 local input=Instance.new('UserInputService');input.GamepadEnabled=false;input.PreferredInput=Enum.PreferredInput.KeyboardAndMouse
 local GuiService={SelectedObject=nil,ReducedMotionEnabled=false}
 local RunService={RenderStepped=signal(),PreSimulation=signal()}
@@ -121,10 +124,12 @@ for _,species in modules.FishCatalog.Species do
     assert(view.AbsoluteSize.Y>=size[2]-52 and view.AbsoluteSize.X>=220,'landscape portrait was reduced to a thin strip')
     assert(skip.Size.Y.Offset>=44,'landscape skip is too small for touch')
    end
+   local stableLayoutWrites=layoutWrites
    for pose=1,30 do
     frame(modules.FishRarity.get(species.Rarity).RevealDuration*.90/30)
     assert(stage.isPlaying(),'first reveal ended before framing samples completed')
     animatedPoses+=1
+    assert(layoutWrites==stableLayoutWrites,'unchanged catch canvas rewrote its layout every frame')
     local v=privateCamera.CFrame.Position
     assert(v.X==v.X and v.Y==v.Y and v.Z==v.Z and v.Magnitude<100,'private camera framing is not finite/bounded')
     local aspect=view.AbsoluteSize.X/view.AbsoluteSize.Y
@@ -180,12 +185,14 @@ GuiService.SelectedObject=prior;stage.play(legendary,done)
 assert(GuiService.SelectedObject==prior,'connected gamepad stole active touch focus')
 local portraitModel=find(view,'CinematicFish')
 for _,size in {{568,280},{320,530},{768,964},{1920,1040}} do
+ local priorLayoutWrites=layoutWrites
  gui.AbsoluteSize=Vector2.new(size[1],size[2]);frame(.01)
  local panel=find(gui,'PortraitStage')
  view.AbsoluteSize=Vector2.new(panel.Size.X.Offset*view.Size.X.Scale+view.Size.X.Offset,panel.Size.Y.Offset*view.Size.Y.Scale+view.Size.Y.Offset)
  frame(.01)
  assert(stage.isPlaying() and find(view,'CinematicFish')==portraitModel,'resize restarted or lost an active catch')
  assert(skip.Size.Y.Offset>=44,'resize shrank the skip touch target')
+ assert(layoutWrites>priorLayoutWrites,'changed canvas did not refresh the cached layout')
 end
 stage.stop();input.PreferredInput=Enum.PreferredInput.Gamepad
 stage.play(legendary,done);local detachedAt=complete;gui.Parent=nil;frame(5)
@@ -195,8 +202,11 @@ stage.play(legendary,done);local before=complete;step(1.86)
 assert(not stage.isPlaying() and complete==before+1,'repeat presentation exceeds bounded watchdog duration')
 stage.play(legendary,done);before=complete;stage.stop('new cast');frame(5)
 assert(not stage.isPlaying() and complete==before,'cancel reopened/completed a stale result')
-stage.play(legendary,done);humanoid.Died:Fire();frame(5)
+stage.play(legendary,done);humanoid.Health=0;humanoid.Died:Fire();frame(5)
 assert(not stage.isPlaying() and complete==before,'death left a catch overlay')
+local deadCalls=#calls
+assert(not stage.play(legendary,done) and #calls==deadCalls,'already-dead character started a new catch stage')
+humanoid.Health=100
 stage.play(legendary,done);player.CharacterRemoving:Fire(Instance.new('Model'));frame(5)
 assert(not stage.isPlaying() and complete==before,'character removal left a catch overlay')
 for _,key in {'IslandTravelMenuOpen','IslandTravelBusy'} do
@@ -207,9 +217,11 @@ end
 stage.play(legendary,done)
 local newCharacter=Instance.new('Model');player.Character=newCharacter;player.CharacterAdded:Fire(newCharacter)
 assert(not stage.isPlaying() and complete==before,'character replacement without removal retained an old reveal')
-local lateHumanoid=Instance.new('Humanoid');lateHumanoid.Parent=newCharacter;newCharacter.ChildAdded:Fire(lateHumanoid)
-stage.play(legendary,done);lateHumanoid.Died:Fire();frame(5)
+assert(not stage.play(legendary,done),'character without a Humanoid started a catch stage')
+local lateHumanoid=Instance.new('Humanoid');lateHumanoid.Health=100;lateHumanoid.Parent=newCharacter;newCharacter.ChildAdded:Fire(lateHumanoid)
+stage.play(legendary,done);lateHumanoid.Health=0;lateHumanoid.Died:Fire();frame(5)
 assert(not stage.isPlaying() and complete==before,'late humanoid death binding was missed')
+lateHumanoid.Health=100
 stage.setReducedEffects(true);stage.play(legendary,done);frame(.1)
 local pose=privateCamera.CFrame
 for _,child in view.children do if string.sub(child.Name,1,6)=='Accent' then assert(not child.Visible,'reduced effects retained moving accents') end end
@@ -218,6 +230,13 @@ frame(.7);assert(not stage.isPlaying() and complete==before+1,'reduced stage did
 stage.setReducedEffects(false);GuiService.ReducedMotionEnabled=true;stage.play(legendary,done);frame(.1)
 for _,child in view.children do if string.sub(child.Name,1,6)=='Accent' then assert(not child.Visible,'ignored Roblox Reduce Motion preference') end end
 stage.stop();GuiService.ReducedMotionEnabled=false
+stage.play(legendary,done);before=complete;step(.1)
+stage.setReducedEffects(true);step(.56)
+assert(not stage.isPlaying() and complete==before+1,'reduced preference waited for a suspended render loop to exit')
+stage.setReducedEffects(false)
+stage.play(legendary,done);before=complete;stage.setReducedEffects(true);stage.stop();stage.setReducedEffects(false);stage.play(legendary,done)
+step(.56);assert(stage.isPlaying() and complete==before,'old reduced-motion exit interrupted a new stage')
+stage.stop()
 stage.play(legendary,done);before=complete;stage.destroy();frame(5)
 assert(not stage.isPlaying() and complete==before and not stage.play(legendary,done),'destroy left callbacks or reopened the stage')
 assert(workspace.CurrentCamera==worldCamera and worldCamera.CFrame==savedWorldFrame,'cleanup touched world camera')

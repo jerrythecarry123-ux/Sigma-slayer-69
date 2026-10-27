@@ -1,11 +1,15 @@
 # Known issues and validation limits
 
+v1.8 is in development. Current source changes are being integrated and tested;
+the published v1.7 artifact remains the stable download until a new package is
+verified. Do not describe incomplete audits or planned features as shipped.
+
 ## Must be checked before public release
 
 - No Roblox Studio/native client is available in this environment. Offline
   geometry previews and event doubles do not reproduce native graphics,
   animations, input, audio, physics, streaming or frame rate.
-- Real phone/iPad performance is unmeasured. The v1.6 world has 10,806 initial
+- Real phone/iPad performance is unmeasured. The v1.8 world has 10,759 initial
   Parts; public tanks add more. The 768-stud streaming target radius may keep
   several islands resident. Profile before expanding the map.
 - Material asset delivery is blocked by the network proxy here. The six presets
@@ -20,6 +24,14 @@
 - Published-client DataStore persistence, session contention and disconnect
   recovery need a separate private test experience. Studio defaults to temporary
   profiles and must never be mistaken for production persistence.
+- An accepted preference update changes the server profile before the ordinary
+  autosave/final save. It is not a separate durable-write receipt. Leaving before
+  the local debounce/request arrives or during a backend outage can lose that
+  newest unsaved choice. The interface keeps pending acceptance distinct from
+  the statement that preferences save with the collection.
+- The consolidated checker enables UTF-8 for child tools and bounds owned
+  processes. Its Windows process-tree termination is best effort and has not
+  been run on native Windows. This does not affect the downloaded game's runtime.
 
 ## Scope and research limits
 
@@ -29,6 +41,6 @@
 - No custom animation/sound asset uploads, native weather or environmental spawn
   conditions are implemented as part of this milestone. Later roadmap items must
   not be described as shipped features.
-- Session sound/effects settings are local to the current session, not saved
-  profile fields. Rejoining returns local preferences to their defaults while
-  still respecting Roblox Reduce Motion.
+- Sound/effects settings now use optional backwards-compatible saved fields.
+  Published-client rejoin and startup-silence acceptance remain unrun. Ordinary
+  Studio profiles remain temporary; Roblox Reduce Motion is always independent.

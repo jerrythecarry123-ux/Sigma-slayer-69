@@ -2,9 +2,10 @@
 
 ## Automatiskt verifierat i molnmiljön
 
-- 122 automatiska tester: 5 katalog, 30 fiske, 12 fiskeplatser, 36 progression/sparande,
-  6 layout, 15 reseregler, 14 världsdata och 4 Python-tester för platsbyggnad/material.
-- Alla 36 produktionsfiler och de sju Luau-sviterna accepteras av den officiella
+- 167 grundtester: 5 katalog, 48 fiske, 14 fiskeplatser, 10 inställningar,
+  40 progression/sparande, 9 slutskrivningar, 8 layout, 15 reseregler,
+  14 världsdata och 4 Python-tester för platsbyggnad/material.
+- Alla 36 produktionsfiler och de nio Luau-sviterna accepteras av den officiella
   Luau-kompilatorn. Detta är en syntaxkontroll, inte ett Roblox-typbevis.
 - Separata kontroller kör produktionskod med geometri-/händelsedubblar för
   uppstart, resor, gränssnitt, fiskmodeller, akvarier, invånare och miljörörelser.
@@ -21,6 +22,66 @@ dubbla starter, för tidigt Hold, Release utan Hold, missade tidsfönster,
 förfalskade ID:n, avbrott, timeout, gamla meddelanden, cooldown, anropsbegränsning,
 separata spelare, frånkoppling, avatarbyte före nästa tick och att en snapshot
 inte ändrar serverns data.
+
+## v1.8 — aktuell acceptans, ännu okörd i Roblox
+
+Kör först `python tools/check_project.py --luau /sökväg/till/luau` för de
+tillgängliga molnkontrollerna. Ett godkänt resultat fyller inte i rutorna nedan.
+Kontrollera den levererade **Cloud-Anglers-v1.8.rbxlx** i en separat privat
+testupplevelse. Anteckna build, enhet, grafiknivå och nätfördröjning.
+
+- [ ] Ladda ned via GitHubs **Download raw file**, öppna filen och starta Play.
+  Tom redigeringsvy före Play är väntad; världen ska byggas när spelet startar.
+- [ ] Tryck snabbt: vanligt kast fungerar med mus, E, touch och gamepad RT.
+  Håll/släpp på guld: separat kastmätare följs av kastbåge, napp och invevning.
+  Den gamla kasttryckningen får inte räknas som ett automatiskt invevningstryck.
+- [ ] Träffa Clean/Precise/Perfect vid 50, 100 och 200 ms simulerad fördröjning;
+  jämför synlig position och serverns bedömning. Upprepa Normal/Fine/Brilliant
+  vid invevning. Serverns mottagningstid styr båda momenten.
+- [ ] Håll kvar ett kast till timeout, släpp utanför knappen, växla fokus, dö,
+  öppna meny och res med portal. Fiske fungerar igen; avsiktliga avbrott ger
+  ingen missignal, fångst eller gammal resultatvisning.
+- [ ] Prova lägsta och högsta kaststyrka vid alla fem dammar med flera spelare.
+  Flöten landar i synligt vatten utan dold väg, stolpe eller kant genom linan.
+- [ ] Tjäna och köp varje spö. Kontrollera att spönas material/finish skiljer
+  sig, att guldzonen blir bredare och att pris/låsningar stämmer med verkstaden.
+  Första tre lyckade fångsterna behåller introduktionens förlåtande zon.
+- [ ] Behåll en Fine/Brilliant-kedja tills ett spö går att köpa. Nästa steg ska
+  visa uppgraderingen. En färdig journal ska föreslå att visa upp favoritfiskar.
+- [ ] Granska alla 17 arter från flera håll vid normal/maxvikt och i Normal,
+  Golden och Prismatic. Fenrötter, gaffelstjärtar, morrhår, lure, bläckfiskarmar
+  och Cloudmoths bakvingefläckar sitter ihop genom hela rörelsen.
+- [ ] Fiskarna ryms i journal, fångstkort, specialvisning och alla akvarieplatser.
+  Prova kort landskap, porträtt, rotation, större Roblox-text och verklig iPad.
+- [ ] Journalens kompakta rader och fångstkort är hela och läsbara. Alla knappar
+  går att träffa; akvariets laddning/val/fokus uppdateras även utan storleksbyte.
+- [ ] Stäng akvariet, rotera enheten och öppna igen. Layouten är rätt direkt.
+  Kompakt läge visar inga onödigt animerade dolda porträtt; normal rörelse kommer
+  tillbaka när porträtten visas och reducerad rörelse stängs av.
+- [ ] Ändra ljud och reducerade effekter snabbt flera gånger med fördröjda svar.
+  Senaste lokala valet gäller direkt och kan inte ersättas av en äldre kvittens.
+  Fisket går att starta medan ett tidigare inställningssvar är på väg.
+- [ ] I publicerad privat klient: spara tyst/reducerat, lämna och återanslut.
+  Valen återställs från profilen. Ingen startvind hörs medan profilen laddas.
+  Roblox Reduce Motion gäller även om det lokala rörelsevalet är av.
+- [ ] I vanlig Studio Play: inställningstexten förklarar att profilen är tillfällig.
+  En accepterad inställning får inte påstå att en separat beständig skrivning
+  redan slutförts. Testa riktigt sparande i den privata publicerade upplevelsen.
+- [ ] Lyssna på kast/plask/napp/invevning/fångst och upprepade sällsynta visningar.
+  Reel-pitchen följer motstånd lugnt, volymen staplas inte och tysta/slå på spelar
+  inte upp gamla toner. Biblioteket har fortfarande sex klipp.
+- [ ] Lämna under autosparande, återanslut, prova två samtidiga sessioner och
+  stäng testservern. Senaste bekräftade profil behålls; ingen tom profil eller
+  dubbel offlinebelöning ersätter den vid ett fel. Logga verkliga DataStore-fel.
+- [ ] Granska vattenkant/repstolpar, synliga trädstammar, tunna ormbunkar och
+  hyllkrukor i låg/hög grafik. Kontrollera skuggor, materialkartor och att färger
+  är behagliga i den riktiga renderingen.
+- [ ] Mät klientens CPU/GPU-tid, minne och streaming på vald bastelefon med
+  flera samtidiga fiskare och fyllda akvarier. Dokumentera faktisk enhet.
+
+Alla rutor är okörda. Tidigare versionslistor nedan bevarar historiska krav;
+versionsnamn, artantal och sessionsinställningar där beskriver respektive build.
+Använd v1.8-reglerna ovan för den aktuella leveransen.
 
 ## v1.7 — prioriterad acceptans, ännu okörd i Roblox
 
@@ -86,7 +147,9 @@ testet och anteckna enhet, resultat och eventuella Output-fel.
 - [ ] Prova med simulerad nätfördröjning och notera skillnaden mellan synlig
   mätarposition och serverns kvalitet. Justera innan tävlingspoäng införs.
 - [ ] Prova riktig telefon och iPad; emulering verifierar inte enhetsprestanda.
-- [ ] Stoppa och starta Play: fångsträknaren börjar om, som prototypen anger.
+- [ ] Stoppa och starta vanlig Studio Play: den tillfälliga profilen börjar om.
+  För publicerad klient respektive aktiverad Studio-testsparning ska rätt sparad
+  profil i stället läsas tillbaka enligt respektive lagringsutrymme.
 - [ ] Inga återkommande fel visas i Output under normal spelgång.
 
 Testanteckningar:

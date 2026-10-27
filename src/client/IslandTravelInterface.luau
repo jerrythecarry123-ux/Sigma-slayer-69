@@ -46,6 +46,11 @@ local function mount(event: RemoteEvent)
 	local card = Instance.new("Frame")
 	card.Name, card.AnchorPoint, card.Position = "DestinationCard", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
 	card.BackgroundColor3, card.BorderSizePixel, card.Active, card.Parent = CREAM, 0, true, shade
+	-- Modal only releases mouse lock. Directional gamepad navigation needs its
+	-- own boundary so selection cannot escape to the fishing HUD behind this card.
+	card.SelectionGroup = true
+	card.SelectionBehaviorUp, card.SelectionBehaviorDown = Enum.SelectionBehavior.Stop, Enum.SelectionBehavior.Stop
+	card.SelectionBehaviorLeft, card.SelectionBehaviorRight = Enum.SelectionBehavior.Stop, Enum.SelectionBehavior.Stop
 	rounded(card, 20)
 	local outline = Instance.new("UIStroke")
 	outline.Color, outline.Thickness, outline.Transparency, outline.Parent = Color3.fromRGB(133, 162, 167), 1, 0.3, card

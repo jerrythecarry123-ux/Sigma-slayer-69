@@ -53,6 +53,7 @@ function Service.start()
 	local connections: { [Player]: RBXScriptConnection } = {}
 	local lastVisual: { [Player]: string } = {}
 	local activeAttempts: { [Player]: number } = {}
+	local lastCastPower: { [Player]: number } = {}
 	local closing, pendingReleases = false, 0
 	local aquarium: any = nil
 	local nearestLocation: any = nil
@@ -67,13 +68,16 @@ function Service.start()
 		local zoneId, zoneName = fishingSpot:GetAttribute("ZoneId"), fishingSpot:GetAttribute("ZoneName")
 		return {
 			spot = fishingSpot, target = target,
+			direction = fishingSpot.CFrame.LookVector * Vector3.new(1, 0, 1),
 			zoneId = if type(zoneId) == "string" then zoneId else nil,
 			zoneName = if type(zoneName) == "string" then zoneName else nil,
 		}
 	end
 	local function decorate(player: Player, packet: any)
 		local location = locations:last(player.UserId) or describeLocation(player, spot)
-		packet.castTarget = location.target
+		local power = packet.castPower or (if packet.result then packet.result.castPower else nil) or lastCastPower[player] or .65
+		if packet.castPower then lastCastPower[player] = packet.castPower end
+		packet.castTarget = location.target + location.direction * (Rules.castDepthFor(power) - 14)
 		local current = if packet.phase == "Idle" and nearestLocation then nearestLocation(player) or location else location
 		packet.zoneId, packet.zoneName = current.zoneId, current.zoneName
 		packet.location = { zoneId = current.zoneId, zoneName = current.zoneName }
@@ -82,16 +86,19 @@ function Service.start()
 	local function publicVisual(player: Player, packet: any)
 		local result = packet.result
 		return decorate(player, {
-			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId,
+			phase = packet.phase, catches = packet.catches, attemptId = packet.attemptId, outcome = packet.outcome,
 			readyAt = packet.readyAt, chargeAt = packet.chargeAt,
 			castAt = packet.castAt, castDuration = packet.castDuration,
-			timingCenter = packet.timingCenter, timingMotion = packet.timingMotion, duration = packet.duration,
+			castChargeAt = packet.castChargeAt, castChargeDuration = packet.castChargeDuration,
+			castPower = packet.castPower, castGrade = packet.castGrade, castBonusPercent = packet.castBonusPercent,
+			timingCenter = packet.timingCenter, timingWidth = packet.timingWidth, timingMotion = packet.timingMotion, duration = packet.duration,
 			difficulty = packet.difficulty, behavior = packet.behavior,
 			rodLevel = if packet.profile then packet.profile.level else 0,
 			result = if result then {
 				species = result.species, speciesId = result.speciesId, quality = result.quality,
 				rarity = result.rarity, newDiscovery = result.newDiscovery,
 				variant = result.variant, weightKg = result.weightKg, newRecord = result.newRecord,
+				castPower = result.castPower, castGrade = result.castGrade,
 			} else nil,
 		})
 	end
@@ -148,9 +155,20 @@ function Service.start()
 		session.releaseRequested = true
 		pendingReleases += 1
 		task.spawn(function()
-			local deadline = os.clock() + 20
-			while session.busy and os.clock() < deadline do task.wait(0.1) end
-			local ok, reason = store.save(session, profile, true)
+			-- Keep the departure snapshot until an in-flight autosave finishes.
+			-- A separate 20-second cutoff used to discard it when the backend
+			-- returned just after that cutoff. BindToClose owns the server-wide
+			-- shutdown deadline; a normal departure does not need that short limit.
+			local ok, reason = session.closed, nil
+			while not ok do
+				while session.busy do task.wait(0.1) end
+				if session.closed then ok = true; break end
+				local callOk, saved, failure = pcall(store.save, session, profile, true)
+				ok = callOk and saved == true
+				reason = if callOk then failure else tostring(saved)
+				if ok or reason ~= "busy" then break end
+				task.wait(0.1)
+			end
 			if not ok then warn("Cloud Anglers: final save failed: " .. tostring(reason)) end
 			pendingReleases -= 1
 		end)
@@ -194,7 +212,7 @@ function Service.start()
 		local connection = connections[player]
 		if connection then connection:Disconnect() end
 		connections[player], sessions[player], welcome[player], lastVisual[player] = nil, nil, nil, nil
-		activeAttempts[player] = nil
+		activeAttempts[player], lastCastPower[player] = nil, nil
 		locations:remove(player.UserId)
 		engine:removePlayer(player.UserId)
 		if aquarium then aquarium.remove(player) end
@@ -222,7 +240,7 @@ function Service.start()
 			end)
 		end
 	end
-	action.OnServerEvent:Connect(function(player, verb, attemptId)
+	action.OnServerEvent:Connect(function(player, verb, attemptId, preferenceRequestId)
 		if closing then return end
 		local session = sessions[player]
 		if session and os.time() >= session.expires then return end
@@ -230,11 +248,22 @@ function Service.start()
 		-- here, avoiding a full profile snapshot before a request is rate-limited.
 		local previousAttemptId = activeAttempts[player]
 		local location = locations:forAttempt(player.UserId, previousAttemptId)
-		if verb == "Start" and connections[player] and previousAttemptId == nil then location = nearestLocation(player) end
+		if (verb == "Start" or verb == "BeginCast") and connections[player] and previousAttemptId == nil then location = nearestLocation(player) end
 		local zoneId = if location and Catalog.zone(location.zoneId) then location.zoneId else nil
 		local packet = engine:command(player.UserId, verb, attemptId, workspace:GetServerTimeNow(), canFish(player, location), zoneId)
 		if packet then
-			if verb == "Start" then locations:acceptStart(player.UserId, previousAttemptId, packet, location) end
+			-- Distinguish an accepted/rejected command response from a passive
+			-- location update or heartbeat. The client keeps input held until the
+			-- BeginCast response; public observers never receive this routing hint.
+			packet.replyTo = verb
+			if verb == "Preferences" and type(preferenceRequestId) == "number"
+				and preferenceRequestId == preferenceRequestId and preferenceRequestId > 0
+				and preferenceRequestId <= 2147483647 and preferenceRequestId % 1 == 0 then
+				-- Correlation only: this private nonce grants no gameplay authority.
+				-- Older clients may omit it; malformed nonces are never echoed.
+				packet.preferenceRequestId = preferenceRequestId
+			end
+			if verb == "Start" or verb == "BeginCast" then locations:acceptStart(player.UserId, previousAttemptId, packet, location) end
 			emit(player, packet)
 			if verb == "Sync" then
 				for _, other in Players:GetPlayers() do

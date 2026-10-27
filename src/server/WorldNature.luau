@@ -12,7 +12,7 @@ local bark = { material = Enum.Material.Wood }
 local stone = { material = Enum.Material.Slate }
 local detail = { material = Enum.Material.SmoothPlastic, shadow = false }
 local mossSurface = { material = Enum.Material.Grass, shadow = false }
-local collider = { material = Enum.Material.Plastic, collidable = true, transparency = 1, shadow = false }
+local solidBark = { material = Enum.Material.Wood, collidable = true }
 
 -- Two thin mirrored wedges form a single tapered leaf, with its tip at b.
 local function leaf(parent: Instance, name: string, a: Vector3, b: Vector3, width: number, tint: Color3, options: any?)
@@ -100,11 +100,10 @@ local function broadleaf(parent: Instance, pos: Vector3, scale: number, blossom:
 	local top = pos + Vector3.new(.6, 10.8, -.6) * scale
 	local bend = pos + Vector3.new(-.5, 5.3, .2) * scale
 	local foot = pos - Vector3.yAxis * .12 * scale
-	-- Established invisible collision cores stay in exactly the same positions.
-	Kit.beam(parent, "LowerTrunk", foot, bend, 1.8 * scale, C.Bark, collider)
-	Kit.beam(parent, "UpperTrunk", bend, top, 1.25 * scale, C.BarkLight, collider)
-	Kit.beam(parent,"SculptedLowerTrunk",foot,bend,1.81*scale,C.Bark,bark)
-	Kit.beam(parent,"TaperedUpperTrunk",bend,top,1.26*scale,C.Bark,bark)
+	-- The visible native cylinders own the established collision footprints;
+	-- duplicate hidden cylinders inside the same trunks served no purpose.
+	Kit.beam(parent,"SculptedLowerTrunk",foot,bend,1.8*scale,C.Bark,solidBark)
+	Kit.beam(parent,"TaperedUpperTrunk",bend,top,1.25*scale,C.Bark,solidBark)
 	local canopy=swaying(parent,"BreezyBroadleafCanopy",top,.018)
 	local tint=if blossom then C.Blossom else C.Leaf
 	local light=if blossom then C.BlossomLight else C.Lime
@@ -120,8 +119,7 @@ end
 
 local function pine(parent: Instance, pos: Vector3, scale: number, random: Random)
 	local top = pos + Vector3.yAxis * 22.8 * scale
-	Kit.beam(parent,"PineTrunk",pos,top,1.15*scale,C.Bark,collider)
-	Kit.beam(parent,"TaperedPineTrunk",pos,top,1.16*scale,C.Bark,bark)
+	Kit.beam(parent,"TaperedPineTrunk",pos,top,1.15*scale,C.Bark,solidBark)
 	local needles=swaying(parent,"BreezyNeedleCanopy",pos,.009)
 	local turn=random:NextNumber(0,math.pi*2)
 	-- Two overlapping closed skirts keep a clear evergreen silhouette without
@@ -145,8 +143,7 @@ local function palm(parent: Instance, pos: Vector3, scale: number, random: Rando
 		local nextPos = pos + Vector3.yAxis * 16.8 * t * scale + curve * t * t
 		local width = (1.1 - t * .45) * scale
 		local tint = if segment % 2 == 0 then C.BarkLight else C.Wood
-		Kit.beam(parent,"CurvedPalmTrunk",previous,nextPos,width,tint,collider)
-		Kit.beam(parent,"SculptedPalmTrunk",previous,nextPos,width*1.01,tint,bark)
+		Kit.beam(parent,"SculptedPalmTrunk",previous,nextPos,width,tint,solidBark)
 		if segment==6 then crownBase=previous end
 		previous=nextPos
 	end

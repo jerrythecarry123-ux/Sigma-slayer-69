@@ -99,7 +99,14 @@ local methods = {}
 local mt = {}
 mt.__index=function(t,k)
 	if methods[k] then return methods[k] end
-	if k=="Position" and (t.props.ClassName=="Part" or t.props.ClassName=="SpawnLocation" or t.props.ClassName=="WedgePart") then return t.props.CFrame.p end
+	if k=="Position" and (t.props.ClassName=="Part" or t.props.ClassName=="SpawnLocation" or t.props.ClassName=="WedgePart" or t.props.ClassName=="Attachment") then return t.props.CFrame.p end
+	if t.props.ClassName=="Attachment" and (k=="WorldCFrame" or k=="WorldPosition") then
+		local parent=t.props.Parent
+		local parentFrame=if parent and parent:IsA("BasePart") then parent.CFrame
+			elseif parent and parent:IsA("Attachment") then parent.WorldCFrame else CFrame.identity
+		local worldFrame=parentFrame*t.props.CFrame
+		return if k=="WorldPosition" then worldFrame.Position else worldFrame
+	end
 	return t.props[k]
 end
 mt.__newindex=function(t,k,v)
@@ -107,7 +114,7 @@ mt.__newindex=function(t,k,v)
 		local old=t.props.Parent
 		if old then local idx=table.find(old.children,t); if idx then table.remove(old.children,idx) end end
 		if v then table.insert(v.children,t) end
-	elseif k=="Position" and (t.props.ClassName=="Part" or t.props.ClassName=="SpawnLocation" or t.props.ClassName=="WedgePart") then t.props.CFrame=frame(v,t.props.CFrame.r); return end
+	elseif k=="Position" and (t.props.ClassName=="Part" or t.props.ClassName=="SpawnLocation" or t.props.ClassName=="WedgePart" or t.props.ClassName=="Attachment") then t.props.CFrame=frame(v,t.props.CFrame.r); return end
 	t.props[k]=v
 end
 local Instance={}

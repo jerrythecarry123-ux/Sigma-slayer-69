@@ -60,6 +60,13 @@ local function moving(part: BasePart, group: number, center: Vector3)
 	return part
 end
 
+local function hinged(part: BasePart, group: number, center: Vector3, kind: string, side: number)
+	moving(part, group, center)
+	part:SetAttribute("FishMotionKind", kind)
+	part:SetAttribute("Side", side)
+	return part
+end
+
 local function exceptionalFace(model: Model, size: Vector3, highEyes: boolean)
 	for _, side in {-1, 1} do
 		local nx, ny = .44, if highEyes then .58 else .22
@@ -229,16 +236,23 @@ function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 			local x = if kind == "Ray" then .98 elseif kind == "Wings" then .90 else size.X * .45 + .13
 			local rounded = id == "cloudmoth" or id == "pufflet" or id == "petalperch" or kind == "Squid"
 			local fin = shape(model,"Fin",Vector3.new(.14,span,length),Vector3.new(side*x,-.12,.24),finColor,not rounded)
-			fin.CFrame *= CFrame.Angles(0,side*(if id == "sunskipper" then -.38 else -.18),side*math.pi/2)
-			fin:SetAttribute("Side",side)
+			fin.CFrame *= CFrame.Angles(0,side*(if id == "sunskipper" then -.38 else -.18),-side*math.pi/2)
+			-- A shared root stays inside the actual body and fin while the blade
+			-- flaps. Rotating around its box centre used to pull narrow roots away.
+			hinged(fin, 100 + side, (fin.CFrame * CFrame.new(0,-span*.34,0)).Position, "Fin", side)
 		end
 		if kind ~= "Squid" and kind ~= "Turtle" and kind ~= "Ray" then
 			local horizontal = kind == "Whale" or id == "sunskipper"
 			local petal = id == "petalperch" or id == "cloudmoth"
-			local tail = shape(model,"Tail",Vector3.new(if petal then .18 else .14,if kind == "Ribbon" then 1.03 elseif petal then .72 else .7,if kind == "Ribbon" then 1.25 else .83),
-				Vector3.new(if horizontal then side*.36 else 0,if horizontal then -.05 else side*.29,size.Z*.56+.3),finColor,not petal)
-			tail.CFrame *= if horizontal then CFrame.Angles(0,side*-.15,side*math.pi/2) else CFrame.Angles(side*(if petal then -.28 else 0),0,if side == 1 then 0 else math.pi)
-			tail:SetAttribute("Side",side)
+			local tailSize = Vector3.new(if petal then .18 else .14,if kind == "Ribbon" then 1.03 elseif petal then .72 else .7,if kind == "Ribbon" then 1.25 else .83)
+			local root = Vector3.new(0,-.04,size.Z*.43+.18)
+			local outward = (if horizontal then Vector3.xAxis else Vector3.yAxis) * side
+			local up, back = -outward, -Vector3.zAxis
+			local tail = shape(model,"Tail",tailSize,Vector3.zero,finColor,not petal)
+			-- The broad edge is the wedge's local +Z end. Both flukes share a
+			-- hinge embedded in TailStock; rounded petal tails keep a deeper seat.
+			tail.CFrame = CFrame.fromMatrix(root + outward*.17 + Vector3.zAxis*(if petal then .29 else tailSize.Z*.5-.04), up:Cross(back),up,back)
+			hinged(tail,200,root,"Tail",side)
 		end
 		-- Eyes sit on the actual head surface, keeping the face readable in three
 		-- quarter views without a stack of detached spherical accessories.
@@ -275,30 +289,34 @@ function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 			for ember=0,2 do mark("EmberScale",side,.12,-.08+ember*.30,.25,.36,if ember%2 == 0 then dark else light,side*.42,if ember%2 == 0 then "Pattern" else "Accent") end
 		elseif kind == "Whiskers" then
 			for branch=0,1 do
-				local whisker=shape(model,"Whisker",Vector3.new(.91,.055,.065),Vector3.new(side*.85,-.12-branch*.17,-size.Z*.40),finColor)
-				whisker.CFrame*=CFrame.Angles(0,side*-.3,side*(.1+branch*.2))
+				local nx,ny=side*.46,-.20-branch*.14
+				local root=size*Vector3.new(nx,ny,-math.sqrt(1-nx*nx-ny*ny))*.48
+				local direction=Vector3.new(side,-.08-branch*.12,-.28).Unit
+				local up=(Vector3.yAxis-direction*direction.Y).Unit
+				local whisker=shape(model,"Whisker",Vector3.new(.91,.055,.065),Vector3.zero,finColor)
+				whisker.CFrame=CFrame.fromMatrix(root+direction*.32,direction,up,direction:Cross(up))
 			end
 			mark("StarCheek",side,.23,.16,.29,.29,light,nil,"Accent")
 		elseif id == "cloudmoth" then
-			local lower=shape(model,"WingTip",Vector3.new(.13,1.16,1.16),Vector3.new(side*.82,-.16,1.01),finColor:Lerp(bodyColor,.3))
+			local lower=shape(model,"WingTip",Vector3.new(.13,1.16,1.16),Vector3.new(side*.60,-.16,1.01),finColor:Lerp(bodyColor,.3))
 			lower.CFrame*=CFrame.Angles(0,side*.20,side*math.pi/2)
 			-- These two oval markings are embedded in the upper face of the broad
 			-- fixed hind wing, so they cannot separate when the front fins flutter.
-			local eyespot=shape(model,"MothWingSpot",Vector3.new(.43,.07,.45),Vector3.new(side*1.03,-.105,1.0),dark,false,"Pattern")
+			local eyespot=shape(model,"MothWingSpot",Vector3.new(.43,.07,.45),Vector3.new(side*.90,-.113,1.21),dark,false,"Pattern")
 			eyespot.CFrame*=CFrame.Angles(0,side*.20,0)
-			shape(model,"MothWingPearl",Vector3.new(.18,.055,.20),Vector3.new(side*1.03,-.068,1.0),light,false,"Accent")
+			shape(model,"MothWingPearl",Vector3.new(.18,.055,.20),Vector3.new(side*.90,-.076,1.21),light,false,"Accent")
 			local antenna=shape(model,"Antenna",Vector3.new(.055,.66,.07),Vector3.new(side*.23,.78,-.48),dark,false,"Pattern")
 			antenna.CFrame*=CFrame.Angles(-.30,0,side*-.30)
 			shape(model,"AntennaTip",Vector3.new(.14,.18,.13),Vector3.new(side*.33,1.07,-.58),finColor,false,"Accent")
 		elseif id == "sunskipper" then
 			mark("SkipperFlash",side,.15,.05,.92,.14,light,nil,"Accent")
-			local keel=shape(model,"SkipperKeel",Vector3.new(.10,.38,.8),Vector3.new(side*.21,-.31,.8),finColor,true)
+			local keel=shape(model,"SkipperKeel",Vector3.new(.10,.38,.8),Vector3.new(side*.21,-.23,.8),finColor,true)
 			keel.CFrame*=CFrame.Angles(0,0,side*.32)
 		elseif kind == "Turtle" then
 			for z=-1,1,2 do
-				local flipper=shape(model,"Fin",Vector3.new(.12,.85,.95),Vector3.new(side*1.12,-.26,z*.64),finColor,true)
-				flipper.CFrame*=CFrame.Angles(0,side*z*.22,side*math.pi/2)
-				flipper:SetAttribute("Side",side)
+				local flipper=shape(model,"Fin",Vector3.new(.12,.85,.95),Vector3.new(side*.86,-.19,z*.57),finColor,true)
+				flipper.CFrame*=CFrame.Angles(0,side*z*.22,-side*math.pi/2)
+				hinged(flipper,110+side*2+z,(flipper.CFrame*CFrame.new(0,-.85*.34,0)).Position,"Fin",side)
 			end
 		elseif kind == "Ribbon" then
 			mark("KoiPatch",side,.13,-.05,.65,.52,finColor,side*.35)
@@ -335,11 +353,12 @@ function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 		for index=0,5 do
 			local angle=index*math.pi/3
 			local tentacle=shape(model,"Tentacle",Vector3.new(.18,1.20,.22),Vector3.new(math.cos(angle)*.57,-1.28,math.sin(angle)*.46),finColor)
-			tentacle.CFrame*=CFrame.Angles(.13*math.sin(angle),0,-.23*math.cos(angle))
-			tentacle:SetAttribute("Side",index)
+			tentacle.CFrame*=CFrame.Angles(-.13*math.sin(angle),0,.23*math.cos(angle))
+			local root=(tentacle.CFrame*CFrame.new(0,.5,0)).Position
+			hinged(tentacle,300+index,root,"Tentacle",index)
 			local tip=shape(model,"TentacleTip",Vector3.new(.13,.54,.15),Vector3.zero,finColor:Lerp(bodyColor,.25))
 			tip.CFrame=tentacle.CFrame*CFrame.new(0,-.71,0)*CFrame.Angles(.2*math.sin(angle),0,-.22*math.cos(angle))
-			tip:SetAttribute("Side",index)
+			hinged(tip,300+index,root,"Tentacle",index)
 		end
 	elseif kind == "Crown" then
 		-- Three coral stems grow directly from the back; short slanting branches
@@ -382,13 +401,13 @@ function Fish.create(parent: Instance, name: string?, speciesId: string?): Model
 		end
 	elseif kind == "Lure" then
 		for step=0,2 do
-			local stem=shape(model,"LureStem",Vector3.new(.065,.43,.075),Vector3.new(0,.82+step*.23,-.88-step*.10),dark,false,"Pattern")
+			local stem=shape(model,"LureStem",Vector3.new(.065,if step==0 then .60 else .43,.075),Vector3.new(0,.82+step*.23,-.88-step*.10),dark,false,"Pattern")
 			stem.CFrame*=CFrame.Angles(-.35,0,0)
 		end
 		shape(model,"LurePearl",Vector3.new(.32,.37,.28),Vector3.new(0,1.43,-1.20),light,false,"Accent")
 	elseif kind == "Ray" then
 		local tail=shape(model,"Tail",Vector3.new(.11,.12,1.7),Vector3.new(0,-.03,1.68),finColor)
-		tail:SetAttribute("Side",1)
+		hinged(tail,200,Vector3.new(0,-.03,.95),"Tail",1)
 		for _,side in {-1,1} do
 			local spot=shape(model,"MoonSpot",Vector3.new(.25,.055,.40),Vector3.zero,light,false,"Accent")
 			local point=Vector3.new(side*.5,.80,.33)
@@ -471,9 +490,21 @@ function Fish.animate(model: Model, time: number)
 			if profileName == "Undulate" then
 				wave = math.sin(time * 2.4 - group * .65) * (if group > 0 then .018 + group * .014 else .09)
 				motion = CFrame.Angles(wave * .2, wave, wave * .4)
-			else
+			elseif profileName == "Orbit" then
 				wave = math.sin(time * 1.8 + group * .27)
 				motion = if group == 10 then CFrame.Angles(0, wave * .065, 0) else CFrame.Angles(wave * .025, 0, wave * .11 * group)
+			else
+				local kind=child:GetAttribute("FishMotionKind")
+				if kind == "Fin" then
+					wave=math.sin(time*profile[1]+(side :: number)*.3)*profile[2]*(side :: number)
+					motion=CFrame.Angles(0,0,wave)
+				elseif kind == "Tail" then
+					wave=math.sin(time*profile[3])*profile[4]
+					motion=if profileName == "Heavy" then CFrame.Angles(wave,0,0) else CFrame.Angles(0,wave,0)
+				else
+					wave=math.sin(time*3+(side :: number))*.10
+					motion=CFrame.Angles(wave,0,math.cos(time*3+(side :: number))*.08)
+				end
 			end
 			child.CFrame = pivot * CFrame.new(center) * motion * CFrame.new(-center) * rest
 			continue

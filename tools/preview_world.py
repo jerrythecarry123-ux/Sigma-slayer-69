@@ -83,7 +83,11 @@ for _,dock in layout.Docks do
   entry=vec(entry.Position),entryRotation=entry.r,approach=vec((frame*CFrame.new(0,-.1,8)).Position)})
 end
 local support=workspace:FindFirstChild("MolnfiskarnaPrototype"):FindFirstChild("TravelArrivalSupports")
-print(encode({parts=parts,waterSurfaces=waterSurfaces,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
+local castDepths={}
+for index=0,100 do
+ table.insert(castDepths,{power=index/100,depth=modules.FishingRules.castDepthFor(index/100)})
+end
+print(encode({parts=parts,waterSurfaces=waterSurfaces,castDepths=castDepths,collisions=collisions,terrainWrites=#waterWrites,ambient=ambient,waterColor={workspace.Terrain.WaterColor.R,workspace.Terrain.WaterColor.G,workspace.Terrain.WaterColor.B},lighting={brightness=Lighting.Brightness,clockTime=Lighting.ClockTime,ambient={Lighting.Ambient.R,Lighting.Ambient.G,Lighting.Ambient.B}},
  travel=travel,persistentTravelSupport=support.ModelStreamingMode==Enum.ModelStreamingMode.Persistent,
  layout={Islands=layout.Islands,Bridges=layout.Bridges,Paths=layout.Paths,Waters=layout.Waters,Docks=layout.Docks,Spawn=layout.Spawn,RodStand=layout.RodStand,WalkSpeed=layout.WalkSpeed}}))
 '''
@@ -98,7 +102,8 @@ local originalGetService=game.GetService
 game.GetService=function(self,name) return if name=="Players" then previewPlayers else originalGetService(self,name) end
 '''
     program += f'\nlocal previewPlayerCount={gallery_players}\n'
-    for name, source in [('FishCatalog', 'src/shared/FishCatalog.luau'),
+    for name, source in [('FishingRules', 'src/shared/FishingRules.luau'),
+                         ('FishCatalog', 'src/shared/FishCatalog.luau'),
                          ('FishModel', 'src/shared/FishModel.luau'),
                          ('WorldPrimitives', 'src/server/WorldPrimitives.luau'),
                          ('WorldNature', 'src/server/WorldNature.luau'),

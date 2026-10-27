@@ -21,6 +21,7 @@ local function sameColor(a,b) return math.abs(a.R-b.R)<.00001 and math.abs(a.G-b
 local function luminance(color) return color.R*.2126+color.G*.7152+color.B*.0722 end
 local motionSignatures={}
 local jointSamples,bodyJoins,exceptionalContacts,veinFootprints=0,0,0,0
+local hingeSamples,connectedDetails,faceContacts=0,0,0
 local function insideEllipsoid(part,point)
  local localPoint=part.CFrame:PointToObjectSpace(point)
  local p=Vector3.new(localPoint.X*2/part.Size.X,localPoint.Y*2/part.Size.Y,localPoint.Z*2/part.Size.Z)
@@ -38,6 +39,25 @@ local function joined(a,b)
   local point=a.Position:Lerp(b.Position,sample/300)
   if insideShape(a,point) and insideShape(b,point) then return true end
  end
+ -- An oblique, slender ellipsoid can meet the skin near its end even when
+ -- the line between the two part centres misses that small intersection.
+ for _,candidate in {a,b} do
+  if candidate:IsA('WedgePart') then continue end
+  for _,axis in {Vector3.xAxis,Vector3.yAxis,Vector3.zAxis} do
+   for sample=-49,49 do
+    local point=candidate.CFrame*(candidate.Size*axis*(sample/100))
+    if insideShape(a,point) and insideShape(b,point) then return true end
+   end
+  end
+  for _,axes in {{Vector3.xAxis,Vector3.yAxis},{Vector3.xAxis,Vector3.zAxis},{Vector3.yAxis,Vector3.zAxis}} do
+   for first=-6,6 do for second=-6,6 do
+    local u,v=first*.15,second*.15
+    if u*u+v*v>=.96 then continue end
+    local point=candidate.CFrame*(candidate.Size*(axes[1]*u+axes[2]*v)*.5)
+    if insideShape(a,point) and insideShape(b,point) then return true end
+   end end
+  end
+ end
  -- A wedge's box centre is on its diagonal face, so a centre-to-centre ray
  -- alone can miss a genuine root contact. Search its real triangular volume.
  for _,candidate in {a,b} do
@@ -52,6 +72,46 @@ local function joined(a,b)
   end
  end
  return false
+end
+local function bounds(part)
+ local h=part.Size*.5
+ local a,b,c=part.CFrame.RightVector,part.CFrame.UpVector,part.CFrame.LookVector
+ local extent=Vector3.new(math.abs(a.X)*h.X+math.abs(b.X)*h.Y+math.abs(c.X)*h.Z,
+  math.abs(a.Y)*h.X+math.abs(b.Y)*h.Y+math.abs(c.Y)*h.Z,
+  math.abs(a.Z)*h.X+math.abs(b.Z)*h.Y+math.abs(c.Z)*h.Z)
+ return {lo=part.Position-extent,hi=part.Position+extent}
+end
+local function overlap(first,second)
+ return first.lo.X<second.hi.X and second.lo.X<first.hi.X
+  and first.lo.Y<second.hi.Y and second.lo.Y<first.hi.Y
+  and first.lo.Z<second.hi.Z and second.lo.Z<first.hi.Z
+end
+local function assertConnected(fish,species)
+ local parts=fish:GetChildren()
+ local boxes,attached={}, {[fish.PrimaryPart]=true}
+ for _,part in parts do boxes[part]=bounds(part) end
+ local remaining=#parts-1
+ for _=1,#parts do
+  local progressed=false
+  for _,part in parts do
+   if attached[part] then continue end
+   local candidates={}
+   for support in attached do
+    if overlap(boxes[part],boxes[support]) then table.insert(candidates,support) end
+   end
+   table.sort(candidates,function(a,b)return (a.Position-part.Position).Magnitude<(b.Position-part.Position).Magnitude end)
+   for _,support in candidates do
+    if joined(part,support) then
+     attached[part]=true;remaining-=1;connectedDetails+=1;progressed=true;break
+    end
+   end
+  end
+  if remaining==0 then return end
+  if not progressed then break end
+ end
+ local detached={}
+ for _,part in parts do if not attached[part] then table.insert(detached,part.Name) end end
+ assert(false,species.Id..' has detached actual geometry: '..table.concat(detached,', '))
 end
 for _,species in modules.FishCatalog.Species do
  local fish=modules.FishModel.create(workspace,nil,species.Id)
@@ -98,6 +158,35 @@ for _,species in modules.FishCatalog.Species do
    end
   end
  end
+ local whites,pupils,glints={},{},{}
+ for _,part in fish:GetChildren() do
+  if part.Name=='EyeWhite' then table.insert(whites,part)
+  elseif part.Name=='Pupil' then table.insert(pupils,part)
+  elseif part.Name=='EyeGlint' then table.insert(glints,part) end
+ end
+ assert(#whites==2 and #pupils==2 and #glints==2,species.Id..' lost a complete readable pair of eyes')
+ for index=1,2 do
+  local head=fish:FindFirstChild('TurtleHead') or fish.PrimaryPart
+  assert(joined(head,whites[index]),species.Id..' eye white floats outside its actual head')
+  assert(joined(whites[index],pupils[index]),species.Id..' pupil floats outside its eye white')
+  assert(joined(pupils[index],glints[index]),species.Id..' glint floats outside its pupil')
+  faceContacts+=3
+ end
+ assert(joined(fish:FindFirstChild('TurtleHead') or fish:FindFirstChild('PikeSnout') or fish.PrimaryPart,fish:FindFirstChild('Mouth')),
+  species.Id..' mouth floats outside its actual face')
+ faceContacts+=1
+ if species.Id=='cloudmoth' then
+  local wings,spots,pearls={},{},{}
+  for _,part in fish:GetChildren() do
+   if part.Name=='WingTip' then table.insert(wings,part)
+   elseif part.Name=='MothWingSpot' then table.insert(spots,part)
+   elseif part.Name=='MothWingPearl' then table.insert(pearls,part) end
+  end
+  for index=1,2 do
+   assert(joined(wings[index],spots[index]),'Cloudmoth eyespot lost its fixed hind-wing support')
+   assert(joined(spots[index],pearls[index]),'Cloudmoth pearl floats above its eyespot')
+  end
+ end
  local lo,hi=Vector3.new(math.huge,math.huge,math.huge),Vector3.new(-math.huge,-math.huge,-math.huge)
  local groups,relative={},{}
  for _,p in fish:GetChildren() do
@@ -113,6 +202,18 @@ for _,species in modules.FishCatalog.Species do
  local firstMotion,changed=false,false
  for frame=0,120 do
   modules.FishModel.animate(fish,frame*.05)
+  for _,part in fish:GetChildren() do
+   local kind=part:GetAttribute('FishMotionKind')
+   if part.Name=='Fin' or part.Name=='Tail' or part.Name=='Tentacle' or part.Name=='TentacleTip' then
+    assert(kind~=nil,species.Id..' legacy '..part.Name..' must have an authored skin hinge')
+   end
+   if not kind or part.Name=='TentacleTip' then continue end
+   local support=if kind=='Tail' then fish:FindFirstChild('TailStock') or fish.PrimaryPart
+    elseif kind=='Tentacle' then fish:FindFirstChild('MantleRim') else fish.PrimaryPart
+   local root=pivot*part:GetAttribute('FishMotionCenter')
+   assert(insideShape(support,root) and insideShape(part,root),species.Id..' moving '..part.Name..' lost its embedded skin hinge')
+   hingeSamples+=1
+  end
   for group,parts in groups do
    for _,p in parts do
     assert(sameFrame(parts[1].CFrame:Inverse()*p.CFrame,relative[group][p]),'a fitted membrane left its animated segment')
@@ -173,10 +274,15 @@ for _,species in modules.FishCatalog.Species do
     end
    end
   end
+  if frame==0 then assertConnected(fish,species) end
   local motion={}
   for _,p in fish:GetChildren() do
    assert((p.Position-pivot.Position).Magnitude<7,"fish joint escaped at distant pivot")
    assert(p.Size.X>0 and p.Size.Y>0 and p.Size.Z>0,"fish size invalid")
+   local a,b,c=p.CFrame.RightVector,p.CFrame.UpVector,p.CFrame.LookVector
+   assert(math.abs(a.Magnitude-1)<.00001 and math.abs(b.Magnitude-1)<.00001 and math.abs(c.Magnitude-1)<.00001
+    and math.abs(a:Dot(b))<.00001 and math.abs(a:Dot(c))<.00001 and math.abs(b:Dot(c))<.00001
+    and a:Cross(b):Dot(-c)>.99999,'fish animation produced a skewed or mirrored frame')
    if p:GetAttribute('FinRest') then
     local f=pivot:Inverse()*p.CFrame
     table.insert(motion,string.format('%.4f/%.4f/%.4f/%.4f/%.4f',f.Position.X,f.Position.Y,f.Position.Z,f.UpVector.X,f.LookVector.X))
@@ -208,6 +314,7 @@ print("PASS",count,"production species:",totalParts,"parts total,",maxParts,"max
 print('PASS',jointSamples,'grouped membrane/wing/tail samples and',bodyJoins,'continuous Veilfin body joins; all species actually animate')
 print('PASS',exceptionalContacts,'exceptional-fish actual ellipsoid/wedge contacts: fins, membranes, crests, tail, fork roots and crescent')
 print('PASS',veinFootprints,'complete vein-footprint corners contained inside the actual triangular wings')
+print('PASS',connectedDetails,'actual attached details across the complete catalog;',faceContacts,'fitted face contacts;',hingeSamples,'embedded animated fin/tail/arm roots')
 '''
 
 
@@ -232,13 +339,24 @@ def check(luau: str) -> None:
             ("mirrored veil root", "membrane.CFrame *= CFrame.Angles(0, side * -.25, -side * math.pi / 2)",
              "membrane.CFrame *= CFrame.Angles(0, side * -.25, side * math.pi / 2)",
              "Veilfin detail is detached from its actual support skin: VeilMembrane"),
+            ("unhinged legacy fin", 'hinged(fin, 100 + side, (fin.CFrame * CFrame.new(0,-span*.34,0)).Position, "Fin", side)',
+             'fin:SetAttribute("Side",side)', "legacy Fin must have an authored skin hinge"),
+            ("floating royal fork", 'tail.CFrame = CFrame.fromMatrix(root + outward*.17 + Vector3.zAxis*(if petal then .29 else tailSize.Z*.5-.04), up:Cross(back),up,back)',
+             'if kind == "Whale" then tail.CFrame = CFrame.new(side*.36,-.05,size.Z*.56+.3)*CFrame.Angles(0,side*-.15,side*math.pi/2) else tail.CFrame = CFrame.fromMatrix(root + outward*.17 + Vector3.zAxis*(if petal then .29 else tailSize.Z*.5-.04), up:Cross(back),up,back) end',
+             "crownwhale moving Tail lost its embedded skin hinge"),
+            ("detached whiskers", 'whisker.CFrame=CFrame.fromMatrix(root+direction*.32,direction,up,direction:Cross(up))',
+             'whisker.CFrame=CFrame.new(side*.85,-.12-branch*.17,-size.Z*.40)*CFrame.Angles(0,side*-.3,side*(.1+branch*.2))',
+             "starwhisker has detached actual geometry"),
+            ("outward squid roots", 'tentacle.CFrame*=CFrame.Angles(-.13*math.sin(angle),0,.23*math.cos(angle))',
+             'tentacle.CFrame*=CFrame.Angles(.13*math.sin(angle),0,-.23*math.cos(angle))',
+             "bubblesquid moving Tentacle lost its embedded skin hinge"),
         )
         for name, current, broken, expected in mutations:
             assert program.count(current) == 1, f"Mutation target changed: {name}"
             path.write_text(program.replace(current, broken))
             result = subprocess.run([luau, str(path)], text=True, capture_output=True)
             assert result.returncode and expected in result.stderr, f"Contact regression missed {name}"
-        print("PASS art-review regression mutations: opposite comet-tail yaw and mirrored veil roots are rejected")
+        print("PASS six art-review mutations: comet/veil roots, legacy fin hinges, royal fork, whiskers and squid roots are rejected")
 
 
 if __name__ == "__main__":

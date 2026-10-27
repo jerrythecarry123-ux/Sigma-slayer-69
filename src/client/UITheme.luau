@@ -83,6 +83,7 @@ function Theme.coin(parent: Instance, position: UDim2, diameter: number)
 	Theme.stroke(inset, Color3.fromRGB(201, 143, 45), 1.5)
 	local mark = Theme.text(disc, "+", UDim2.fromScale(1, 1), UDim2.fromOffset(0, -1), diameter * 0.65, Color3.fromRGB(157, 105, 32), true)
 	mark.TextXAlignment = Enum.TextXAlignment.Center
+	return disc
 end
 function Theme.rarity(name: string): Color3
 	local color = Rarity.get(name).Color
@@ -93,5 +94,46 @@ function Theme.rarityLabel(name: string): string
 end
 function Theme.setReducedEffects(enabled: boolean)
 	reducedEffects = enabled
+end
+function Theme.effectsReduced(): boolean
+	return reducedEffects
+end
+function Theme.selectionGroup(frame: GuiObject)
+	frame.SelectionGroup = true
+	frame.SelectionBehaviorUp, frame.SelectionBehaviorDown = Enum.SelectionBehavior.Stop, Enum.SelectionBehavior.Stop
+	frame.SelectionBehaviorLeft, frame.SelectionBehaviorRight = Enum.SelectionBehavior.Stop, Enum.SelectionBehavior.Stop
+end
+
+-- Capture once after the model's appearance/weight has been applied. The padded
+-- box follows its actual pivot, so a long or asymmetric fish is not cropped by
+-- a fixed camera aimed at the origin. Animation may move fins inside the margin.
+function Theme.portraitBounds(model: Model): any
+	local bounds, size = model:GetBoundingBox()
+	local relative = model:GetPivot():Inverse() * bounds
+	local center = relative.Position
+	local corners: { Vector3 } = {}
+	for _, x in {-1, 1} do for _, y in {-1, 1} do for _, z in {-1, 1} do
+		table.insert(corners, relative * (size * Vector3.new(x, y, z) * .58) - center)
+	end end end
+	return { center = center, corners = corners }
+end
+
+local portraitDirection = Vector3.new(.42, .13, -1).Unit
+local portraitBasis = CFrame.lookAt(Vector3.zero, -portraitDirection)
+function Theme.fitPortrait(view: ViewportFrame, camera: Camera, model: Model, bounds: any)
+	local size, pivot = view.AbsoluteSize, model:GetPivot()
+	if size.X <= 0 or size.Y <= 0 then return end
+	if bounds.width == size.X and bounds.height == size.Y and bounds.pivot == pivot then return end
+	bounds.width, bounds.height, bounds.pivot = size.X, size.Y, pivot
+	local target = pivot * bounds.center
+	local tangent = math.tan(math.rad(camera.FieldOfView * .5)) * .92
+	local aspect = math.max(.2, size.X / size.Y)
+	local distance = 2
+	for _, corner in bounds.corners do
+		local projected = portraitBasis:PointToObjectSpace(pivot * (bounds.center + corner) - target)
+		distance = math.max(distance, math.abs(projected.Y) / tangent + projected.Z,
+			math.abs(projected.X) / (tangent * aspect) + projected.Z)
+	end
+	camera.CFrame = CFrame.lookAt(target + portraitDirection * distance, target)
 end
 return Theme

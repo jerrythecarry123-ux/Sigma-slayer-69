@@ -376,4 +376,323 @@ test("Sync and stale releases never select or reward an extra fish", function()
 	assert(sync.result == nil and sync.reservedId == nil and sync.timingMotion == nil)
 end)
 
+
+
+test("cast strength grades and authored lane depth have safe inclusive boundaries", function()
+	for _, row in {
+		{0, "Clean", 0}, {.51999, "Clean", 0}, {.52, "Precise", 5}, {.71999, "Precise", 5},
+		{.72, "Perfect", 10}, {.8, "Perfect", 10}, {.88, "Perfect", 10}, {.88001, "Precise", 5},
+		{.95, "Precise", 5}, {.95001, "Clean", 0}, {1, "Clean", 0},
+	} do
+		local grade, percent = Rules.castGradeAt(row[1])
+		assert(grade == row[2] and percent == row[3])
+	end
+	for _, power in { -1, 2, 0/0, math.huge, -math.huge } do
+		local grade, percent = Rules.castGradeAt(power)
+		assert(grade == "Clean" and percent == 0)
+		assert(Rules.castDepthFor(power) >= 12 and Rules.castDepthFor(power) <= 15.4)
+	end
+	assert(Rules.castDepthFor(.65) == 14 and Rules.castDepthFor(0) == 12 and Rules.castDepthFor(1) == 15.4)
+	assert(Rules.castDepthFor(nil) == 14 and Rules.castDepthFor(0/0) == 14)
+	assert(Rules.castProgressAt({castChargeAt=10,castChargeDuration=1},9) == 0)
+	assert(Rules.castProgressAt({castChargeAt=10,castChargeDuration=1},10.8) > .79)
+	assert(Rules.castProgressAt({castChargeAt=10,castChargeDuration=1},12) == 1)
+end)
+
+test("wind-up is server approved, binds an ID and does not select or award a fish", function()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local rolls = 0
+	local progression = Progression.new(Catalog, function() rolls += 1; return .5 end)
+	local e = Engine.new(Config, Rules, progression)
+	e:addPlayer(1, 0)
+	local winding = assert(e:command(1, "BeginCast", nil, 4, true, "forest"))
+	assert(winding.phase == "ChargingCast" and winding.castChargeAt == 4 and winding.castChargeDuration == 1)
+	assert(winding.expiresAt == 6.2 and winding.castAt == nil and winding.readyAt == nil and winding.castPower == nil)
+	assert(winding.profile.coins == 0 and winding.profile.catches == 0 and winding.result == nil and rolls == 0)
+	local retry = assert(e:command(1, "BeginCast", nil, 4.05, true, "cove"))
+	assert(retry.attemptId == winding.attemptId and rolls == 0)
+	local cancelled = assert(e:command(1, "Cancel", winding.attemptId, 4.1, true))
+	assert(cancelled.phase == "Idle" and cancelled.catches == 0 and rolls == 0)
+end)
+
+test("quick tap remains a valid plain cast even when its acknowledgement was delayed", function()
+	for _, delay in {.01, .12, .45, 1.6} do
+		local e = setup()
+		local wind = assert(e:command(1, "BeginCast", nil, 10, true))
+		local cast = assert(e:command(1, "QuickCast", wind.attemptId, 10+delay, true))
+		assert(cast.phase == "Waiting" and cast.attemptId == wind.attemptId and cast.castAt == 10+delay)
+		assert(cast.castPower == .65 and cast.castGrade == "Clean" and cast.castBonusPercent == 0)
+		assert(cast.catches == 0 and cast.readyAt > cast.castAt + cast.castDuration)
+	end
+end)
+
+test("held cast power and reward grade come only from elapsed server time", function()
+	for _, row in {{.2,"Clean",0},{.6,"Precise",5},{.8,"Perfect",10},{1.3,"Clean",0}} do
+		local e = setup()
+		local wind = assert(e:command(1, "BeginCast", nil, 10, true))
+		local cast = assert(e:command(1, "Cast", wind.attemptId, 10+row[1], true))
+		assert(cast.castGrade == row[2] and cast.castBonusPercent == row[3])
+		assert(math.abs(cast.castPower - math.clamp(row[1],0,1)) < 1e-8)
+		assert(cast.result == nil and cast.catches == 0)
+		local reel = assert(e:command(1, "Hold", cast.attemptId, cast.readyAt, true))
+		local result = assert(e:command(1, "Release", reel.attemptId, reel.chargeAt+reel.duration*reel.timingCenter, true))
+		assert(result.result.castPower == cast.castPower and result.result.castGrade == row[2])
+		assert(result.result.castBonusPercent == row[3] and result.catches == 1)
+	end
+end)
+
+test("forged cast powers, timestamps, old IDs and another player's wind-up cannot launch", function()
+	local e = setup();e:addPlayer(2,0)
+	local wind = assert(e:command(1, "BeginCast", nil, 0, true))
+	local other = assert(e:command(2, "BeginCast", nil, 0, true))
+	for _, id in { {}, {id=wind.attemptId,power=.8,time=0.8}, "1", wind.attemptId+100, other.attemptId, 0/0, math.huge } do
+		assert(e:command(1, "Cast", id, .1, true) == nil)
+	end
+	local snapshot = assert(e:snapshot(1))
+	assert(snapshot.phase == "ChargingCast" and snapshot.castAt == nil and snapshot.catches == 0)
+	snapshot.castChargeAt, snapshot.castChargeDuration = -1000, .001
+	local actual = assert(e:command(1, "Cast", wind.attemptId, .2, true))
+	assert(actual.castGrade == "Clean" and math.abs(actual.castPower-.2)<1e-8)
+	assert(assert(e:snapshot(2)).phase == "ChargingCast")
+end)
+
+test("cast release is accepted once and cannot alter an already-launched target or bonus", function()
+	local e = setup()
+	local wind = assert(e:command(1, "BeginCast", nil, 0, true))
+	assert(e:command(1, "Hold", wind.attemptId, .1, true).phase == "ChargingCast")
+	assert(e:command(1, "Release", wind.attemptId, .2, true) == nil)
+	local cast = assert(e:command(1, "Cast", wind.attemptId, .8, true))
+	assert(cast.castGrade == "Perfect")
+	assert(e:command(1, "Cast", wind.attemptId, .9, true) == nil)
+	assert(e:command(1, "QuickCast", wind.attemptId, 1, true) == nil)
+	local stored = assert(e:snapshot(1))
+	assert(stored.castAt == .8 and stored.castPower == .8 and stored.castGrade == "Perfect")
+end)
+
+test("a lost or overlong wind-up launches a plain cast without leaving the player stuck", function()
+	local e = setup()
+	local wind = assert(e:command(1, "BeginCast", nil, 0, true))
+	assert(e:tick(1, wind.expiresAt-.01, true) == nil)
+	local cast = assert(e:tick(1, wind.expiresAt, true))
+	assert(cast.phase == "Waiting" and cast.attemptId == wind.attemptId and cast.castAt == wind.expiresAt)
+	assert(cast.castPower == .65 and cast.castGrade == "Clean" and cast.castBonusPercent == 0 and cast.catches == 0)
+	assert(e:command(1, "Cast", wind.attemptId, wind.expiresAt+.01, true) == nil)
+	assert(e:tick(1, cast.readyAt, true) == nil)
+end)
+
+test("movement death and cancellation stop charging without a fish roll or payout", function()
+	local e = setup()
+	local wind = assert(e:command(1, "BeginCast", nil, 0, true))
+	local ended = assert(e:tick(1, .1, false))
+	assert(ended.phase == "Idle" and ended.catches == 0)
+	assert(e:command(1, "Cast", wind.attemptId, .8, true) == nil)
+	wind = assert(e:command(1, "BeginCast", nil, 2, true))
+	assert(e:interrupt(1,2.1,"Respawn").phase == "Idle")
+	assert(e:command(1, "QuickCast", wind.attemptId, 2.2, true) == nil)
+	assert(e:command(1, "BeginCast", nil, 4, false).phase == "Idle")
+end)
+
+test("charging attempts preserve the chosen pond and the existing private reservation", function()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local choices = 0
+	local progression = Progression.new(Catalog, function() choices+=1;return .99 end)
+	local profile=progression.create();profile.level,profile.catches=3,10
+	for _,species in Catalog.Species do profile.best[species.Id]=1 end
+	local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,profile)
+	local first=assert(e:command(1,"Start",nil,0,true,"harbor"))
+	assert(choices==1);local ended=assert(e:command(1,"Cancel",first.attemptId,.1,true))
+	local wind=assert(e:command(1,"BeginCast",nil,ended.nextStart,true,"harbor"))
+	local cast=assert(e:command(1,"Cast",wind.attemptId,ended.nextStart+.8,true,"summit"))
+	assert(choices==1 and cast.reservedId==nil)
+	local reel=assert(e:command(1,"Hold",cast.attemptId,cast.readyAt,true,"cove"))
+	local result=assert(e:command(1,"Release",reel.attemptId,reel.chargeAt+reel.duration*Rules.centerAt(reel,reel.chargeAt+reel.duration*.6),true,"forest"))
+	assert(result.result.speciesId=="emberfin" and result.result.zoneId=="harbor")
+end)
+
+test("concurrent charging players do not change an already-assigned resistance phase", function()
+	local e, progression = resistanceSetup()
+	e:addPlayer(2,0,progression.create())
+	local first=assert(e:command(1,"BeginCast",nil,0,true))
+	assert(e:command(2,"BeginCast",nil,.1,true))
+	local cast=assert(e:command(1,"Cast",first.attemptId,.8,true))
+	assert(cast.timingMotion.phase == (first.attemptId%7)*.53)
+end)
+
+
+
+test("mixed multi-player action traffic preserves exactly-once rewards and valid profiles", function()
+	local Catalog = require("../src/shared/FishCatalog")
+	local Progression = require("../src/server/FishingProgression")
+	local SaveRules = require("../src/server/FishingSaveRules")
+	local value=7409
+	local function roll()
+		value=value*48271%2147483647
+		return value/2147483647
+	end
+	local progression=Progression.new(Catalog,roll)
+	local validator=SaveRules.new(Catalog,progression)
+	local e=Engine.new(Config,Rules,progression,roll)
+	for id=1,3 do e:addPlayer(id,0) end
+	local time,rewards,total=0,{},0
+	local zones={"harbor","blossom","forest","cove","summit"}
+	for _=1,6000 do
+		time+=.04+roll()*.20
+		local id=math.floor(roll()*3)+1
+		local before=e:snapshot(id)
+		local verb,argument="Sync",before.attemptId
+		local choose=roll()
+		if before.phase=="Idle" then verb=if choose<.7 then "BeginCast" else "Start"
+		elseif before.phase=="ChargingCast" then
+			verb=if choose<.52 then "Cast" elseif choose<.68 then "QuickCast" elseif choose<.8 then "Cancel" else "Hold"
+		elseif before.phase=="Waiting" then verb=if choose<.78 then "Hold" elseif choose<.9 then "Cancel" else "BeginCast"
+		elseif before.phase=="Reeling" then verb=if choose<.82 then "Release" else "Cancel" end
+		local invalid=roll()
+		if invalid<.07 then argument={power=.8,quality="Brilliant",timestamp=time}
+		elseif invalid<.14 then argument=(argument or 0)+10000
+		elseif invalid<.17 then verb={grade="Perfect"} end
+		local canFish=roll()>.09
+		local result=e:command(id,verb,argument,time,canFish,zones[math.floor(roll()*#zones)+1])
+		local after=e:snapshot(id)
+		assert(after.profile.catches==after.catches and validator.validate(e:exportProfile(id)))
+		assert(after.catches==before.catches or after.catches==before.catches+1)
+		assert(after.profile.coins>=before.profile.coins and after.profile.coins<=1000000000)
+		if result and result.result then
+			assert(verb=="Release" and before.phase=="Reeling" and argument==before.attemptId and canFish)
+			local key=id..":"..tostring(before.attemptId)
+			assert(not rewards[key],"an old attempt received a second reward")
+			rewards[key],total=true,total+1
+			assert(after.profile.coins-before.profile.coins==result.result.coins+result.result.goalBonus)
+			assert(result.result.castBonusPercent==0 or result.result.castBonusPercent==5 or result.result.castBonusPercent==10)
+		else assert(after.catches==before.catches,"count changed without a successful result") end
+	end
+	assert(total>=15,"traffic did not exercise enough successful completions")
+end)
+
+
+
+test("explicit charging cancellation wins over the auto-launch deadline", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	local Progression=require("../src/server/FishingProgression")
+	local selections=0
+	local progression=Progression.new(Catalog,function()selections+=1;return.5 end)
+	local profile=progression.create();profile.catches,profile.goalIndex=10,#Catalog.Goals+1
+	for _,species in Catalog.Species do if species.Level==0 then profile.best[species.Id]=1 end end
+	local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,profile)
+	local wind=assert(e:command(1,"BeginCast",nil,0,true))
+	local ended=assert(e:command(1,"Cancel",wind.attemptId,wind.expiresAt+.01,true))
+	assert(ended.phase=="Idle" and ended.catches==10 and selections==0)
+	assert(e:command(1,"QuickCast",wind.attemptId,wind.expiresAt+.02,true)==nil)
+end)
+
+
+
+test("earned rod widths grade their exact gold edges and retain the original Fine band", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	for _,rod in Catalog.Rods do
+		local width,center=rod.TimingWidth,.68
+		assert(Rules.qualityAt(center-width/2,center,width)=="Brilliant")
+		assert(Rules.qualityAt(center+width/2,center,width)=="Brilliant")
+		assert(Rules.qualityAt(center-width/2-.000001,center,width)=="Fine")
+		assert(Rules.qualityAt(center+width/2+.000001,center,width)=="Fine")
+		assert(Rules.qualityAt(center-.19,center,width)=="Fine" and Rules.qualityAt(center+.159,center,width)=="Fine")
+		assert(Rules.qualityAt(center+.161,center,width)=="Normal")
+	end
+	assert(Rules.qualityAt(.755,.68)=="Fine" and Rules.qualityAt(.755,.68,.156)=="Brilliant")
+	for _,bad in {0/0,math.huge,-math.huge} do assert(Rules.qualityAt(.755,.68,bad)=="Fine") end
+	assert(Rules.qualityAt(.725,.68,-100)=="Fine") -- Clamped to the minimum width.
+	assert(Rules.qualityAt(.789,.68,100)=="Brilliant" and Rules.qualityAt(.791,.68,100)=="Fine")
+end)
+
+test("each equipped earned rod binds its own gold width at actual cast launch", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	local Progression=require("../src/server/FishingProgression")
+	for level=0,3 do
+		local progression=Progression.new(Catalog,function()return.5 end)
+		local p=progression.create();p.level,p.catches,p.goalIndex=level,10,#Catalog.Goals+1
+		for _,species in Catalog.Species do if species.Level<=level then p.best[species.Id]=1 end end
+		local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,p)
+		local wind=assert(e:command(1,"BeginCast",nil,0,true,"harbor"))
+		assert(wind.timingWidth==nil,"wind-up leaked a not-yet-bound fish window")
+		local cast=assert(e:command(1,"QuickCast",wind.attemptId,.1,true))
+		assert(cast.timingWidth==Catalog.Rods[level+1].TimingWidth)
+		local reel=assert(e:command(1,"Hold",cast.attemptId,cast.readyAt,true))
+		local result=assert(e:command(1,"Release",reel.attemptId,reel.chargeAt+reel.duration*(reel.timingCenter+.075),true))
+		assert(result.result.quality==(if level==0 then "Fine" else "Brilliant"))
+	end
+end)
+
+test("first three successful catches keep the intro width even with an advanced equipped rod", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	local Progression=require("../src/server/FishingProgression")
+	local progression=Progression.new(Catalog,function()return.5 end)
+	local p=progression.create();p.level=3
+	local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,p)
+	local time=0
+	for index=1,4 do
+		local cast=assert(e:command(1,"Start",nil,time,true,"harbor"))
+		assert(cast.timingWidth==(if index<=3 then .14 else .188))
+		local reel=assert(e:command(1,"Hold",cast.attemptId,cast.readyAt,true))
+		local landed=assert(e:command(1,"Release",reel.attemptId,reel.chargeAt+reel.duration*reel.timingCenter,true))
+		time=landed.nextStart
+	end
+end)
+
+test("client-edited widths cannot widen an active server window or grant a grade", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	local Progression=require("../src/server/FishingProgression")
+	local progression=Progression.new(Catalog,function()return.5 end)
+	local p=progression.create();p.catches,p.coins=10,1000;p.best.pufflet=1
+	local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,p)
+	local cast=assert(e:command(1,"Start",nil,0,true,"harbor"))
+	cast.timingWidth,cast.profile.level,cast.profile.timingWidth=1,3,1
+	local reel=assert(e:command(1,"Hold",cast.attemptId,cast.readyAt,true))
+	assert(reel.timingWidth==.14 and reel.profile.level==0)
+	assert(e:command(1,"Release",{id=reel.attemptId,timingWidth=.22},reel.chargeAt+1,true)==nil)
+	local result=assert(e:command(1,"Release",reel.attemptId,reel.chargeAt+reel.duration*(reel.timingCenter+.09),true))
+	assert(result.result.quality=="Fine" and result.profile.level==0)
+end)
+
+test("an earned upgrade takes effect on the next cast and cannot replace an active width", function()
+	local Catalog=require("../src/shared/FishCatalog")
+	local Progression=require("../src/server/FishingProgression")
+	local progression=Progression.new(Catalog,function()return.5 end)
+	local p=progression.create();p.coins,p.catches,p.goalIndex=1000,10,#Catalog.Goals+1;p.best.pufflet=1
+	local e=Engine.new(Config,Rules,progression);e:addPlayer(1,0,p)
+	local wind=assert(e:command(1,"BeginCast",nil,0,true,"harbor"))
+	assert(e:command(1,"Upgrade",0,.05,true).profile.level==0)
+	local cast=assert(e:command(1,"QuickCast",wind.attemptId,.1,true))
+	assert(e:command(1,"Upgrade",0,.2,true).timingWidth==.14)
+	local reel=assert(e:command(1,"Hold",cast.attemptId,cast.readyAt,true))
+	assert(e:command(1,"Upgrade",0,reel.chargeAt,true).timingWidth==.14)
+	local result=assert(e:command(1,"Release",reel.attemptId,reel.chargeAt+reel.duration*reel.timingCenter,true))
+	local upgraded=assert(e:command(1,"Upgrade",0,result.nextStart,true))
+	assert(upgraded.purchase.success and upgraded.profile.level==1 and upgraded.profile.timingWidth==.156)
+	local nextCast=assert(e:command(1,"Start",nil,result.nextStart+.3,true,"harbor"))
+	assert(nextCast.timingWidth==.156 and e:exportProfile(1).level==1)
+end)
+
+test("feedback distinguishes a missed fish from intentional cancellation and interruption", function()
+	local e = setup()
+	local a = charge(e, 1, 0)
+	local ended = assert(e:command(1, "Cancel", a.attemptId, a.chargeAt, true))
+	assert(ended.outcome == "Cancelled" and ended.result == nil and ended.catches == 0)
+	a = charge(e, 1, ended.nextStart)
+	ended = assert(e:interrupt(1, a.chargeAt, "A different menu or character owns play now."))
+	assert(ended.outcome == "Interrupted" and ended.result == nil)
+	a = charge(e, 1, ended.nextStart)
+	ended = assert(e:tick(1, a.chargeAt, false))
+	assert(ended.outcome == "Interrupted")
+	a = charge(e, 1, ended.nextStart)
+	ended = assert(e:command(1, "Release", a.attemptId, a.chargeAt + a.duration * .1, true))
+	assert(ended.outcome == "Missed" and ended.catches == 0)
+	a = charge(e, 1, ended.nextStart)
+	ended = assert(e:tick(1, a.expiresAt + .01, true))
+	assert(ended.outcome == "Missed" and ended.catches == 0)
+	a = charge(e, 1, ended.nextStart)
+	ended = assert(e:command(1, "Release", a.attemptId, a.chargeAt + a.duration * .68, true))
+	assert(ended.outcome == "Caught" and ended.catches == 1 and ended.result)
+end)
+
 print(string.format("%d tests passed; 0 skipped", passed))

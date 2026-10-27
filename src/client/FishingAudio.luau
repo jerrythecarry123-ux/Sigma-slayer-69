@@ -14,16 +14,19 @@ local clips = {
 	Wind = "rbxasset://sounds/action_falling.mp3",
 }
 local trim = { Cast = 0.62, Splash = 0.65, Chime = 0.52, Reel = 0.5, Miss = 0.55, Wind = 0.5 }
-function Audio.new()
+function Audio.new(startMuted: boolean?)
+	-- The controller can yield while remotes and saved preferences load. Own
+	-- the initial mute before starting any loop, rather than silencing it later.
+	local muted, reeling = startMuted == true, false
 	local folder = Instance.new("Folder")
 	folder.Name, folder.Parent = "CloudAnglersSounds", SoundService
 	local group = Instance.new("SoundGroup")
-	group.Name, group.Volume, group.Parent = "CloudAnglersMix", 0.75, SoundService
+	group.Name, group.Volume, group.Parent = "CloudAnglersMix", if muted then 0 else 0.75, SoundService
 	local eq = Instance.new("EqualizerSoundEffect")
 	eq.Name, eq.HighGain, eq.MidGain, eq.LowGain, eq.Parent = "SoftenUpperFrequencies", -7, -1, -2, group
 	local compressor = Instance.new("CompressorSoundEffect")
 	compressor.Name, compressor.Threshold, compressor.Ratio = "GentlePeakControl", -14, 3
-	compressor.Attack, compressor.Release, compressor.GainMakeup, compressor.Parent = 0.02, 0.15, 0, group
+	compressor.Attack, compressor.Release, compressor.GainMakeup, compressor.Parent = 0.1, 0.15, 0, group
 	local templates: { [string]: Sound } = {}
 	local preload: { Instance } = {}
 	for name, path in clips do
@@ -38,7 +41,6 @@ function Audio.new()
 		local ok, err = pcall(function() ContentProvider:PreloadAsync(preload) end)
 		if not ok then warn("Cloud Anglers: sound preload failed: " .. tostring(err)) end
 	end)
-	local muted, reeling = false, false
 	local reel: Sound? = nil
 	local voices: { Sound } = {}
 	local lastUi = -math.huge
@@ -85,6 +87,17 @@ function Audio.new()
 			reel = nil
 		end
 	end
+	local function updateReeling(progress: number, difficulty: number?, deltaTime: number)
+		local sound = reel
+		if not reeling or not sound or not sound.Parent then return end
+		-- A small continuous pitch change reinforces the existing reel motion.
+		-- It owns no extra voice or volume tween and cannot make the mix louder.
+		local p = if progress == progress then math.clamp(progress, 0, 1) else 0
+		local strength = if difficulty and difficulty == difficulty then math.clamp(difficulty, 0, .6) else 0
+		local dt = if deltaTime == deltaTime then math.clamp(deltaTime, 0, .1) else 0
+		local target = .98 + p * .16 + strength * .10
+		sound.PlaybackSpeed += (target - sound.PlaybackSpeed) * (1 - math.exp(-dt * 8))
+	end
 	-- One short reward phrase owns the foreground, so goals do not stack on catches.
 	local function phrase(pitches: { number }, volume: number)
 		rewardGeneration += 1
@@ -113,7 +126,7 @@ function Audio.new()
 		ambience(if reeling then 0.006 else 0.018)
 	end
 	return {
-		play = play, setReeling = setReeling,
+		play = play, setReeling = setReeling, updateReeling = updateReeling,
 		setEnabled = setEnabled,
 		isEnabled = function(): boolean return not muted end,
 		catch = function(quality: string, rarity: string?, _discovery: boolean?)
