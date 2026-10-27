@@ -35,6 +35,17 @@ Colors and species silhouettes remain distinct without relying on emission.
 
 The offline plates are local review evidence, not Roblox screenshots. Examples:
 
+The packaged [17-fish catalog plate](images/fish-catalog-v18.png) places every
+current Normal specimen in one front three-quarter comparison, with its actual
+catalog name and rarity. It captures the production model at maximum authored
+weight and animation time 1.28, then uniformly scales and centers each specimen
+to fit its display cell. Relative displayed sizes therefore do **not** represent
+relative fish weights or in-game sizes. The geometry and colors come from the
+current Luau modules, including their actual ellipsoid meshes and wedge fins;
+the Blender lighting, labels and canvas are inspection aids, not Roblox shaders,
+native UI or an in-game screenshot. The complete plate contains the same 471
+cosmetic Parts and adds no game geometry.
+
 - `/tmp/v18-fish-before-0-quarter.png` and
   `/tmp/v18-fish-before-1-quarter.png`: starting models and variants.
 - `/tmp/v18-fish-sealed-0-quarter.png`,

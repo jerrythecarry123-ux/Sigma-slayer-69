@@ -96,7 +96,7 @@ now report the amounts actually credited at that cap, avoiding a prior mismatch
 between the visible reward and wallet delta. The collection/record can still
 improve when no additional currency fits.
 
-Cast metadata is transient attempt state. No new save fields, save namespace,
+Cast metadata is transient attempt state. No new cast-related save fields, save namespace,
 currencies, unlock requirements or reordered milestones are introduced.
 
 ## Response routing and verification

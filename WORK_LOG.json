@@ -1,7 +1,7 @@
 {
   "request_date": "2026-10-26",
   "target_seconds": 7200,
-  "running_since": "2026-10-27T10:43:33+00:00",
+  "running_since": null,
   "intervals": [
     {
       "start": "2026-10-26T11:18:00+00:00",
@@ -132,6 +132,56 @@
       "start": "2026-10-27T10:38:21+00:00",
       "end": "2026-10-27T10:43:33+00:00",
       "note": "Build and inspect candidate v1.8 Studio XML and source ZIP: exact36script sources,6materials18maps, full archive inventory/byte equality/CRC and work logs; preserve verified source checkpoint while final design review continues."
+    },
+    {
+      "start": "2026-10-27T10:43:33+00:00",
+      "end": "2026-10-27T10:45:47+00:00",
+      "note": "Preserve source checkpoint2b5223e on GitHub WIP branch, complete native portal selection containment, review startup/spawn and artifact loading paths, and record final32-stage plus targeted follow-up evidence without native claims."
+    },
+    {
+      "start": "2026-10-27T10:45:47+00:00",
+      "end": "2026-10-27T10:49:38+00:00",
+      "note": "Review2000-profile actual-module pacing study and independent rare-tail math, preserve odds and economy, prioritize clear completed-pond guidance; link reproducible assumptions and native habitat-comprehension acceptance criteria."
+    },
+    {
+      "start": "2026-10-27T10:49:38+00:00",
+      "end": "2026-10-27T10:52:30+00:00",
+      "note": "Finish precision-cast grade acknowledgement even when bonus rounds tozero and prioritize completed-pond navigation over chains; verify25controller+7preferencecases,28zero-bonusUIstates,4998portraitposes and latestfull-stackflow; prepare final visual catalog review."
+    },
+    {
+      "start": "2026-10-27T10:52:30+00:00",
+      "end": "2026-10-27T10:55:01+00:00",
+      "note": "Manually review final cast feedback, compact receipt details, server-confirmed grade semantics, round-shaft Beam attachment frame/sag and actual result accounting; latest real full-flow passes after final UI changes."
+    },
+    {
+      "start": "2026-10-27T10:55:01+00:00",
+      "end": "2026-10-27T10:56:49+00:00",
+      "note": "Complete manual cross-check of final native rod/Beam transforms, saved state/privacy/defaults, modal focus, documentation/history links and source-level quality boundaries; inspect final seventeen-species actual-geometry comparison plate with explicit normalized sizes."
+    },
+    {
+      "start": "2026-10-27T10:56:49+00:00",
+      "end": "2026-10-27T10:59:50+00:00",
+      "note": "Prepare final v1.8 continuity records and exact remaining native acceptance tasks; review place loading, material serialization, asset provenance, unchanged save namespace and public/private multiplayer presentation contracts."
+    },
+    {
+      "start": "2026-10-27T10:59:50+00:00",
+      "end": "2026-10-27T11:01:01+00:00",
+      "note": "Finish actual seventeen-species visual review and current release documentation; preserve normalized-size/native-render limits, clear zero-bonus precision feedback and explicit portal modal navigation contract."
+    },
+    {
+      "start": "2026-10-27T11:01:01+00:00",
+      "end": "2026-10-27T11:02:41+00:00",
+      "note": "Verify final555975-byte Studio XML against every actual production source and material reference, confirm remote main remains stable, and prepare final roadmap/issues/resume records and reviewable release commit text."
+    },
+    {
+      "start": "2026-10-27T11:02:41+00:00",
+      "end": "2026-10-27T11:03:52+00:00",
+      "note": "Final release readiness review: exact XML/source agreement, legacy record compatibility, UTF-8/tool failure reporting, ordinary GitHub download flow, artifact integrity plan and native test boundaries; no additional source changes required."
+    },
+    {
+      "start": "2026-10-27T11:03:52+00:00",
+      "end": "2026-10-27T11:05:57+00:00",
+      "note": "Complete the cumulative two-hour quality pass with final source/asset/release review; seal verified active intervals before final packaging and GitHub delivery."
     }
   ]
 }

@@ -78,9 +78,9 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		if profile.catches == 1 then return "YOUR FIRST FISH IS HOME  ·  OPEN MY AQUARIUM" end
 		if profile.nextUpgrade and profile.coins >= profile.nextUpgrade.cost then return "YOUR NEXT ROD IS READY  ·  VISIT THE WORKSHOP" end
 		if profile.species >= totalSpecies then return "JOURNAL COMPLETE  ·  SHOW YOUR FINEST FISH" end
-		if (profile.combo or 0) >= 2 then return "FINE+ CHAIN  x" .. profile.combo .. "  ·  KEEP THE RHYTHM" end
 		local found, total = zoneFound(profile)
 		if found >= total then return "POND COLLECTION COMPLETE  ·  TRY ANOTHER PORTAL" end
+		if (profile.combo or 0) >= 2 then return "FINE+ CHAIN  x" .. profile.combo .. "  ·  KEEP THE RHYTHM" end
 		return found .. "/" .. total .. " FOUND HERE  ·  " .. profile.species .. "/" .. totalSpecies .. " ACROSS THE ISLANDS"
 	end
 	-- A small location label leaves the landscape visible, with one wallet chip.
@@ -459,7 +459,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 	local view, fishWorld, revealCamera = viewport(reveal, "CatchPortrait", UDim2.new(1, 0, 0, 176), UDim2.fromOffset(0, 39))
 	local revealFish: Model? = nil
 	local revealPortrait: any = nil
-	local hasCastBonus = false
+	local hasCastDetail = false
 	local revealName = centered(Theme.text(reveal, "Pufflet", UDim2.new(1, -32, 0, 36), UDim2.fromOffset(16, 213), 27, Theme.Ink, true))
 	revealName.TextWrapped, revealName.TextTruncate = false, Enum.TextTruncate.AtEnd
 	local revealQuality = centered(Theme.text(reveal, "Common · Normal", UDim2.new(1, -32, 0, 22), UDim2.fromOffset(16, 250), 12, Theme.Muted))
@@ -593,9 +593,12 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 			revealWeight.Text = string.format("%.2f kg", result.weightKg or 1) .. (if result.newRecord then "  ·  NEW RECORD" else "")
 			local bonus = result.goalBonus or 0
 			revealCoins.Text = "+" .. (result.coins or 0) .. " coins" .. (if bonus > 0 then "  +" .. bonus .. " bonus" else "")
-			hasCastBonus = (result.castBonus or 0) > 0
-			if hasCastBonus then revealCoins.Text ..= "\nIncludes +" .. result.castBonus .. " cast bonus" end
-			revealCoins.TextSize = if hasCastBonus then 12 / revealBaseScale else math.max(16, 12 / revealBaseScale)
+			local castBonus = result.castBonus or 0
+			local precisionCast = result.castGrade == "Perfect" or result.castGrade == "Precise"
+			hasCastDetail = castBonus > 0 or precisionCast
+			if castBonus > 0 then revealCoins.Text ..= "\nIncludes +" .. castBonus .. " cast bonus"
+			elseif precisionCast then revealCoins.Text ..= "\n" .. result.castGrade .. " cast" end
+			revealCoins.TextSize = if hasCastDetail then 12 / revealBaseScale else math.max(16, 12 / revealBaseScale)
 			if UserInputService.PreferredInput == Enum.PreferredInput.Gamepad then
 				if not reveal.Visible then revealSelection = GuiService.SelectedObject end
 				GuiService.SelectedObject = revealContinue
@@ -685,7 +688,7 @@ function Interface.new(playerGui: Instance, audio: any, handlers: any)
 		revealScale.Scale = revealBaseScale
 		reveal.Size = UDim2.fromOffset(layout.revealWidth, layout.revealHeight)
 		revealQuality.TextSize = math.max(12, 12 / revealBaseScale)
-		revealCoins.TextSize = if hasCastBonus then 12 / revealBaseScale else math.max(16, 12 / revealBaseScale)
+		revealCoins.TextSize = if hasCastDetail then 12 / revealBaseScale else math.max(16, 12 / revealBaseScale)
 		revealAquarium.TextSize, revealContinue.TextSize = 12 / revealBaseScale, 12 / revealBaseScale
 		closeReveal.Size = UDim2.fromOffset(44 / revealBaseScale, 44 / revealBaseScale)
 		closeReveal.Position = UDim2.new(1, -4 - 44 / revealBaseScale, 0, 3)

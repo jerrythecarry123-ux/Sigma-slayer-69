@@ -20,6 +20,12 @@ still asked the player to try another portal. The current message is
 `JOURNAL COMPLETE · SHOW YOUR FINEST FISH`. Weight records, catch grades,
 variants and aquarium presentation remain available after journal completion.
 
+A completed local pond now also takes priority over chain encouragement. A
+three-Fine-catch harbor profile receives the portal instruction instead of being
+encouraged to stay indefinitely in the completed starter pond. Chains still
+appear in an incomplete pond. This follows the routing sensitivity identified
+by the pacing study, without changing rewards, odds or adding automated travel.
+
 `tools/check_fishing_interface.py` follows two actual Fine harbor catches through
 production progression into the first affordable rod, then makes that purchase
 and verifies that chain feedback returns. It also checks available upgrades at
@@ -69,6 +75,15 @@ there is no missed-day penalty, paid boost, compulsory return schedule or claim
 of proven retention improvement.
 
 ## Verification and remaining native checks
+
+An additional [pacing study](v18-pacing-study.md) exercises 2,000 fresh simulated
+profiles through the actual progression module. Under its explicit hypothetical
+grade/purchase policies, rod medians are 3/6/13 successful catches, while the
+final journal depends strongly on visiting the correct remaining habitats.
+Targeted and rotating policies have full-journal medians of 101 and 330
+successful catches respectively. These are neither human playtime nor observed
+retention. No weights, prices or protection rules changed in response to the
+study; native next-goal/habitat comprehension is the next observation priority.
 
 The independent review ran all 40 progression/save tests, 10 preference migration
 and state tests, and nine final-save transition tests. The production interface

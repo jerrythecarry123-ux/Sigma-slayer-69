@@ -30,14 +30,22 @@ server's 0–1 power range. Precise and Perfect bands use the shared rule consta
 Reeling retains `setTimingWindow(center, width)` and its independent timing track.
 
 The catch receipt labels a positive cast bonus as **included** in the shown coins;
-it never adds that amount to the total again. The workshop explains the actual
+it never adds that amount to the total again. A Perfect/Precise cast whose bonus
+rounds to zero still receives a short grade acknowledgement in the existing
+second line. Twenty-eight zero-bonus states across seven canvases pass, without
+changing card height, adding a panel or inventing coins. The controller preserves
+precision feedback through flight/anticipation and lets the bite cue take priority.
+The workshop explains the actual
 earned rod benefit: a gold window approximately 11%, 23% or 34% wider than the
 starter window. The displayed percentage derives from the snapshot's timing
 width and remains separate from coin bonuses and rod unlock descriptions.
 
 The modal books, settings, receipts and aquarium use native selection groups with
 Stop behavior, so directional selection does not escape into the world HUD.
-The existing Escape/ButtonB dismissal and owned-focus restoration remain.
+The portal destination card now has the same explicit four-direction boundary;
+`GuiButton.Modal` alone only affects mouse lock. The existing Escape/ButtonB
+dismissal and owned-focus restoration remain. Actual native navigation is still
+part of the acceptance matrix.
 
 ## Aquarium work while hidden or unchanged
 

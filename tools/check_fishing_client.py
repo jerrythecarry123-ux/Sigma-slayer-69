@@ -277,6 +277,7 @@ test('quick tap queues until BeginCast acknowledgement and submits only the acce
  ending(held);assert(#sends==before+2,'old cast input released twice')
  launched(charge,'QuickCast');frame(.3)
  assert(ui.phase=='Waiting' and ui.button.Text=='CASTING...')
+ assert(not string.find(ui.status.Text,'Perfect',1,true) and not string.find(ui.status.Text,'Precise',1,true),'quick cast claimed accuracy feedback')
  reset()
 end)
 test('held cast tracks actual rules and release launches once without claiming power or reward',function()
@@ -293,6 +294,23 @@ test('held cast tracks actual rules and release launches once without claiming p
  ack({phase='ChargingCast',attemptId=charge.attemptId,castChargeAt=charge.castChargeAt,castChargeDuration=1,unsolicited=true})
  assert(#sends==before+1,'an unsolicited charging snapshot canceled a pending launch')
  launched(charge);ending(held);assert(#sends==before+1,'stale charge input launched or reeled again')
+ reset()
+end)
+test('approved precision feedback survives flight and anticipation without obscuring the bite',function()
+ for _,grade in {'Perfect','Precise','Clean','Unknown'} do
+  reset();sequence+=1
+  ack({phase='Waiting',attemptId=sequence,castAt=now,castDuration=.65,readyAt=now+1.3,
+   expiresAt=now+13.3,timingCenter=.60,castGrade=grade})
+  frame(.1)
+  local precision=grade=='Perfect' or grade=='Precise'
+  assert(ui.button.Text=='CASTING...')
+  assert((string.find(ui.status.Text,grade..' cast',1,true)~=nil)==precision,'flight lost or invented approved cast feedback')
+  frame(.6)
+  assert(ui.button.Text=='WATCH THE FLOAT')
+  assert((string.find(ui.status.Text,grade..' cast',1,true)~=nil)==precision,'anticipation lost or invented approved cast feedback')
+  frame(.7)
+  assert(ui.status.Text=='BITE! Hold, then release inside the zone.','precision celebration obscured the actionable bite')
+ end
  reset()
 end)
 test('unsolicited Idle does not erase a held cast or its queued early release',function()

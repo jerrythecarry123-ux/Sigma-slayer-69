@@ -16,7 +16,7 @@ The ledger is the time record, not this document's creation timestamp.
 | Exceptional catches | Private-camera viewport reveals, short/repeat/reduced paths, skip, interruption and reward isolation. Cinematic geometry/lifecycle checks run actual source. | Native sound/visual timing, font metrics and reveal fatigue need observation. |
 | Animation | Embedded fish hinges, connected arms/forks/whiskers, rod-tip cast origin, fitted reel crank and bounded quiet LOD recovery. See fish and presentation reviews. | Procedural animation remains; no custom uploaded avatar animation is claimed. Native R6/R15 blending still needs checking. |
 | Interface | Compact rows/cards, minimum tested touch targets, complete animated portraits, readable timing needles, progression guidance and owned modal focus. See `v18-interface-review.md`. | Real text metrics, larger Roblox text, safe areas, rotation and thumb comfort remain native acceptance items. |
-| Progression and return play | Existing rods/17-species journal/records/variants/public aquariums preserved. Ready upgrades take priority; completed journals get useful guidance. Server-calculated bounded offline income remains. See `v18-progression-review.md`. | No measured retention, spending or recommendation result. Weather/events and further earned cosmetics remain roadmap items. |
+| Progression and return play | Existing rods/17-species journal/records/variants/public aquariums preserved. Ready upgrades take priority; completed journals get useful guidance. Server-calculated bounded offline income remains. A 2,000-profile hypothetical pacing study highlights habitat/rareness sensitivity. See `v18-progression-review.md` and `v18-pacing-study.md`. | No measured human playtime, retention, spending or recommendation result. Weather/events and further earned cosmetics remain roadmap items. |
 | Audio | Same six clips, bounded voices and cancellable phrases, quiet intentional cancellation and progress/resistance-driven reel pitch. | No new clip library or uploaded sound is claimed. Actual quality, loop seam and balance need listening in Roblox. |
 | Architecture/security | Authoritative species, attempts, location, rewards, profile validation, leases and rate limits retained. Preference writes have independent private correlation. | Event/service doubles do not reproduce native transport, service budgets or outages. |
 | Saving | Slow-autosave departure race fixed. Final operation receipts acknowledge response loss without stale replay. Legacy profiles and optional preference migration use the same version/store. See `v18-server-review.md`. | Real published-client persistence, contention, request budgets and shutdown remain open. Outages cannot be guaranteed to preserve every newest action. |
@@ -36,7 +36,7 @@ All **36 production files and nine Luau suites** compile.
 Separate checks run real modules, with native services/Instances replaced by
 documented doubles:
 
-- Controller: 24 input/protocol/lifecycle scenarios plus seven preference cases.
+- Controller: 25 input/protocol/lifecycle scenarios plus seven preference cases.
 - Full fishing stack: 14 scenarios, 58 queued RPCs and 62 delivered private
   states, including response-order-respecting preference races. The production
   UI, audio, models and presentation execute; world scenery/travel have dedicated
@@ -66,6 +66,21 @@ Follow-up work also eliminates aquarium layout and animation work at stable
 dimensions: zero repeated layout writes over 120 calls instead of 3,720; 360
 visible portrait animation calls remain, while compact-hidden and closed menus
 make none. These are measured source operations, not a native frame-rate result.
+
+The consolidated suite was rerun after the round rod/Attachment and quiet audio
+bootstrap changes; all 32 stages passed with matching source fingerprints. The
+later portal dialog focus-boundary fix passed its targeted actual-module check
+and compilation. A separate independent production diff review reported no
+further confirmed regression in the reviewed cross-module paths.
+
+The final player-feedback pass preserves a server-confirmed Perfect/Precise cast
+acknowledgement during flight/anticipation, without obscuring the bite. A receipt
+also acknowledges a precision grade when a low-value bonus rounds to zero;
+positive bonuses remain explicitly included in the unchanged total. The actual
+controller, interface and complete fishing flow passed after this change. The
+interface additionally checks 28 zero-bonus grade states across seven canvases.
+Completed-pond navigation now takes priority over chain encouragement, while
+chains remain visible in incomplete ponds.
 
 ```text
 python tools/check_project.py --luau /path/to/luau --compiler /path/to/luau-compile --report /tmp/cloud-anglers-check.json

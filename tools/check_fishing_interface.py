@@ -252,6 +252,15 @@ assert(text(find(gui,'CastCard'),'YOUR NEXT ROD IS READY  ·  VISIT THE WORKSHOP
 assert(progression.upgrade(journey).success)
 ui.updateProfile(progression.snapshot(journey))
 assert(text(find(gui,'CastCard'),'FINE+ CHAIN  x2  ·  KEEP THE RHYTHM'),'chain feedback disappeared when no upgrade is affordable')
+progression.catch(journey,'Fine','harbor')
+local harborComplete=progression.snapshot(journey)
+assert(journey.combo==3 and journey.best.pufflet and journey.best.mintfin and journey.best.emberfin)
+assert(harborComplete.nextUpgrade and harborComplete.coins<harborComplete.nextUpgrade.cost,'three-catch example unexpectedly affords another rod')
+ui.updateProfile(harborComplete)
+ui.updateLocation({zoneId='harbor',zoneName='Sundrift Harbor'},harborComplete)
+assert(text(find(gui,'CastCard'),'POND COLLECTION COMPLETE  ·  TRY ANOTHER PORTAL'),'catch chain traps guidance in an already completed pond')
+ui.updateLocation({zoneId='forest',zoneName='Evergreen Reach'},harborComplete)
+assert(text(find(gui,'CastCard'),'FINE+ CHAIN  x3  ·  KEEP THE RHYTHM'),'incomplete pond lost catch-chain feedback')
 journey.coins=1000000000
 ui.updateProfile(progression.snapshot(journey))
 assert(text(find(gui,'CastCard'),'YOUR NEXT ROD IS READY  ·  VISIT THE WORKSHOP'),'wallet cap hides an available rod')
@@ -345,6 +354,16 @@ for _,size in {{320,240},{320,530},{375,625},{568,280},{844,335},{768,964},{1920
   end
  end
  ui.closeJournal()
+ -- Low-value fish can round a legitimate accuracy bonus to zero. Preserve the
+ -- earned grade without suggesting a coin credit that the server did not pay.
+ for _,grade in {'Perfect','Precise','Clean','Unknown'} do
+  ui.showResult({species='Pufflet',speciesId='pufflet',rarity='Common',quality='Normal',
+   weightKg=.4,coins=8,castBonus=0,castGrade=grade},true,true)
+  step(.001);portraitLayout(size)
+  local expected='+8 coins'..(if grade=='Perfect' or grade=='Precise' then '\n'..grade..' cast' else '')
+  assert(text(find(gui,'Earnings'),expected),'zero-rounded cast bonus hid the skill grade or invented earnings')
+  ui.hideResult()
+ end
  for _,species in modules.FishCatalog.Species do
   ui.showResult({species=species.Name,speciesId=species.Id,rarity=species.Rarity,quality='Brilliant',variant='Prismatic',weightKg=species.WeightMax,coins=18,goalBonus=10,castBonus=2,castGrade='Perfect'},true,true)
   step(.001);portraitLayout(size)
@@ -358,12 +377,12 @@ for _,size in {{320,240},{320,530},{375,625},{568,280},{844,335},{768,964},{1920
  end
 end
 print('PASS actual fishing UI: catalog totals, region update, aquarium action and responsive layout')
-print('PASS earned rod guidance outranks chains, wallet-cap upgrades and completed-journal next step')
+print('PASS ready-rod/completed-pond guidance outranks chains, wallet-cap upgrades and completed-journal next step')
 print('PASS server-aligned timing zones, variant/weight reveal, accurate coin totals and cast-again action')
 print('PASS cancelled/stale reveal, journal overlay and short repeat-catch dismissal')
 print('PASS seven-tier labels, published/Studio preference status, system reduced motion and silent immediate result')
 print('PASS journal/settings modal exclusion, gamepad focus, Escape/ButtonB and external focus ownership')
-print('PASS independent cast-power meter/bands, included cast bonus and',portraitPoses,'actual journal/catch portrait poses /',projectedCorners,'projected corners')
+print('PASS independent cast-power meter/bands, included/zero-rounded cast feedback and',portraitPoses,'actual journal/catch portrait poses /',projectedCorners,'projected corners')
 '''
 
 

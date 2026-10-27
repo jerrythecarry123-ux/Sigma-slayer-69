@@ -389,10 +389,14 @@ RunService.RenderStepped:Connect(function(deltaTime)
 		ui.status.Text = if pendingSince then "Launching your line..." else "Release on gold for a precision cast. A quick tap works too."
 		ui.button.Text = if pendingSince then "CASTING..." else "RELEASE TO CAST"
 	elseif packet.phase == "Waiting" then
+		local castFeedback = if packet.castGrade == "Perfect" then "Perfect cast!"
+			elseif packet.castGrade == "Precise" then "Precise cast." else nil
 		if time < (packet.castAt or 0) + (packet.castDuration or 0.65) then
-			ui.status.Text, ui.button.Text = "Watch your bobber...", "CASTING..."
+			ui.status.Text = if castFeedback then castFeedback .. " Watch the float." else "Watch your bobber..."
+			ui.button.Text = "CASTING..."
 		elseif time < (packet.readyAt or math.huge) then
-			ui.status.Text, ui.button.Text = "A shadow is circling. Watch for the bite!", "WATCH THE FLOAT"
+			ui.status.Text = if castFeedback then castFeedback .. " Wait for the bite." else "A shadow is circling. Watch for the bite!"
+			ui.button.Text = "WATCH THE FLOAT"
 		else
 			ui.status.Text = "BITE! Hold, then release inside the zone."
 			ui.button.Text = if pendingSince then "ONE MOMENT..." else "HOLD TO REEL" .. keyHint()

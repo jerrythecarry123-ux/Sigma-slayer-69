@@ -1,132 +1,88 @@
 # Development progress
 
-## Active request — v1.8 quality pass (in progress)
+## v1.8 quality checkpoint — 27 October 2026
 
-The user's 26 October request requires **at least two hours of active work** on
-the premium directive, continuing across usage interruptions. `WORK_LOG.json`
-and `WORK_LOG.md` preserve sealed intervals; parallel agents do not multiply time.
-On every new continuation run `python tools/work_session.py resume` before recording
-more work. Unsealed time spanning an interruption is discarded, never counted.
-Do not mark this request complete until the verified cumulative target is met.
+The user's cumulative two-hour active-work request is complete. Verified sealed
+work is **2:00:17**; the exact intervals are in `WORK_LOG.json` and
+`WORK_LOG.md`. Usage pauses and parallel-agent hours are excluded. The completed
+minimum does not imply native Roblox acceptance or finished commercial quality.
 
-Last published stable release remains v1.7 (`65d426d`). The v1.8 source now includes:
+The deliverables are `artifacts/Cloud-Anglers-v1.8.rbxlx` and the matching source
+ZIP. The final place embeds every production source; the ZIP includes source,
+checks, focused reviews, continuity files and both work logs. GitHub publication
+and delivered-byte verification form the final delivery gate.
 
-- Server-authoritative optional cast charging, safe quick taps, a separate power
-  meter, bounded accuracy bonus and 101 power samples inside existing water lanes.
-  Earned rods bind wider gold windows with the same costs/IDs/unlocks.
-- Slow-autosave departure recovery, idempotent final-write receipts, safe exception
-  ownership and backwards-compatible optional saved preferences. No store reset.
-- Independent private preference write IDs, immediate local effects, quiet profile
-  loading and nonblocking retries. Rapid retoggles and old responses cannot clear
-  newer intent. Audio now starts muted before readiness waits; all 12 audio
-  cases passed, including delayed bootstrap and early explicit enabling.
-- Complete compact journal/result compositions, minimum tested touch targets,
-  padded actual-fish framing, outlined timing needles and owned modal focus.
-  Ready rod upgrades outrank chains; terminal journals get display guidance.
-- Aquarium layout caches effective canvas changes. A 120-call stable-size probe
-  makes zero repeated layout writes versus the old 3,720. Hidden/closed portraits
-  make zero fish-animation calls; visible/reduced/resumed behavior is preserved.
-- Fitted rod-tip casts/reel crank, bounded distant/crowded effects, no old cue
-  replay, quiet intentional interruption and streamed actor/scenery cleanup.
-  Four earned rod finishes use the same eight-Part rig. Supported round shaft
-  sections are in final integration; preserve the existing centers/endpoints.
-- All seventeen existing fish now have corrected fin hinges, forks, whiskers,
-  lure/squid roots and wing markings. Total 471 Parts/max35, without new species.
-- World refinements remove 79 redundant hidden trunk cores, shape 32 fern leaves
-  and seat 12 shelf pots. Initial geometry is 10,759 Parts / 2,275 colliders /
-  6,203 material bindings, 47 fewer Parts than v1.7.
-- A reflected native API/source/documentation review found and corrected the
-  compressor attack minimum. It does not substitute for a native client.
+## Implemented
 
-Completed cloud evidence:
+- Optional server-timed cast charging, safe convenience taps, separate cast/reel
+  bands, bounded accuracy bonus and landing depths inside existing water lanes.
+  Precision grades remain clear through anticipation and on zero-bonus receipts.
+- Earned rod widths derive from saved levels, preserving prices/unlocks/bonuses.
+  Four fitted finishes and three round native shaft sections retain the same
+  eight-Part rig. Actual tip attachments own line/cast origins and fitted bends.
+- Saved sound/reduced-effects preferences have bounded validation, independent
+  private write identities, immediate local response and nonblocking retries.
+  Audio starts muted before yielding readiness waits; Roblox Reduce Motion also
+  applies. The same six audio clips retain bounded voices and owned loops.
+- Compact journal/catch compositions, tested touch targets, padded actual-fish
+  framing, outlined timing needles and owned modal focus, including portals.
+  Affordable upgrades and completed ponds outrank chain encouragement; completed
+  journals suggest favorite-fish displays.
+- Aquarium layout follows canvas changes instead of every frame. Closed and
+  compact-hidden portraits skip animation; visible/reduced/resumed behavior and
+  loading/profile text remain correct without requiring a resize.
+- Existing fish hinges, forks, whiskers, lure roots, squid arms and wing markings
+  are fitted through animation. All 17 species still total 471 Parts/max35.
+- World work consolidates visible trunks, points existing fern leaves and seats
+  shelf pottery. Initial geometry is 10,759 Parts / 2,275 colliders / 6,203 material
+  bindings, 47 fewer Parts than v1.7. Five islands, portals, palette, calm lighting,
+  six shared material presets and 18 map references remain.
+- Presentation avoids distant/idle allocation and stale cue replay, bounds
+  transient water accents, cleans up streaming changes and distinguishes quiet
+  cancellation/interruption from a true miss.
+- Departure snapshots survive slow autosaves; final operation receipts acknowledge
+  committed writes after response loss without stale replay. Preparation faults
+  release ownership. Existing store names/version and old profiles remain valid.
 
-- A consolidated 32-stage run passed with unchanged sources during that run:
-  167 core tests, 36 production files and nine Luau suites compiling, plus actual
-  module adapters/lifecycle/art/UI/world checks. Relevant follow-up checks run
-  after subsequent changes; full harness integration is pending the rod endpoint
-  refinement and shared Attachment shim correction.
-- Actual controller: 24 core and seven preference scenarios, plus a rejected
-  deliberately incorrect write-identity mutation.
-- Real complete fishing stack: 14 scenarios / 58 RPCs / 62 delivered states,
-  including ordered preference races, real purchases, aquarium and Epic reveal.
-- Actual store: 20 cases; service/store lifecycle: 10 plus rejected old departure
-  helper. Save transitions: 9; preference state/migration: 10.
-- All-fish solid contacts/hinges and 3,111 tank, 2,448 aquarium-menu, 4,998 journal/
-  catch and 750 cinematic poses pass. All walking/water/coping/rail/outlet guards,
-  residents, scenery, signs and portal ownership checks passed.
+## Verification completed
 
-Read `docs/v18-quality-review.md` and the linked focused reviews for exact scope
-and remaining gaps. These are not native Studio/client results. Final named
-artifact packaging, continuity totals and GitHub publication remain pending;
-continue useful quality work until the cumulative active-time target is met.
+- Full 32-stage cloud run after round rods, shared Attachment transforms and quiet
+  audio startup: all passed, with matching before/after source fingerprints.
+- 167 core tests: 5 catalog, 48 engine, 14 location, 10 preferences, 40 progression/
+  save, 9 final-save transitions, 8 layout, 15 travel, 14 world-layout, 4 Python
+  place/material export tests. All 36 production files and nine Luau suites compile.
+- Final targeted follow-ups: 25 controller scenarios plus seven preference cases,
+  28 zero-bonus feedback states across seven canvases, portal selection/lifecycle
+  checks and actual full fishing flow: 14 scenarios / 58 RPCs / 62 delivered states.
+- Actual store: 20 cases; service/store lifecycle: 10, including a newer departure
+  snapshot held behind a 30-second autosave. Deliberate old-helper regression fails.
+- Actual audio: 12 cases, including delayed loading, explicit early enable,
+  cancellation, loop ownership, gain/pitch limits and old-note suppression.
+- Fish: 454 attached details, 7,623 rooted animation samples, all variants and six
+  rejected deliberate art regressions. Portraits: 4,998 journal/catch, 2,448 menu,
+  750 cinematic and 3,111 tank poses; 658 aquarium route samples also pass.
+- Rods: 1,630 actual cap-contact witnesses, 434 reel joins, four finishes, malformed
+  fallback and zero repeated finish writes. Seven presentation mutations fail.
+- Aquarium stable 120-call probes eliminate 3,720 repeated layout assignments;
+  360 visible animation calls remain and hidden/closed portraits make none.
+- Existing routes, trails, spawn/arrival/approach, 10,100 cast landing footprints,
+  coping/rail/outlet support, 178 detail joins, residents, scenery and signs pass.
+- Read-only independent production diff review found no further confirmed defect
+  in the reviewed authority/input/save/preferences/audio/rod/UI paths.
+- A separate 2,000-profile pacing study uses actual progression under explicit
+  hypothetical policies. It identifies routing/rare-tail sensitivity; it is not
+  a human-playtime, retention or revenue measurement. No balance changes were made.
 
-## Stable starting point
+Detailed evidence and limits are in `docs/v18-quality-review.md` and its linked
+focused reviews. Actual-source fish/rod/fern images are offline geometry evidence,
+not native screenshots. Research access failures are documented honestly.
 
-v1.6, commit `7c39c2a`, is the last packaged checkpoint at the start of this work.
-It includes fitted terrain/scenery, 15 distinct fish, procedural wildlife,
-server-authoritative fishing, lease-protected saves, non-PvP collection progress,
-five free portals, three-slot public aquariums and six shared material presets.
+## Remaining acceptance
 
-## Current milestone — v1.7, 26 October 2026
-
-- Read the complete premium development directive supplied by the user.
-- Inspected existing architecture and reused working save, travel and progression
-  paths. Recorded the audit in `docs/project-audit.md`.
-- Research recorded in `docs/competitor-research.md`. Competitor pages and APIs
-  were blocked; official Roblox documentation was accessible. No competitor
-  playthrough or current player-sentiment review has been claimed.
-- Implemented private per-pond fish reservations, separate cast/bite clocks,
-  species-based resistance and modest shared moving targets. The first three
-  successful catches stay forgiving. No new reward authority lives on clients.
-- Added all seven rarity definitions and two fully generated fish, Veilfin and
-  Eclipse. All 17 species have explicit behavior, difficulty, animation and
-  presentation data. The original 15 IDs and the ten old milestones remain;
-  the 17-species milestone is appended. No save-store migration/reset is required.
-- Added short local 3D catch sequences, distinct tier compositions, skip/repeat
-  paths and reduced effects. A private viewport camera leaves world-camera and
-  movement ownership intact. Death, replacement, travel, menus and stale callbacks
-  have explicit cleanup paths.
-- Added session sound/effects settings, Roblox Reduce Motion support, active-input
-  hints, gamepad/keyboard modal handling and landscape catch-card layouts. Audio
-  uses the existing six clips with bounded voices and cancellable tier phrases.
-- Removed per-frame player discovery and idle rig allocation from fishing
-  presentation. Cached rod sections, line sag, cranking and additive pose cleanup
-  support the existing procedural animation path.
-- Independent geometry review found and fixed detached Eclipse tail/marking
-  pieces and incorrectly oriented Veilfin/Eclipse fin roots. Actual solid-contact
-  guards and deliberate regression mutations now cover those flaws.
-
-## Completed verification
-
-- 122 core tests: 5 catalog, 30 engine, 12 locations, 36 progression/saving,
-  6 layout, 15 travel rules, 14 world-layout and 4 Python export/material checks.
-- All 36 production files and seven Luau suites compile (43 files).
-- Actual production controller: 16 input/protocol/lifecycle scenarios. Actual
-  audio: nine voice, cancellation, mixing-ownership and loop scenarios.
-- Actual service and startup: server-selected reservations, shared timing,
-  single rewards, late observers, travel/death/disconnection and custom maps.
-- Rare reveals: 750 complete-sequence animated poses and 190,800 projected
-  Part corners across five viewport sizes; resize, skip, reduced motion, focus,
-  detached UI, replacement/death and world-camera isolation checks pass.
-- Fish: 471 Parts total, at most 35 per species; 4,114 grouped motion samples,
-  605 body joins, 4,598 real-solid contacts, 968 marking-footprint samples and
-  two deliberate art-regression mutations. No added Parts for the final fit fixes.
-- Aquariums: all 17 species at maximum weight across three slots and 3,111
-  animated poses; 658 supported arrival/promenade samples and UI lifecycle checks.
-- Preserved systems: 29 travel-adapter scenarios, portal UI ownership, 1,503
-  resident animation steps, 47 sign boards / 94 faces, material/scenery lifecycle,
-  178 world detail joins and full route/shoreline/waterfall checks pass.
-- The initial world remains 10,806 Parts / 2,275 colliders and 6,203 material
-  bindings. Lighting, audio asset library, travel layout and save namespace remain.
-
-The downloadable checkpoint is `artifacts/Cloud-Anglers-v1.7.rbxlx`; the matching
-ZIP includes source, checks, documentation and this continuity record. Packaging
-verification compares the delivered scripts/files with the working sources.
-
-## Validation boundary
-
-The environment runs official standalone Luau and Python checks and can render
-source geometry offline. It does not run Roblox Studio or the native Roblox
-client. Engine rendering, real input/audio/networking, DataStore connectivity and
-phone/iPad performance must be tested separately. Update this file at each stable
-checkpoint with exact tests and remaining gaps.
+No Roblox Studio/native client runs here. Native graphics, shaders/material
+asset delivery, input/text/audio, real transport/DataStore, Animator/physics/
+streaming behavior and Windows/phone/iPad performance remain unverified. Follow
+`NEXT_STEPS.md`, `KNOWN_ISSUES.md` and the current v1.8 Studio checklist before
+public launch. Do not turn analytic samples or simulated profiles into native
+playtest claims. Earlier checkpoint history remains in Git and the historical
+release notes; preserve existing saves and working systems.

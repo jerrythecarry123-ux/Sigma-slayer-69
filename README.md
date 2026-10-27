@@ -42,9 +42,12 @@ camera, leaving the player's world camera and movement ownership intact.
 - **More deliberate casts:** a separate charging meter, a server-timed accuracy
   bonus and bounded landing depth inside the existing water lanes. Quick taps
   remain a safe convenience choice, including with delayed acknowledgements.
+  Precision grades receive clear feedback even when a coin bonus rounds to zero.
 - **Fitted fish details:** embedded fin/tail hinges, joined forks, seated whiskers
   and lure roots, connected squid arms and clearer moth-wing markings. All 17
-  models still total 471 Parts, at most 35 per species.
+  models still total 471 Parts, at most 35 per species. The
+  [catalog geometry comparison](docs/images/fish-catalog-v18.png) shows the actual
+  models with normalized display sizes; it is an offline review, not a Roblox screenshot.
 - **More reliable presentation:** fitted rod-tip launch and reel crank, quiet
   interruption cleanup, no replayed distant bite/splash cues, bounded water
   accents and cleanup when characters or scenery stream out. The four earned
@@ -52,7 +55,8 @@ camera, leaving the player's world camera and movement ownership intact.
   [actual-source finish comparison](docs/images/rod-finishes-v18.png).
 - **Clearer small-screen UI:** complete compact journal rows, larger aquarium
   actions, dedicated short-screen catch cards, padded animated fish framing,
-  outlined timing needles and owned keyboard/gamepad focus.
+  outlined timing needles and owned keyboard/gamepad focus, including the portal
+  destination dialog. Closed/compact-hidden aquarium portraits skip animation.
 - **Saved preferences:** sound and reduced-effects choices save with published
   profiles. Choices apply locally immediately; independent write acknowledgements
   protect rapid toggles without blocking fishing. Roblox Reduce Motion also applies.
@@ -127,7 +131,8 @@ Use executable paths for your machine. On Linux, the executable names have no
 `.exe`. `--quick` limits the run to compilation, pure rules, place export and
 protocol/save checks; it omits the full art, UI, audio and world checks. The full
 run captures the production world once, shares it between geometry/material
-checks and records complete outputs. Source changes during a run fail its result.
+checks and records complete outputs. Before/after source fingerprints must match
+for the run to pass.
 Report files must be JSON outside the checked source folders and active ledger.
 The runner enables UTF-8 for child tools on Windows. Native Windows process-tree
 timeout handling remains untested; a successful cloud check is not a Windows test.

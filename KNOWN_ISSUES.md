@@ -1,8 +1,10 @@
 # Known issues and validation limits
 
-v1.8 is in development. Current source changes are being integrated and tested;
-the published v1.7 artifact remains the stable download until a new package is
-verified. Do not describe incomplete audits or planned features as shipped.
+v1.8 is the current cloud-verified source/artifact checkpoint. The complete
+available check suite and final targeted follow-ups passed. No further confirmed
+source regression remained in the reviewed paths; the native gaps below remain
+open. Do not present the offline images, event doubles or pacing study as native
+playtests or evidence of commercial readiness.
 
 ## Must be checked before public release
 
